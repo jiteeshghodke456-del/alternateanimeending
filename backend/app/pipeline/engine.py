@@ -70,6 +70,7 @@ class FindingDraft:
     hit_end: Optional[int] = None
     fix_group: Optional[str] = None  # same value = same region = same fix (applied once)
     local_only: bool = False  # explained by code (web accessibility audit): no LLM explanation or fix
+    claim_basis: Optional[str] = None  # claim findings: unverified|contradicted|expired (code), for honest explanations
 
 
 @dataclass
@@ -434,13 +435,22 @@ class _Run:
         fact = next((f for f in self.ctx.facts if f.code == cr.fact_code), None)
         current = [f for f in self.ctx.facts if any(c["code"] == f.code and not c["expired"] for c in cr.candidates)]
         notes = [f"{f.code}: {f.statement} (current)" for f in current]
+        # Honest reasons (code): expired fact / a fact that says otherwise / no matching fact yet (unverified,
+        # not false). claim_basis also tells explain.py which words the LLM may use.
+        basis = "expired" if cr.status == "outdated" else "unverified"
+        what = f"the figure “{u.text[start:end]}”" if cr.spans else "this claim"
+        needs = f", and {rule.code} asks for one" if rule is not None else ""
+        against = C.contradicting_fact(cr, self.ctx) if cr.status == "unsupported" and not cr.spans else None
         if cr.status == "outdated" and fact is not None:
             detail = f"It relies on fact {fact.code} (“{fact.statement}”), which expired on {fact.valid_until:%d %b %Y}."
             notes.insert(0, f"{fact.code}: {fact.statement} (EXPIRED on {fact.valid_until}; don't use it)")
+        elif against is not None:
+            basis = "contradicted"
+            detail = f"Approved fact {against.code} says “{against.statement}”, which doesn't match {what}."
         elif cr.via == "no_jev":
-            detail = "No approved fact could be confirmed for this claim (unsupported, no Jev check)."
+            detail = f"No approved fact could be confirmed for {what} (checked without Jev){needs}. Unverified is not wrong."
         else:
-            detail = "No current approved fact supports this claim."
+            detail = f"No approved fact matches {what} yet{needs}. Unverified is not wrong: add the fact with its source, or edit it."
         tier = "claim"
         if rule is None and cr.status == "unsupported":
             # Not verified is not false. No brand or regulation rule asks this kind of claim for evidence
@@ -454,7 +464,9 @@ class _Run:
                               explanation=UNVERIFIED_CLAIM)
         d = self.draft(u, rule, band=cr.band, tier=tier, p=cr.probability, start=start, end=end,
                        fact_code=cr.fact_code, claim_status=cr.status, detail=detail, problem=detail, facts_note=notes,
-                       category=rule.category if rule else "claims", severity=rule.severity if rule else "major")
+                       category=rule.category if rule else "claims", severity=rule.severity if rule else "major",
+                       claim_basis=basis)
+        d.explanation = X.claim_template(rule, detail)
         return d
 
     # ---------------------------------------------------------------- explain + self-check
@@ -477,10 +489,12 @@ class _Run:
             masked_quote = mask_pii_map(d.quote)[0] if d.quote else ""
             whole = fixable and d.local_start == 0 and d.local_end == len(u.text)
             req = X.ExplainRequest(rule=rule, category=d.category, problem=d.problem or d.detail, unit_text=masked_unit,
-                                   quote=masked_quote, channel=self.ctx.channel, whole_unit=bool(whole), facts=d.facts_note)
+                                   quote=masked_quote, channel=self.ctx.channel, whole_unit=bool(whole), facts=d.facts_note,
+                                   claim_basis=d.claim_basis)
             out = await X.explain(req, calls=self.calls, unit_id=d.unit_id)
             if out is not None:
-                d.explanation = out.explanation
+                if X.honest_claim_explanation(out.explanation, d.claim_basis):
+                    d.explanation = out.explanation
                 if fixable and fix is None and out.fix:
                     fix = unmask(out.fix, mapping)
         if not fixable or not fix:
@@ -568,12 +582,14 @@ class _Run:
             notes += [n for n in ns if n not in notes]
         req = X.RegionRequest(
             items=[X.RegionItem(str(i + 1), self.rule(d.rule_code), d.category, d.problem or d.detail,
-                                mask_pii_map(d.quote)[0]) for i, d in enumerate(members)],
+                                mask_pii_map(d.quote)[0], claim_basis=d.claim_basis) for i, d in enumerate(members)],
             unit_text=mask_pii_map(self.context_post or u.text)[0], region_text=mask_pii_map(base)[0], channel=self.ctx.channel,
             required=required, facts=notes)
         out = await X.explain_region(req, calls=self.calls, unit_id=u.id)
         for i, d in enumerate(members):
             e = (out.explanations.get(str(i + 1)) or out.explanations.get("*")) if out else None
+            if e and not X.honest_claim_explanation(e, d.claim_basis):
+                e = None  # e.g. "the brand word list flags '10'" or "cannot stand as written": keep the code's words
             d.explanation = e or d.explanation or X.template_explanation(self.rule(d.rule_code), d.detail)
         fix: Optional[str] = base if all_det else (unmask(out.fix, mapping) if out and out.fix else None)
         chk: Optional[S.SelfCheckResult] = None
