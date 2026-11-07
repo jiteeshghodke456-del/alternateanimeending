@@ -60,4 +60,10 @@ def demo_reset(user: AdminUser) -> OkOut:
     from app.seed import reset_and_seed
 
     summary = reset_and_seed()
+    from app.pipeline import run as pipeline_run
+    from app.routers import innovations
+
+    innovations._active.clear()  # audience runs of the dropped versions
+    if pipeline_run.restart_prerun_after_reset():  # re-check the seeded items so the dashboard isn't empty
+        summary += "; checking the demo items in the background"
     return OkOut(message=f"Demo reset: {summary}")

@@ -56,6 +56,7 @@ _progress: dict[int, CheckEvent] = {}
 _lock = threading.Lock()
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
 _prerun_started = False
+_prerun_gen = 0  # bumped by a demo reset
 
 FINDING_STAGE = "selfcheck"
 STALE_MESSAGE = "The server restarted while this check was running. Run the check again."
@@ -468,12 +469,19 @@ def start_prerun() -> bool:
     if _prerun_started or not s.demo_mode or not s.jev_configured:
         return False
     _prerun_started = True
+    gen = _prerun_gen
 
     async def _go() -> None:
         with Session(get_engine()) as sess:
             ids = [v.id for v in sess.exec(select(Version).where(Version.check_status == "not_run").order_by(Version.id)).all()]
         log.info("demo pre-run: checking %d seeded versions", len(ids))
         for vid in ids:
+            if gen != _prerun_gen:  # a demo reset started a newer pre-run; these ids are stale
+                return
+            with Session(get_engine()) as sess:
+                v = sess.get(Version, vid)
+                if v is None or v.check_status != "not_run":
+                    continue
             with _lock:
                 if vid in _running:
                     continue
@@ -489,6 +497,14 @@ def start_prerun() -> bool:
 
 
 def reset_prerun_flag() -> None:
-    """For the demo reset: allow one more pre-run of the freshly seeded items."""
-    global _prerun_started
+    """For the demo reset: allow one more pre-run of the freshly seeded items, and stop an older
+    pre-run that may still be walking the pre-reset version ids."""
+    global _prerun_started, _prerun_gen
     _prerun_started = False
+    _prerun_gen += 1
+
+
+def restart_prerun_after_reset() -> bool:
+    """Called by POST /demo/reset after re-seeding (safe from a sync handler's worker thread)."""
+    reset_prerun_flag()
+    return start_prerun()
