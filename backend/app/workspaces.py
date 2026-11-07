@@ -494,6 +494,12 @@ def _busy(ws_id: str) -> bool:
     return any(fn(ws_id) for fn in busy_checks)
 
 
+def is_busy(ws_id: Optional[str]) -> bool:
+    """Is a check, audience run or PDF import of this workspace running? ws_id None = the shared DB
+    (workspaces off), where every hook is asked about the un-namespaced keys."""
+    return any(fn(ws_id) for fn in busy_checks)  # type: ignore[arg-type]
+
+
 def _evict(ws_id: str, why: str) -> None:
     _dispose(ws_id)
     _meta.pop(ws_id, None)

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BrandMark } from "@/components/BrandMark";
 import { api } from "@/lib/api";
-import { reportError } from "@/lib/hooks";
+import { reportError, toApiError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +96,13 @@ export function AccountMenu() {
       }
       setConfirm(null);
     } catch (e) {
+      const err = toApiError(e);
+      if (a === "reset" && err.status === 409) {
+        // a check, audience run or PDF import of this workspace is still running: nothing was reset
+        setConfirm(null);
+        toast.info(err.message || "A check is still running in this workspace. Wait for it to finish, then reset.");
+        return;
+      }
       reportError(e, "That did not work. Please try again.");
     } finally {
       setBusy(false);

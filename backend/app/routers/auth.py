@@ -51,15 +51,21 @@ def get_me(session: SessionDep, user: Annotated[Optional[User], Depends(optional
     )
 
 
-@router.post("/demo/reset", response_model=OkOut)
+RESET_BUSY_MESSAGE = "A check is still running in this workspace. Wait for it to finish, then reset."
+
+
+@router.post("/demo/reset", response_model=OkOut, responses={409: {"description": RESET_BUSY_MESSAGE}})
 def demo_reset(user: AdminUser) -> OkOut:
     """Admin only: drop all tables, re-seed, wipe uploads. The caller's session stays valid
-    because seeded user ids are stable."""
+    because seeded user ids are stable. 409 while a check, audience run or PDF import of this
+    workspace is still running: its background task would keep writing into the fresh database."""
     if not get_settings().demo_mode:
         raise HTTPException(status_code=403, detail="Reset is only available in demo mode.")
     from app import workspaces as W
 
     ws = W.current_id()
+    if W.is_busy(ws):
+        raise HTTPException(status_code=409, detail=RESET_BUSY_MESSAGE)
     if ws is not None:  # workspace mode: only this visitor's workspace goes back to its template
         from app.routers import innovations
 

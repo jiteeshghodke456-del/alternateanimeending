@@ -381,3 +381,57 @@ def test_template_prerun_result_reaches_workspaces_copied_before_it(ws_env: Path
     with W.use(late.id), Session(get_engine()) as sess:
         assert len(sess.exec(select(Finding).where(Finding.version_id == vid)).all()) == len(tpl_findings)
     assert W.propagate_template_check(vid) == 0
+
+
+def test_reset_is_refused_while_a_job_of_this_workspace_runs(clients: list[TestClient]) -> None:
+    """Audit #8: a reset during a running check let the old task write into the fresh database
+    (29 findings, 15 duplicates). Now the reset waits: 409 with a human message, other workspaces unaffected."""
+    from app.routers import innovations
+
+    a, b = clients[0], clients[1]
+    for c in (a, b):
+        c.post("/api/workspaces", json={"kind": "demo"})
+        login(c, "admin")
+    ws_a = a.get("/api/workspace").json()["id"]
+    msg = "A check is still running in this workspace. Wait for it to finish, then reset."
+    for start, stop in (
+        (lambda: run._running.add((ws_a, 1)), lambda: run._running.discard((ws_a, 1))),
+        (lambda: innovations._active.add((ws_a, 1)), lambda: innovations._active.discard((ws_a, 1))),
+        (lambda: innovations._imports.__setitem__("t1", {"id": "t1", "status": "running", "ws": ws_a}),
+         lambda: innovations._imports.pop("t1", None)),
+    ):
+        start()
+        try:
+            r = a.post("/api/demo/reset")
+            assert r.status_code == 409 and r.json()["detail"] == msg
+            assert b.post("/api/demo/reset").status_code == 200  # only this workspace is blocked
+        finally:
+            stop()
+        assert a.post("/api/demo/reset").status_code == 200
+
+
+def test_reset_after_a_real_recheck_leaves_no_duplicate_findings(clients: list[TestClient]) -> None:
+    a = clients[0]
+    a.post("/api/workspaces", json={"kind": "demo"})
+    login(a, "admin")
+    item = a.get("/api/items?key=demo_flawed_post").json()[0]
+    vid = a.get(f"/api/items/{item['id']}").json()["versions"][-1]["id"]
+    r = a.post(f"/api/versions/{vid}/check")
+    assert r.status_code in (200, 202), r.text
+    codes = []
+    t0 = time.time()
+    while True:
+        r = a.post("/api/demo/reset")
+        codes.append(r.status_code)
+        if r.status_code == 200:
+            break
+        assert r.status_code == 409 and time.time() - t0 < 30
+        time.sleep(0.05)
+    time.sleep(0.3)  # any straggling writes from the old task would land now
+    b = clients[1]
+    b.post("/api/workspaces", json={"kind": "demo"})
+    login(b, "admin")
+    fresh = b.get(f"/api/versions/{vid}/findings").json()
+    after = a.get(f"/api/versions/{vid}/findings").json()
+    assert a.get(f"/api/versions/{vid}").json()["check_status"] == b.get(f"/api/versions/{vid}").json()["check_status"]
+    assert len(after) == len(fresh), "the reset workspace differs from a fresh copy of the demo"

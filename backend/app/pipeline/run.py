@@ -79,7 +79,9 @@ def is_running(version_id: int) -> bool:
     return W.key(version_id) in _running
 
 
-def workspace_busy(ws_id: str) -> bool:
+def workspace_busy(ws_id: Optional[str]) -> bool:
+    if ws_id is None:  # workspaces off: keys are plain version ids
+        return any(not isinstance(k, tuple) for k in list(_running))
     return any(isinstance(k, tuple) and k[0] == ws_id for k in list(_running))
 
 

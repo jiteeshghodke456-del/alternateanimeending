@@ -59,8 +59,13 @@ FAILED_MESSAGE = "The audience run failed. Try again in a moment."
 _active: set = set()  # W.key(version id) of audience runs in progress (this process)
 
 
-def _busy(ws_id: str) -> bool:
-    return any(isinstance(k, tuple) and k[0] == ws_id for k in list(_active))
+def _busy(ws_id: Optional[str]) -> bool:
+    """An audience run or a guideline PDF import of this workspace is still running."""
+    if ws_id is None:
+        audience = any(not isinstance(k, tuple) for k in list(_active))
+    else:
+        audience = any(isinstance(k, tuple) and k[0] == ws_id for k in list(_active))
+    return audience or any(j.get("status") == "running" and j.get("ws") == ws_id for j in list(_imports.values()))
 
 
 W.busy_checks.append(_busy)
