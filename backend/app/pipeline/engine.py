@@ -20,6 +20,7 @@ from app.pipeline import claims as C
 from app.pipeline import explain as X
 from app.pipeline import jev
 from app.pipeline import logo as L
+from app.pipeline import provenance as P
 from app.pipeline import questions as Q
 from app.pipeline import selfcheck as S
 from app.pipeline.bands import band as to_band
@@ -91,6 +92,7 @@ class EngineResult:
     warnings: list[str] = field(default_factory=list)
     pii_masked: int = 0
     logo: list[dict] = field(default_factory=list)  # P1 logo fidelity per image unit (for the overlay)
+    provenance: list[dict] = field(default_factory=list)  # AI-label decision per image unit (local, R-AI-LABEL)
     units_total: int = 0
     units_done: int = 0
     elapsed_ms: int = 0
@@ -284,7 +286,42 @@ class _Run:
             m: L.LogoMatch = await logo_task
             has_logo = res.nouls.get("has_logo") if (res is not None and res.ok) else None
             out += self.logo_findings(u, logo_rule, m, has_logo)
+        out += self.provenance_findings(u)
         return out
+
+    def provenance_findings(self, u: UnitIn) -> list[FindingDraft]:
+        """Built-in R-AI-LABEL: the image's metadata (read locally at upload) says it was made or edited with
+        AI and neither the caption nor the alt text says so -> one finding. Code decides; no model is asked,
+        so it runs for confidential items too. No metadata -> no finding (absence proves nothing)."""
+        prov = P.Provenance.from_dict((u.meta or {}).get("provenance"))
+        if prov is None:
+            return []
+        rule = self.rule(P.RULE_CODE)  # a brand may define (or disable) its own R-AI-LABEL
+        if rule is not None and not rule.enabled:
+            return []
+        texts = [x.text for x in self.units if x.kind in ("caption", "alt_text", "text")] + [self.ctx.alt_text or ""]
+        dec = P.decide(prov, texts)
+        self.res.provenance.append({"unit_idx": u.idx, "status": prov.status, "generator": prov.generator,
+                                    "c2pa": prov.c2pa, "disclosed": dec.disclosed, "needs_label": dec.needs_label,
+                                    "message": dec.message})
+        if not dec.needs_label:
+            return []
+        how = "Checked locally from the file's metadata" + ("; Content Credentials signature not verified." if prov.c2pa else ".")
+        caps = [x for x in self.units if x.kind == "caption" and x.text.strip()]
+        kw: dict[str, Any] = dict(band="flag", tier="provenance", p=None, rule_code=P.RULE_CODE, category="legal",
+                                  severity="major", detail=dec.message, problem=dec.message)
+        if caps:  # the fix appends the label to the caption's last sentence (one click, then resubmit)
+            c = caps[-1]
+            spans = sentences(c.text)
+            s, e = spans[-1] if spans else (0, len(c.text))
+            d = self.draft(c, rule, start=s, end=e, **kw)
+            d.fix = P.label_fix(c.text[s:e])
+            d.fix_verified = P.disclosure_found(d.fix)  # re-checked in code: the fixed caption discloses
+            d.explanation = f"{dec.message} Accept the fix to add “{P.LABEL_SUFFIX}” to the caption. {how}"
+        else:
+            d = self.draft(u, rule, start=None, end=None, **kw)
+            d.explanation = f"{dec.message} Add a caption or alt text that says “AI-generated”. {how}"
+        return [d]
 
     def palette_threshold(self) -> float:
         r = next((r for r in self.rules if "palette_delta_e" in (r.params or {})), None)
@@ -398,7 +435,7 @@ class _Run:
         rule = self.rule(d.rule_code)
         if not d.explanation:
             d.explanation = X.template_explanation(rule, d.detail)
-        if d.tier == "logo":  # measured locally; the LLM can't see the image and has nothing to add
+        if d.tier in ("logo", "provenance"):  # measured locally; the LLM can't see the image and has nothing to add
             return d
         if d.band == "pass" or not self.explain_findings or self.is_vague(rule):
             d.fix = d.det_fix

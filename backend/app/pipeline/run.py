@@ -199,7 +199,7 @@ def builtin_logo_rule() -> RuleSpec:
 
 def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContext, list[UnitIn]]:
     units = [UnitIn(id=u.id, kind=u.kind, idx=u.idx, text=u.text or "", char_start=u.char_start,
-                    image_path=u.image_path, page=u.page)
+                    image_path=u.image_path, page=u.page, meta=dict(u.meta or {}))
              for u in s.exec(select(Unit).where(Unit.version_id == v.id).order_by(Unit.idx)).all()]
     ctx = brand_context(s, item.brand_id, item.channel, version_kind=v.kind, alt_text=v.alt_text, post_text=v.text or "",
                         confidential=item.confidential, version_id=v.id)
@@ -251,6 +251,7 @@ def _stats(res: E.EngineResult, calls: jev.CallLog, ctx: CheckContext, findings:
         "models": {"jev": jev.model_name() if res.jev_used else None, "llm": X.model_name() if res.llm_used else None},
         "external_calls": len(calls.records), "error": False, "error_message": None,
         "logo": res.logo,
+        "provenance": res.provenance,
     }
 
 

@@ -20,7 +20,7 @@ CheckMethod = Literal["tier0", "jev", "claim", "visual"]
 TermKind = Literal["banned", "preferred", "capitalise"]
 Band = Literal["flag", "human", "pass"]
 FindingStatus = Literal["open", "accepted", "edited", "dismissed", "overridden"]
-FindingTier = Literal["tier0", "jev", "claim", "visual", "logo"]
+FindingTier = Literal["tier0", "jev", "claim", "visual", "logo", "provenance"]
 ClaimStatus = Literal["supported", "unsupported", "outdated"]
 CheckStatus = Literal["not_run", "queued", "running", "done", "error"]
 UnitKind = Literal["text", "image", "caption", "alt_text"]
@@ -357,6 +357,27 @@ class ItemSummary(_Out):
     blocking_open: int
 
 
+class ProvenanceEvidence(_Out):
+    source: str  # "C2PA manifest" | "XMP" | "EXIF" | "PNG text"
+    field: str
+    value: str
+
+
+class ProvenanceOut(_Out):
+    """AI-image provenance read locally from the ORIGINAL upload's metadata (pipeline/provenance.py).
+    `signature` is "not_verified" when a C2PA manifest is present: we never verify signatures."""
+
+    status: Literal["ai_generated", "ai_edited", "camera_or_unknown", "no_metadata"]
+    generator: Optional[str] = None
+    evidence: list[ProvenanceEvidence] = []
+    c2pa: bool = False
+    c2pa_method: Optional[str] = None  # "cbor" | "byte-scan"
+    signature: str = "none"
+    source_types: list[str] = []
+    note: str = ""
+    checked_locally: bool = True
+
+
 class UnitOut(_Out):
     id: int
     kind: UnitKind
@@ -366,6 +387,7 @@ class UnitOut(_Out):
     image_url: Optional[str]  # GET /api/units/{id}/image
     char_start: Optional[int]
     char_end: Optional[int]
+    provenance: Optional[ProvenanceOut] = None  # image units only
 
 
 class VersionSummary(_Out):

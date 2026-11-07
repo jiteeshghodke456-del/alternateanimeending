@@ -161,13 +161,17 @@ async def resubmit(item_id: int, session: SessionDep, user: CurrentUser) -> Resu
 
     file_bytes, filename, caption, alt = None, "", None, None
     text: Optional[str] = res.text
+    prov: Optional[dict] = None
     if prev.kind == "image" and prev.file_path and Path(prev.file_path).is_file():
         # keep the image; the (possibly fixed) caption is the version text
         file_bytes, filename, caption, alt, text = Path(prev.file_path).read_bytes(), Path(prev.file_path).name, res.text, prev.alt_text, None
+        # the stored file has no metadata (privacy), so the provenance read from the original upload is carried over
+        img = next((u for u in units.values() if u.kind == "image"), None)
+        prov = (img.meta or {}).get("provenance") if img is not None else None
     # PDFs: the new version is a text version of the corrected paragraphs (the original file stays on version n)
     try:
         new = create_version(session, item, n=prev.n + 1, text=text, file_bytes=file_bytes, filename=filename,
-                             caption=caption, alt_text=alt)
+                             caption=caption, alt_text=alt, provenance=prov)
     except UploadError as exc:
         session.rollback()
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
