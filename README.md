@@ -48,13 +48,16 @@ Then check your first post. A brand with no rules still gets the word, fact and 
 - **Precedent memory.** When someone dismisses a finding with a reason or overrides a blocking one, Rulemint remembers it. Next time the same rule fires on the same wording, the card says "Seen before: dismissed by Meera on 7 Nov — reason" and the finding drops one band; a blocking rule never drops below "Needs a human look". Nothing is dismissed automatically, and admins can revoke a precedent in Brand Kit → Precedents. Try it: post "Free shipping on online orders above Rs 599. Order today." in the demo brand.
 - **Hindi, Marathi and Hinglish.** Word lists, urgency and superlative triggers, sentence splitting on "।", Indian digits and lakh/crore in claims, Indian PII masking (phone numbers, UPI, PAN, Aadhaar-like numbers), and fixes that stay in the post's language. On a 23-post Indian-language set, 18 of 18 labelled issues are found (11 before), with fewer false findings; English results are unchanged.
 
+- **Fair claim checks: unverified is not false.** A number with no matching approved fact is only flagged when a rule (yours or the India pack) asks that kind of claim for evidence, or when it's a comparison, a service promise (delivery time, price, "free", a guarantee) or a health claim. A brand reporting its own figures ("1 in 127 orders…") gets one "Not in your facts yet" reminder per paragraph with an **Add as fact** button, and is never rewritten. Several figures in one sentence are judged one by one, so a supported number isn't dragged down by its neighbour. On a 45-item labelled set (25 sentences from a real brand's blog, 20 synthetic D2C lines; draft labels pending team review), flag precision went from 0.40 to 0.94 with recall unchanged at 1.00.
+- **Real-brand test (Swiggy, public material).** We set up Swiggy from its public brand book (40 rules proposed from a 20-page extract, 36 with verified quotes), the India pack and 4 dated facts from its Q2 FY27 results, then checked its own blog post "How India Instamarted 2025" as a web page. The first run gave 127 findings, 54 of them flags, mostly noise: every figure flagged and rewritten, its own press note flagged 11 times as a "disguised ad", logo rules asked of every photo, the brand name flagged by a "must say 'Swiggy'" rule. After the fixes in this round the same page gives 42 findings and 8 flags (palette balance on three banners, logo placement on one, two accessibility issues). The page text isn't stored in this repo; the test script fetches it.
+
 ## What it checks
 
 | Check | How it runs | Examples |
 |---|---|---|
 | Rule-based code (Tier 0) | Code only, no AI | Banned words, old product names, capitalisation, readability against the channel target, claim trigger words such as "best", "#1", "guaranteed" and numbers |
 | Jev judgment | Jev answers yes/no and multiple-choice questions with probabilities | Pushy or sarcastic tone, more than one call to action, a comparative claim, a line that breaks a written rule |
-| Claims against approved facts | Keyword matching picks candidate facts, then Jev checks whether a fact supports the claim | "Won an award" with no matching approved fact; a claim that relies on an expired offer (marked outdated) |
+| Claims against approved facts | Keyword matching picks candidate facts, Jev checks whether a fact supports the claim and what kind of claim it is (comparison, service promise, health, the brand's own statistic, puffery); code decides the band | "Won an award" with no matching approved fact; a claim that relies on an expired offer (marked outdated); "fastest delivery in India" without evidence |
 | Image palette and logo | Palette colours are compared in code (CIEDE2000 distance). Logo presence, clear space and text contrast are judged by Jev | An off-palette colour in an ad; a logo placed over a busy background |
 | Accessibility | Readability in code; words in an image that blend into the background, judged by Jev | Light grey text on a cream banner |
 
@@ -190,6 +193,8 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 - **Logo authenticity is not checked by Jev.** Jev has no copy of the official logo, so a redrawn logo is not caught by the Jev checks.
 - **Evaluation labels are drafts.** All 60 evaluation items were labelled as drafts with AI help and are being reviewed by the team, and recall on the test split rests on 13 positive labels. Treat the Evaluation numbers as provisional.
 - **Keyword triggers are blunt.** Code flags urgency and claim words even when the wording is correct in context.
+- **Own-site detection matches the brand name.** A brand's press note is recognised as its own when the page's host contains the brand name (blog.swiggy.com for Swiggy). A brand whose domain doesn't match its name still gets the disguised-ad check per paragraph, though as one finding per post.
+- **Imported brand-book rules are judged from pixels.** Design-system rules about fonts, kerning, leading and print colour codes are not judged from images; logo rules only apply to images that show a logo. Rules Jev is unsure about on one image are grouped into one "needs a human look" card.
 
 ## Team
 
