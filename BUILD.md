@@ -398,3 +398,16 @@ Navigation: a glass sidebar on desktop and a bottom tab bar on mobile. Design ru
 - [ ] Every member completes any individual submission the organiser asks for (rules 14–15: each member states their own role and contribution); the team leader submits the team form once
 - [ ] User-testing evidence (Round 2 list: "evidence of user testing or structured feedback")
 - [ ] Each member's contribution statement, true and demonstrable (rule 16)
+
+## 14. Added overnight (7–8 Nov) — API summary
+```
+GET  /rules/clarity · POST /rules/clarity/run · POST /rules/{id}/clarity · POST /rules/{id}/rewrite[/apply|/dismiss]   (rule clarity)
+GET  /claims · GET /claims/expiring · GET /facts/{id}/impact · POST /facts/{id}/impact/send-back (admin)               (claims ledger)
+GET  /rules/packs · POST /rules/packs/{id}/apply (admin) · DELETE /rules/packs/{id} (admin)                            (rule packs)
+POST /items/from-url {url, title?, channel?, confidential?}                                                             (web page source)
+GET/PUT /brand/channels[/{channel}] (admin writes) · POST /items/{id}/submit {reason} when below target               (score + channels)
+GET  /precedents · POST /precedents/{id}/revoke (admin)                                                                (precedent memory)
+FindingOut gains: regulations[], precedent|null, band_before, band_note · UnitOut gains provenance · items/versions gain score
+```
+Details and decisions: DECISIONS.md "Overnight features".
+
