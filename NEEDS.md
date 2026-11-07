@@ -10,3 +10,10 @@ Agents add items here instead of installing anything on Jiteesh's computer or gu
 
 ## To run locally on the Omen 16 (only if you want to)
 - [ ] Python 3.12, Node 20+, Docker Desktop (optional)
+
+## Seed data (demo brand) - human follow-ups
+- Samiksha (or anyone who didn't write the rules) must re-label the 18 test items in `backend/app/eval/dataset.jsonl` before the final eval run. The current labels are drafts (`labelled_by: draft-ai`).
+- Eval label convention: `F-12/F-13/F-14` mark claims that rely on the 3 expired facts; all other labels are rule codes.
+- `guideline.pdf` is generated (`backend/app/seed/build/build_guideline.py`, needs Fraunces/Inter TTFs in ~/.fonts). Samiksha may rewrite it in her own words; if she does, re-run `python backend/app/seed/validate_seed.py` so every rule's `source_quote` still matches its page.
+- personas.json: downloaded from nvidia/Nemotron-Personas-India (en_IN) via the datasets-server API. The dataset has no city tier or student flag, so "tier-2/3" = rural or non-metro urban, and "students" = age 17-24, higher-secondary/graduate education, persona text mentions study. Keep the CC-BY-4.0 credit in NOTICE.md.
+- `content/items.json`: the demo item has title "Monsoon caption (demo_flawed_post)" plus an extra `"key": "demo_flawed_post"` field; loaders should find it by `key`.

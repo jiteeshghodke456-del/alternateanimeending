@@ -1,0 +1,87 @@
+[
+  {
+    "kind": "banned",
+    "value": "cheap",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "guaranteed",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "miracle",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "unbeatable",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "bargain",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "detox",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "world's best",
+    "replacement": null
+  },
+  {
+    "kind": "banned",
+    "value": "No. 1",
+    "replacement": null
+  },
+  {
+    "kind": "preferred",
+    "value": "Steam Classic",
+    "replacement": "Saffron Signature Roast"
+  },
+  {
+    "kind": "preferred",
+    "value": "S&S",
+    "replacement": "Saffron & Steam"
+  },
+  {
+    "kind": "preferred",
+    "value": "staff",
+    "replacement": "baristas"
+  },
+  {
+    "kind": "preferred",
+    "value": "outlet",
+    "replacement": "cafe"
+  },
+  {
+    "kind": "capitalise",
+    "value": "Saffron & Steam Coffee Co.",
+    "replacement": null
+  },
+  {
+    "kind": "capitalise",
+    "value": "Saffron Signature Roast",
+    "replacement": null
+  },
+  {
+    "kind": "capitalise",
+    "value": "Monsoon Malabar",
+    "replacement": null
+  },
+  {
+    "kind": "capitalise",
+    "value": "Chikmagalur Estate Reserve",
+    "replacement": null
+  },
+  {
+    "kind": "capitalise",
+    "value": "Cold Steam Brew",
+    "replacement": null
+  }
+]

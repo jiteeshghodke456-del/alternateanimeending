@@ -1,0 +1,691 @@
+[
+  {
+    "code": "R-TONE-01",
+    "category": "tone",
+    "severity": "major",
+    "statement": "Copy must sound warm and confident, like a friendly barista who knows the beans.",
+    "source_quote": "Our voice is warm and confident, like a friendly barista who knows the beans.",
+    "page": 3,
+    "check_method": "jev",
+    "params": {
+      "tone_labels_allowed": [
+        "warm",
+        "confident"
+      ]
+    },
+    "examples_violating": [
+      "Coffee is coffee. Whatever, just buy it.",
+      "We guess this might maybe be an okay roast?"
+    ],
+    "examples_ok": [
+      "Come in, the first pour of the morning is on its way.",
+      "We roast every Tuesday and Friday, so your bag is always fresh."
+    ]
+  },
+  {
+    "code": "R-TONE-02",
+    "category": "tone",
+    "severity": "major",
+    "statement": "Never push, pressure or guilt readers into buying.",
+    "source_quote": "Never push, pressure or guilt a reader into buying.",
+    "page": 3,
+    "check_method": "jev",
+    "params": {
+      "tone_labels_forbidden": [
+        "pushy"
+      ]
+    },
+    "examples_violating": [
+      "Still no coffee in your cart? Stop wasting time and order now.",
+      "Real coffee lovers would not skip this. Buy it today."
+    ],
+    "examples_ok": [
+      "Our new roast is here whenever you are ready.",
+      "Try a cup in the cafe and tell us what you think."
+    ]
+  },
+  {
+    "code": "R-TONE-03",
+    "category": "tone",
+    "severity": "major",
+    "statement": "No sarcasm, and never mock customers, other cafes or coffee habits.",
+    "source_quote": "Never use sarcasm or mock our customers, other cafes or coffee habits.",
+    "page": 3,
+    "check_method": "jev",
+    "params": {
+      "tone_labels_forbidden": [
+        "sarcastic"
+      ]
+    },
+    "examples_violating": [
+      "Oh sure, instant coffee is totally a personality.",
+      "Another Monday, another 'brilliant' idea: skipping breakfast."
+    ],
+    "examples_ok": [
+      "Monday mornings are better with a slow pour.",
+      "Whatever your brew method, we are happy to help you refine it."
+    ]
+  },
+  {
+    "code": "R-TONE-04",
+    "category": "tone",
+    "severity": "minor",
+    "statement": "At most one exclamation mark per post; no ALL CAPS words.",
+    "source_quote": "Use at most one exclamation mark per post and avoid words in ALL CAPS.",
+    "page": 3,
+    "check_method": "tier0",
+    "params": {
+      "max_exclamations": 1,
+      "all_caps_min_len": 4,
+      "all_caps_allowlist": [
+        "PUNE",
+        "MRP",
+        "T&C",
+        "UPI",
+        "GST",
+        "AM",
+        "PM",
+        "CO",
+        "EST",
+        "FAQ",
+        "DIWALI15",
+        "MONSOON20",
+        "SIGNATURE"
+      ]
+    },
+    "examples_violating": [
+      "FRESH ROAST is HERE!!! Come NOW!",
+      "Wow! Amazing! Brew time!"
+    ],
+    "examples_ok": [
+      "Fresh roast is here. Come in for a cup!",
+      "New batch, roasted this Tuesday."
+    ]
+  },
+  {
+    "code": "R-TONE-05",
+    "category": "tone",
+    "severity": "minor",
+    "statement": "Avoid inappropriate humour.",
+    "source_quote": "Avoid inappropriate humour.",
+    "page": 3,
+    "check_method": "jev",
+    "params": {
+      "vague": true
+    },
+    "examples_violating": [
+      "Our espresso is so strong it will fix your ex problem.",
+      "Decaf is for people who fear commitment."
+    ],
+    "examples_ok": [
+      "Our cold brew is so smooth, even Mondays calm down.",
+      "A good morning starts with a good pour."
+    ]
+  },
+  {
+    "code": "R-MSG-04",
+    "category": "messaging",
+    "severity": "minor",
+    "statement": "Posts should feel premium.",
+    "source_quote": "Posts should feel premium.",
+    "page": 3,
+    "check_method": "jev",
+    "params": {
+      "vague": true
+    },
+    "examples_violating": [
+      "Coffee beans on sale, grab a bag, whatever you like.",
+      "Lol our coffee is lit, come get it."
+    ],
+    "examples_ok": [
+      "Small-batch beans from Chikmagalur, roasted in Pune this week.",
+      "A slow, unhurried pour. Welcome."
+    ]
+  },
+  {
+    "code": "R-MSG-03",
+    "category": "messaging",
+    "severity": "minor",
+    "statement": "Keep everything we publish on-brand.",
+    "source_quote": "Keep it on-brand.",
+    "page": 2,
+    "check_method": "jev",
+    "params": {
+      "vague": true
+    },
+    "examples_violating": [
+      "Cheap beans, big discount, buy buy buy!",
+      "Meme of a dancing cat with our logo stuck on top."
+    ],
+    "examples_ok": [
+      "A calm cafe morning with the steam rising from a fresh cup.",
+      "Meet the grower behind this month's Chikmagalur lot."
+    ]
+  },
+  {
+    "code": "R-TERM-01",
+    "category": "terminology",
+    "severity": "major",
+    "statement": "The old product name 'Steam Classic' must always be written 'Saffron Signature Roast'.",
+    "source_quote": "Our old product name Steam Classic is retired; always write Saffron Signature Roast.",
+    "page": 4,
+    "check_method": "tier0",
+    "params": {
+      "banned": [
+        "Steam Classic"
+      ],
+      "replacement": "Saffron Signature Roast",
+      "case_insensitive": true
+    },
+    "examples_violating": [
+      "Try our Steam Classic this weekend.",
+      "Steam Classic 250g now in stores."
+    ],
+    "examples_ok": [
+      "Try our Saffron Signature Roast this weekend.",
+      "Saffron Signature Roast 250g now in stores."
+    ]
+  },
+  {
+    "code": "R-TERM-02",
+    "category": "terminology",
+    "severity": "major",
+    "statement": "Banned words: cheap, guaranteed, miracle, unbeatable, bargain.",
+    "source_quote": "Never use the words cheap, guaranteed, miracle, unbeatable or bargain.",
+    "page": 4,
+    "check_method": "tier0",
+    "params": {
+      "banned": [
+        "cheap",
+        "guaranteed",
+        "miracle",
+        "unbeatable",
+        "bargain"
+      ],
+      "case_insensitive": true,
+      "whole_word": true
+    },
+    "examples_violating": [
+      "A cheap and guaranteed great morning.",
+      "An unbeatable bargain on beans."
+    ],
+    "examples_ok": [
+      "Fairly priced beans for a great morning.",
+      "A well-loved roast at Rs 495."
+    ]
+  },
+  {
+    "code": "R-TERM-03",
+    "category": "terminology",
+    "severity": "minor",
+    "statement": "Write the brand name correctly: 'Saffron & Steam Coffee Co.' or 'Saffron & Steam'; never 'S&S' or 'saffron and steam'.",
+    "source_quote": "Write the brand name as Saffron & Steam Coffee Co. and never as S&S or saffron and steam.",
+    "page": 4,
+    "check_method": "tier0",
+    "params": {
+      "pattern": "\\bS&S\\b|\\b[Ss]affron (and|n|\\+) [Ss]team\\b",
+      "canonical": "Saffron & Steam",
+      "case_insensitive": false
+    },
+    "examples_violating": [
+      "Visit S&S this weekend.",
+      "saffron and steam has a new roast."
+    ],
+    "examples_ok": [
+      "Visit Saffron & Steam this weekend.",
+      "Saffron & Steam Coffee Co. has a new roast."
+    ]
+  },
+  {
+    "code": "R-CLAIM-01",
+    "category": "claims",
+    "severity": "blocking",
+    "statement": "No superlatives or '#1' claims (best, number one, finest, India's favourite) without an approved, sourced fact.",
+    "source_quote": "Do not call us the best, the number one or the finest unless an approved fact with a source proves it.",
+    "page": 5,
+    "check_method": "claim",
+    "params": {
+      "superlative_patterns": [
+        "#\\s?1\\b",
+        "\\bnumber (one|1)\\b",
+        "\\bno\\.? ?1\\b",
+        "\\bbest\\b",
+        "\\bfinest\\b",
+        "\\bworld'?s (best|finest|top)\\b",
+        "\\bindia'?s (best|favou?rite|top|no)\\b",
+        "\\bmost (loved|trusted|awarded)\\b",
+        "\\b(top|leading)[- ]rated\\b"
+      ],
+      "needs_supporting_fact": true
+    },
+    "examples_violating": [
+      "India's #1 coffee, hands down.",
+      "The best filter coffee in Pune."
+    ],
+    "examples_ok": [
+      "Rated 4.6 on Google by 3,200 guests.",
+      "Our Saffron Signature Roast won Silver at a roasters' showcase in 2026."
+    ]
+  },
+  {
+    "code": "R-CLAIM-02",
+    "category": "claims",
+    "severity": "major",
+    "statement": "Every number, rating, award, price, offer and sourcing claim must match a current (not expired) approved fact.",
+    "source_quote": "Every number, rating, award, price and sourcing claim must match a current approved fact.",
+    "page": 5,
+    "check_method": "claim",
+    "params": {
+      "needs_supporting_fact": true,
+      "reject_expired_facts": true,
+      "fact_match": "keyword+numbers"
+    },
+    "examples_violating": [
+      "Rated 4.8 stars by our customers.",
+      "We now have 40 cafes across India."
+    ],
+    "examples_ok": [
+      "We have 12 cafes in Pune, Mumbai and Bengaluru.",
+      "Beans from 14 partner estates in Karnataka and Kerala."
+    ]
+  },
+  {
+    "code": "R-CLAIM-05",
+    "category": "claims",
+    "severity": "major",
+    "statement": "No organic, Fairtrade, sustainable or carbon-neutral claims; the brand holds no such certification.",
+    "source_quote": "Do not call our coffee organic, Fairtrade, sustainable or carbon neutral; we hold no such certification.",
+    "page": 5,
+    "check_method": "claim",
+    "params": {
+      "claim_terms": [
+        "organic",
+        "fairtrade",
+        "fair trade",
+        "sustainable",
+        "carbon neutral",
+        "eco-friendly"
+      ],
+      "needs_supporting_fact": true
+    },
+    "examples_violating": [
+      "100% organic beans for a cleaner cup.",
+      "Our sustainable, carbon neutral roasting."
+    ],
+    "examples_ok": [
+      "Our pouches are mono-material and recyclable.",
+      "We pay partner estates 18% above the local auction average."
+    ]
+  },
+  {
+    "code": "R-CLAIM-03",
+    "category": "claims",
+    "severity": "major",
+    "statement": "No fake urgency such as 'only today', 'last chance', 'hurry' or stacked exclamation marks.",
+    "source_quote": "Do not invent urgency: no only today, last chance or hurry unless the offer really ends then.",
+    "page": 6,
+    "check_method": "tier0",
+    "params": {
+      "patterns": [
+        "\\bonly today\\b",
+        "\\blast chance\\b",
+        "\\bhurry\\b",
+        "\\bact now\\b",
+        "\\bdon'?t miss out\\b",
+        "\\bnow or never\\b",
+        "\\bwhile (stocks|stock|supplies) last\\b",
+        "!{2,}"
+      ],
+      "case_insensitive": true
+    },
+    "examples_violating": [
+      "Only today!!! Hurry before it is gone.",
+      "Last chance to grab your bag."
+    ],
+    "examples_ok": [
+      "Our Diwali gift boxes are available till 15 November 2026.",
+      "New roast is in the cafes from Monday."
+    ]
+  },
+  {
+    "code": "R-CLAIM-04",
+    "category": "claims",
+    "severity": "major",
+    "statement": "Every promotion (discount, offer, code, free shipping) must state its end date.",
+    "source_quote": "Every promotion must state its end date.",
+    "page": 6,
+    "check_method": "tier0",
+    "params": {
+      "promo_triggers": [
+        "\\d+\\s?% off",
+        "\\bflat \\d+",
+        "\\bdiscount\\b",
+        "\\boffer\\b",
+        "\\bsale\\b",
+        "\\bpromo code\\b",
+        "\\buse code\\b",
+        "\\bfree shipping\\b",
+        "\\bcashback\\b",
+        "\\bbuy \\d"
+      ],
+      "end_date_pattern": "\\b(till|until|through|ends?|ending|valid (till|until|through|up to))\\b[^.\\n]{0,20}\\b(\\d{1,2}(st|nd|rd|th)?\\s+(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)|(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)\\s+\\d{1,2}|today|tonight|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\\b",
+      "case_insensitive": true
+    },
+    "examples_violating": [
+      "Flat 20% off with code MONSOON20.",
+      "Free shipping on all orders this season."
+    ],
+    "examples_ok": [
+      "Flat 15% off gift boxes with DIWALI15, valid till 15 November 2026.",
+      "Free shipping above Rs 799, ends 30 November 2026."
+    ]
+  },
+  {
+    "code": "R-LEGAL-01",
+    "category": "legal",
+    "severity": "blocking",
+    "statement": "No health or medical claims (cure, treat, detox, weight loss, immunity, heart health, anxiety).",
+    "source_quote": "Never make health or medical claims; coffee is a pleasure, not a treatment.",
+    "page": 6,
+    "check_method": "tier0",
+    "params": {
+      "patterns": [
+        "\\bcures?\\b",
+        "\\bheals?\\b",
+        "\\btreats?\\b",
+        "\\bdetox\\w*",
+        "\\blose weight\\b",
+        "\\bweight loss\\b",
+        "\\bburns? fat\\b",
+        "\\bimmun(e|ity)\\b",
+        "\\bprevents?\\b",
+        "\\banti-?ageing\\b",
+        "\\bgood for your (heart|health|liver)\\b",
+        "\\bboosts? (metabolism|health)\\b",
+        "\\breduces? (anxiety|stress|risk)\\b",
+        "\\bhealthy\\b"
+      ],
+      "case_insensitive": true
+    },
+    "examples_violating": [
+      "Our cold brew detoxes your body and helps you lose weight.",
+      "Drink two cups a day to boost immunity."
+    ],
+    "examples_ok": [
+      "A slow pour to start your morning.",
+      "Roasted fresh, brewed with care."
+    ]
+  },
+  {
+    "code": "R-LEGAL-02",
+    "category": "legal",
+    "severity": "major",
+    "statement": "Giveaway, contest and lucky-draw posts must include the line 'T&C apply'.",
+    "source_quote": "Every giveaway or contest post must carry the line T&C apply.",
+    "page": 6,
+    "check_method": "tier0",
+    "params": {
+      "triggers": [
+        "\\bgiveaway\\b",
+        "\\bcontest\\b",
+        "\\blucky draw\\b",
+        "\\bwin a\\b",
+        "\\bwin free\\b"
+      ],
+      "required_text": "T&C apply",
+      "case_insensitive": true
+    },
+    "examples_violating": [
+      "Win a free brew kit! Tag two friends to enter our giveaway.",
+      "Lucky draw this Sunday, everyone is eligible."
+    ],
+    "examples_ok": [
+      "Tag two friends to enter our giveaway. T&C apply.",
+      "Join the contest by sharing your best brew photo. T&C apply."
+    ]
+  },
+  {
+    "code": "R-LEGAL-03",
+    "category": "legal",
+    "severity": "major",
+    "statement": "Prices must be in rupees, say taxes are included, and match the approved price (facts).",
+    "source_quote": "Quote prices in rupees, say that taxes are included, and match the approved price list.",
+    "page": 6,
+    "check_method": "claim",
+    "params": {
+      "price_pattern": "(?:Rs\\.?|INR|₹)\\s?[\\d,]+",
+      "required_text_any": [
+        "incl. taxes",
+        "inclusive of taxes",
+        "incl. GST"
+      ],
+      "needs_supporting_fact": true
+    },
+    "examples_violating": [
+      "Saffron Signature Roast 250g for just Rs 399.",
+      "Gift box at 1,299 only."
+    ],
+    "examples_ok": [
+      "Saffron Signature Roast 250g, Rs 495 incl. taxes.",
+      "Diwali gift box, Rs 1,299 incl. taxes."
+    ]
+  },
+  {
+    "code": "R-VIS-01",
+    "category": "visual",
+    "severity": "blocking",
+    "statement": "Use only the official logo file; never a redrawn, recoloured, stretched or retyped version.",
+    "source_quote": "Always use the official logo file; never redraw, recolour, stretch or retype it.",
+    "page": 8,
+    "check_method": "visual",
+    "params": {
+      "logo_required": true,
+      "logo_file": "logo.png",
+      "min_sift_inliers_genuine": 40,
+      "min_sift_inliers_possible": 10
+    },
+    "examples_violating": [
+      "An ad with a look-alike cup and a different typeface.",
+      "A stretched and recoloured logo."
+    ],
+    "examples_ok": [
+      "An ad with the supplied logo.png at its original proportions.",
+      "A PDF with the logo placed from the official file."
+    ]
+  },
+  {
+    "code": "R-VIS-03",
+    "category": "visual",
+    "severity": "minor",
+    "statement": "Keep clear space around the logo; no busy background behind it.",
+    "source_quote": "Keep a clear space around the logo and never place it on a busy background.",
+    "page": 8,
+    "check_method": "visual",
+    "params": {
+      "logo_clear_space_ratio": 0.1,
+      "max_background_edge_density": 0.08
+    },
+    "examples_violating": [
+      "Logo placed over a crowded street photo.",
+      "Logo touching the edge of a patterned banner."
+    ],
+    "examples_ok": [
+      "Logo on a plain cream area with generous margin.",
+      "Logo on a flat saffron panel."
+    ]
+  },
+  {
+    "code": "R-VIS-02",
+    "category": "visual",
+    "severity": "major",
+    "statement": "Colours must come from the six-colour palette; no neon or off-palette colours.",
+    "source_quote": "Use only the six palette colours; off-palette neon or gradients are not allowed.",
+    "page": 7,
+    "check_method": "visual",
+    "params": {
+      "palette_delta_e": 12,
+      "palette_file": "palette.json"
+    },
+    "examples_violating": [
+      "Neon green background with magenta text.",
+      "A purple-to-pink gradient banner."
+    ],
+    "examples_ok": [
+      "Cream background with deep coffee brown text and a saffron accent.",
+      "Cardamom green label on a cream pouch."
+    ]
+  },
+  {
+    "code": "R-VIS-04",
+    "category": "visual",
+    "severity": "minor",
+    "statement": "PDF headings use Fraunces and body text uses Inter; no other typefaces.",
+    "source_quote": "Set headings in Fraunces and body text in Inter; no other typefaces in PDFs.",
+    "page": 7,
+    "check_method": "visual",
+    "params": {
+      "fonts_file": "fonts.json",
+      "applies_to": [
+        "pdf"
+      ]
+    },
+    "examples_violating": [
+      "A promo PDF set in Comic Sans.",
+      "A flyer in a decorative script font."
+    ],
+    "examples_ok": [
+      "A promo PDF with Fraunces headings and Inter body.",
+      "A menu in Inter only."
+    ]
+  },
+  {
+    "code": "R-VIS-05",
+    "category": "visual",
+    "severity": "minor",
+    "statement": "Imagery should feel authentic.",
+    "source_quote": "Imagery should feel authentic.",
+    "page": 7,
+    "check_method": "jev",
+    "params": {
+      "vague": true
+    },
+    "examples_violating": [
+      "Glossy over-edited stock photo of a model with a mug.",
+      "A cartoon filter over a cafe interior."
+    ],
+    "examples_ok": [
+      "A real barista pouring at our Pune cafe.",
+      "Bags on a wooden counter in morning light."
+    ]
+  },
+  {
+    "code": "R-ACC-01",
+    "category": "accessibility",
+    "severity": "major",
+    "statement": "Every image must have alt text that describes what it shows.",
+    "source_quote": "Every image needs alt text that describes what it shows.",
+    "page": 9,
+    "check_method": "tier0",
+    "params": {
+      "requires_alt_text": true,
+      "min_chars": 10,
+      "reject_generic": [
+        "image",
+        "photo",
+        "picture",
+        "banner"
+      ]
+    },
+    "examples_violating": [
+      "An image post with no alt text.",
+      "Alt text that just says 'image'."
+    ],
+    "examples_ok": [
+      "Alt: Barista pouring hot water over ground coffee in a glass server.",
+      "Alt: Saffron Signature Roast pouch on a wooden counter."
+    ]
+  },
+  {
+    "code": "R-ACC-02",
+    "category": "accessibility",
+    "severity": "minor",
+    "statement": "Reading grade must not exceed the channel target (Instagram 8, email 10, website 10, LinkedIn 12).",
+    "source_quote": "Match reading level to the channel: Instagram grade 8, email and website grade 10, LinkedIn grade 12.",
+    "page": 10,
+    "check_method": "tier0",
+    "params": {
+      "max_grade_from_channel": true,
+      "metric": "flesch_kincaid_grade"
+    },
+    "examples_violating": [
+      "An Instagram caption full of long, abstract, multi-clause sentences about provenance and extraction methodology.",
+      "A website paragraph with dense jargon and nested clauses."
+    ],
+    "examples_ok": [
+      "Fresh beans, roasted this week. Come in for a cup.",
+      "We roast on Tuesdays and Fridays so every bag is fresh."
+    ]
+  },
+  {
+    "code": "R-ACC-03",
+    "category": "accessibility",
+    "severity": "major",
+    "statement": "Text on images must reach a contrast ratio of at least 4.5:1 against its background.",
+    "source_quote": "Text on images must have a contrast ratio of at least 4.5 to 1.",
+    "page": 9,
+    "check_method": "visual",
+    "params": {
+      "min_contrast": 4.5,
+      "large_text_min_contrast": 3.0
+    },
+    "examples_violating": [
+      "Light grey text on a cream banner.",
+      "Saffron text on a white background."
+    ],
+    "examples_ok": [
+      "Deep coffee brown text on cream.",
+      "Cream text on deep coffee brown."
+    ]
+  },
+  {
+    "code": "R-MSG-02",
+    "category": "messaging",
+    "severity": "minor",
+    "statement": "Each post carries one clear call to action (visit, order, subscribe).",
+    "source_quote": "Each post carries one clear call to action, such as visit, order or subscribe.",
+    "page": 10,
+    "check_method": "jev",
+    "params": {
+      "max_ctas": 1,
+      "min_ctas": 1
+    },
+    "examples_violating": [
+      "Visit us, order online, subscribe, follow, share, and also tag a friend.",
+      "A caption with no next step at all."
+    ],
+    "examples_ok": [
+      "Visit your nearest cafe this weekend.",
+      "Order the Diwali gift box online."
+    ]
+  },
+  {
+    "code": "R-MSG-05",
+    "category": "messaging",
+    "severity": "minor",
+    "statement": "Do not be too salesy.",
+    "source_quote": "Do not be too salesy.",
+    "page": 10,
+    "check_method": "jev",
+    "params": {
+      "vague": true
+    },
+    "examples_violating": [
+      "Buy now buy now buy now, best prices, order, order, order.",
+      "Discounts, discounts and more discounts."
+    ],
+    "examples_ok": [
+      "Our monsoon roast is ready, and the cafe is warm.",
+      "A new lot from Chikmagalur, if you would like to try it."
+    ]
+  }
+]

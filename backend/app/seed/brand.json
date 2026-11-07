@@ -1,0 +1,25 @@
+{
+  "name": "Saffron & Steam Coffee Co. (fictional demo brand)",
+  "tone_labels": [
+    "warm",
+    "confident",
+    "playful",
+    "formal",
+    "pushy",
+    "sarcastic"
+  ],
+  "channel_targets": {
+    "instagram": {
+      "max_grade": 8
+    },
+    "email": {
+      "max_grade": 10
+    },
+    "website": {
+      "max_grade": 10
+    },
+    "linkedin": {
+      "max_grade": 12
+    }
+  }
+}

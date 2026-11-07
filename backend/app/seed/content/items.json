@@ -1,0 +1,75 @@
+[
+  {
+    "title": "Monsoon caption (demo_flawed_post)",
+    "key": "demo_flawed_post",
+    "channel": "instagram",
+    "creator": "Rohan",
+    "state": "draft",
+    "confidential": false,
+    "text": "Steam Classic is India's #1 coffee, hands down!!!\n\nRated 4.8 stars by thousands of happy customers, and the best filter blend you will ever taste. Cheap? No way, it is a guaranteed miracle in a cup.\n\nFlat 20% off with code MONSOON20. Only today, hurry, last chance to grab it before stock runs out!!!\n\nOrder now. You would be silly to skip this.",
+    "file": null
+  },
+  {
+    "title": "Diwali gift box email",
+    "channel": "email",
+    "creator": "Rohan",
+    "state": "in_review",
+    "confidential": false,
+    "text": "Subject: Your Diwali gift box\n\nHello,\n\nOur Diwali gift box is here, Rs 1,299 incl. taxes. Flat 15% off with code DIWALI15, valid till 15 November 2026. Order online from our website.",
+    "file": null
+  },
+  {
+    "title": "How we source: LinkedIn post",
+    "channel": "linkedin",
+    "creator": "Rohan",
+    "state": "changes_requested",
+    "confidential": false,
+    "text": "We are proud to be a sustainable roaster. Our beans come from 14 partner estates in Karnataka and Kerala, and we pay them 18% above the local auction average. Great coffee starts with fair partnerships.",
+    "file": null
+  },
+  {
+    "title": "Cold Steam Brew caption",
+    "channel": "instagram",
+    "creator": "Kabir",
+    "state": "in_review",
+    "confidential": false,
+    "text": "Cold Steam Brew is steeped for 18 hours, then served cold. Visit your nearest cafe to try a glass.",
+    "file": null
+  },
+  {
+    "title": "Slow mornings ad (good)",
+    "channel": "instagram",
+    "creator": "Rohan",
+    "state": "approved",
+    "confidential": false,
+    "text": "Slow mornings, steady brews. Freshly roasted in Pune. Find your nearest cafe.",
+    "file": "ad_good.png"
+  },
+  {
+    "title": "Fresh roast ad (neon)",
+    "channel": "instagram",
+    "creator": "Rohan",
+    "state": "draft",
+    "confidential": false,
+    "text": "Fresh roast is here. Order today at our nearest cafe.",
+    "file": "ad_offpalette.png"
+  },
+  {
+    "title": "Slow mornings ad (logo check)",
+    "channel": "instagram",
+    "creator": "Rohan",
+    "state": "in_review",
+    "confidential": false,
+    "text": "Slow mornings, steady brews. Freshly roasted in Pune. Find your nearest cafe.",
+    "file": "ad_wronglogo.png"
+  },
+  {
+    "title": "Monsoon promo flyer (PDF)",
+    "channel": "website",
+    "creator": "Rohan",
+    "state": "changes_requested",
+    "confidential": false,
+    "text": "MONSOON MANIA SALE Flat 20% off our Steam Classic, the healthy coffee that is good for your heart. Pick up a bag at any Saffron & Steam cafe. Fictional demo promo.",
+    "file": "promo.pdf"
+  }
+]

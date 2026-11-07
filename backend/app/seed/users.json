@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "name": "Asha",
+    "role": "admin"
+  },
+  {
+    "id": 2,
+    "name": "Rohan",
+    "role": "creator"
+  },
+  {
+    "id": 3,
+    "name": "Meera",
+    "role": "reviewer"
+  },
+  {
+    "id": 4,
+    "name": "Kabir",
+    "role": "approver"
+  }
+]
