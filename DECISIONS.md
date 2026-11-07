@@ -168,6 +168,28 @@ State: `{"content": masked post}` (image posts: `{"image", "caption"}`). Each pe
   - Seeded items can be checked with `POST /versions/{id}/check` (admin or creator), so they no longer need a resubmit.
 - **Backend request (minor):** `GET /api/insights` `by_category` returns a bucket with an empty `key` (visible as "other" in the chart); likely a finding with no category.
 
+## Edit regions: accept every fix -> clean v2 (demo bug fix, 7 Nov)
+**Bug.** On `demo_flawed_post`, accepting every fix gave a garbled v2 ("India's a coffee we're proud of coffee", "Made with beans whose roast date is printed on every bag stars by thousands…"), and "#1" was swapped for "India's favourite". **Root cause:** fixes were written per finding for single words or phrases, without the rest of the sentence; up to five findings sat on one sentence, so their replacements collided or overlapped (resubmit skipped the overlaps), and each fix was self-checked alone, so a fragment that read fine on its own passed. Repro: `cd backend && python -m scripts.demo_v2`.
+
+**Design (engine.py `plan_regions` / `finalize_region`).**
+- Every text finding with a span is widened to its whole sentence(s); overlapping **or adjacent** sentences ("Cheap?" + "No way, it is a guaranteed miracle…") merge into one **edit region**. A region with a single finding that has a word-list fix (product rename, "!!!") keeps its small span and deterministic fix, as before.
+- Per region: word-list fixes are applied in code first, then **one LLM call** lists every rule of the region (`explain.explain_region`: one explanation per finding + one fix). The context is the whole post with the renames applied (otherwise the LLM copied "Steam Classic" back from another paragraph).
+- The combined fix is self-checked against **every rule in the region plus the blocking rules** (`verify_fix(extra_rules=, region=True)`): well-formed text in code (`selfcheck.well_formed`: ends with sentence punctuation, starts like a sentence, no doubled words, no repeated boundary words, length ≤ 2x), no Tier 0 hit of any rule inside the rewrite, every claim left in the region supported, no superlative from the code list `selfcheck.SUPERLATIVES` + the brand's R-CLAIM-01 patterns (curly apostrophes normalised), Jev `new_superlative` on the rewritten words, the rules' Nouls, and the meaning truth table.
+- Rejected twice → `fix = null` (the UI already shows "Manual fix needed" for an open finding without a fix), so a bad fix can never be accepted. Exception: a purely word-list region keeps its fix even if unverified (safe by construction); a self-check that failed only because Jev was unreachable keeps the fix, unverified.
+- Without the LLM (or with `explain_findings=False`, e.g. the eval), nothing changes: per-finding spans and word-list fixes.
+
+**Judgment calls (second opinion welcome).**
+- **Meaning truth table (`questions.meaning_kept_split`).** `same_topic` is asked about the paragraph, with the post inside that question only (skill: context one question needs goes in that question; "Order now. You would be silly to skip this." has no visible topic alone). The CTA questions are asked about the paragraph *and* the whole post (second, parallel Jev call): the CTA counts as kept if either keeps it, since a post has one CTA (R-MSG-02) and a fix may drop a second one ("grab it").
+- **Expired facts.** When a region relies on an expired fact (e.g. MONSOON20, expired 30 Sep), the fix must remove the offer, so code waives `same_topic` (the CTA must still be kept), and only the EXPIRED note is passed to the LLM: the "current" candidates are other facts it otherwise swapped in (the Diwali offer, a Monsoon Malabar price).
+- `SUPERLATIVES` includes "favourite", "leading", "the top", "top-rated", "most loved/popular/trusted", "best", "finest", "greatest", "unmatched", "ultimate", "world-class", "ever taste(d)". It applies only to the fix text, not to the writer's own unflagged copy.
+
+**API change (additive; schemas.py + api.ts).** `FindingOut` gains `hit_start`, `hit_end`, `fix_group`. For region findings, `span_start/span_end/quote` are the **whole region** (so `fix` still replaces exactly `span`, and the FindingCard diff and Edit keep working unchanged), `hit_start/hit_end` are the flagged words (use them for highlighting), and findings with the same `fix_group` share one fix. `POST /findings/{id}/accept` also accepts the other open findings of the group (audit detail `region_findings`); resubmit applies a region once and lists every member in `applied` (an edit in the region wins over the suggested fix). **Frontend request:** in `Item.tsx`, highlight `hit_start..hit_end` when present (today it highlights the whole sentence), and refetch findings after an accept, since siblings change too.
+
+**Live result (7 Nov, DeepSeek + Jev, `scripts/demo_v2.py`, 4 runs in a row):** v1 15 findings (2 blocking) → v2 1 finding (human band, R-TONE-02 on a calm "Order now."), 0 blocking, ~$0.003 per round trip. Typical v2:
+> Saffron Signature Roast is a coffee worth trying, hands down! / Roasted fresh in Pune every Tuesday and Friday, with the roast date printed on every bag, this is a filter blend worth tasting. No gimmicks, just a genuinely good cup. / Saffron Signature Roast is a filter blend worth trying. Order now. / You can order it now if you like.
+
+Known limits: regions are rewritten in parallel, so two paragraphs can open with the same words or repeat a fact; a claim that has no trigger word ("loved by thousands of happy customers") is not caught.
+
 ## P1 API for UI
 All under `/api`, JSON, session required; errors are `{"detail": "<human message>"}`. Types are in `frontend/src/lib/api.ts`.
 
