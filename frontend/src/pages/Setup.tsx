@@ -27,11 +27,11 @@ import { cn } from "@/lib/utils";
 /* ------------------------------------------------------------------ shared bits */
 
 const STEPS = [
-  { key: "basics", label: "Name", icon: Type },
-  { key: "look", label: "Colours & logo", icon: PaletteIcon },
-  { key: "rules", label: "Rules", icon: ListChecks },
-  { key: "facts", label: "Facts", icon: FileSpreadsheet },
-  { key: "words", label: "Words", icon: PenLine },
+  { key: "basics", label: "Name", short: "Name", icon: Type },
+  { key: "look", label: "Colours & logo", short: "Colours", icon: PaletteIcon },
+  { key: "rules", label: "Rules", short: "Rules", icon: ListChecks },
+  { key: "facts", label: "Facts", short: "Facts", icon: FileSpreadsheet },
+  { key: "words", label: "Words", short: "Words", icon: PenLine },
 ] as const;
 
 const CATEGORIES = ["tone", "claims", "messaging", "terminology", "legal", "accessibility", "visual"] as const;
@@ -228,8 +228,8 @@ function LookStep({ brand, back, next }: { brand: BrandOut; back: () => void; ne
                   <input type="color" value={hex ?? r.hex} onChange={(e) => update(r.key, { hex: e.target.value, text: e.target.value })} className="absolute inset-0 size-full cursor-pointer opacity-0" />
                 </label>
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="flex gap-2">
-                    <Input aria-label={`Colour ${i + 1} name`} value={r.name} maxLength={40} onChange={(e) => update(r.key, { name: e.target.value })} placeholder="Name" className="h-9" />
+                  <div className="flex flex-wrap gap-2">
+                    <Input aria-label={`Colour ${i + 1} name`} value={r.name} maxLength={40} onChange={(e) => update(r.key, { name: e.target.value })} placeholder="Name" className="h-9 min-w-[8rem] flex-1" />
                     <Input
                       aria-label={`Colour ${i + 1} hex`} value={r.text} maxLength={7} spellCheck={false}
                       aria-invalid={!hex}
@@ -664,7 +664,7 @@ export default function Setup() {
                   <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-caption", past ? "bg-[var(--accent-fill)] text-white" : active ? "bg-foreground text-background" : "bg-foreground/10")}>
                     {past ? <Check className="size-3.5" strokeWidth={2.5} aria-hidden /> : <Icon className="size-3.5" strokeWidth={2} aria-hidden />}
                   </span>
-                  <span className="truncate">{s.label}</span>
+                  <span className="max-w-full truncate"><span className="sm:hidden">{s.short}</span><span className="hidden sm:inline">{s.label}</span></span>
                   <span className="sr-only">{past ? "(done)" : ""}</span>
                 </button>
               </li>
