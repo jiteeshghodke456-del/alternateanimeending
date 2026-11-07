@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { SEVERITY_LABEL } from "@/lib/bands";
 import { api, ApiError, type ImportConfirmIn, type ImportJobOut, type ImportProposal, type RuleOut, type Severity } from "@/lib/api";
 import { reportError, toApiError } from "@/lib/hooks";
+import { reportImportPhase, tourActive } from "@/lib/tourBus";
 import { cn } from "@/lib/utils";
 
 type Edits = Record<string, { statement?: string; category?: string; severity?: Severity }>;
@@ -16,8 +17,10 @@ type Phase = "pick" | "working" | "review" | "done" | "error";
 
 const surface = "max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-6xl overflow-y-auto rounded-3xl border-[var(--glass-border)] bg-[var(--glass-strong-bg)] p-5 backdrop-blur-2xl sm:p-6";
 
-export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff }: {
+export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff, initialFile }: {
   open: boolean; onOpenChange: (o: boolean) => void;
+  /** start reading this file as soon as the dialog opens (the guided tour hands over the demo guideline) */
+  initialFile?: File | null;
   /** called after Confirm succeeds, with the created (disabled) rules */
   onImported: (created: RuleOut[]) => void;
   /** called when the server answers 501 (feature flag off), so the button can be hidden */
@@ -89,6 +92,17 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
     }
   }
 
+  // the guided tour hands over a file: start at once (after the reset above, which runs first)
+  useEffect(() => {
+    if (open && initialFile) void upload(initialFile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialFile]);
+
+  // let the guided tour follow along (it only reads the phase and the counts)
+  useEffect(() => {
+    reportImportPhase({ phase: open ? phase : "closed", proposals: job?.proposals.length, verified: job?.verified, cost: job?.cost_usd });
+  }, [open, phase, job]);
+
   const proposals = job?.proposals ?? [];
   const allOn = proposals.length > 0 && proposals.every((p) => picked.has(p.id));
   const someOn = proposals.some((p) => picked.has(p.id));
@@ -125,8 +139,13 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={surface}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={!tourActive()}>
+      <DialogContent
+        className={surface}
+        // the guided tour card stays usable next to this dialog: pressing it doesn't close the dialog
+        onPointerDownOutside={(e) => { if ((e.target as Element | null)?.closest?.("[data-tour-card]")) e.preventDefault(); }}
+        onInteractOutside={(e) => { if ((e.target as Element | null)?.closest?.("[data-tour-card]")) e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle className="text-title3">Import rules from a guideline PDF</DialogTitle>
           <DialogDescription>
@@ -170,7 +189,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
 
         {phase === "review" && job && (
           <>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-muted-foreground">
+            <div data-tour="import-summary" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-muted-foreground">
               <span className="font-medium text-foreground">{job.filename}</span>
               <span>{job.pages} pages</span>
               <span>{proposals.length} proposed rules</span>

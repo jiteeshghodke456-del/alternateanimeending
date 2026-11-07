@@ -6,6 +6,8 @@ import { ThemeProvider } from "@/lib/theme";
 import { SessionProvider } from "@/lib/session";
 import Landing from "@/pages/Landing";
 import { StartingScreen } from "@/components/StartingScreen";
+import { TourProvider } from "@/lib/tour";
+import { TourGuide } from "@/components/TourGuide";
 
 // The app shell (sidebar, menus, dialogs) loads after the landing page.
 const AppShell = lazy(() => import("@/components/AppShell").then((m) => ({ default: m.AppShell })));
@@ -26,22 +28,25 @@ export default function App() {
       <SessionProvider>
         <TooltipProvider delayDuration={150}>
           <BrowserRouter>
-            <Suspense fallback={null}>
-              <Routes>
-                <Route path="/" element={<Landing />} />
-                <Route element={<AppShell />}>
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/brand" element={<BrandKit />} />
-                  <Route path="/setup" element={<Setup />} />
-                  <Route path="/content" element={<Content />} />
-                  <Route path="/content/new" element={<ContentNew />} />
-                  <Route path="/items/:id" element={<Item />} />
-                  <Route path="/review" element={<Review />} />
-                  <Route path="/eval" element={<Eval />} />
-                  <Route path="*" element={<NotFound />} />
-                </Route>
-              </Routes>
-            </Suspense>
+            <TourProvider>
+              <Suspense fallback={null}>
+                <Routes>
+                  <Route path="/" element={<Landing />} />
+                  <Route element={<AppShell />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/brand" element={<BrandKit />} />
+                    <Route path="/setup" element={<Setup />} />
+                    <Route path="/content" element={<Content />} />
+                    <Route path="/content/new" element={<ContentNew />} />
+                    <Route path="/items/:id" element={<Item />} />
+                    <Route path="/review" element={<Review />} />
+                    <Route path="/eval" element={<Eval />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
+              </Suspense>
+              <TourGuide />
+            </TourProvider>
           </BrowserRouter>
           <StartingScreen />
           <Toaster position="top-center" />

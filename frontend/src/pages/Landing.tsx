@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, BookOpenCheck, CircleAlert, FileCheck2, Loader2, Plus, ShieldCheck, Users, Wand2, type LucideIcon } from "lucide-react";
+import { ArrowRight, BookOpenCheck, CircleAlert, Compass, FileCheck2, Loader2, Plus, ShieldCheck, Users, Wand2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BlurFade } from "@/components/ui/blur-fade";
@@ -13,6 +13,7 @@ import { HighlightedText } from "@/components/HighlightedText";
 import { api, ROLE_LABELS, serverFeatures, type Role } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
+import { useTour } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 
 const ROLE_HOME: Record<Role, string> = { admin: "/brand", creator: "/content/new?demo=1", reviewer: "/review", approver: "/review" };
@@ -82,6 +83,8 @@ export default function Landing() {
   const { users, login, startWorkspace } = useSession();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
+  const tour = useTour();
+  const anyBusy = busy !== null || tour.launching;
 
   async function tryDemo() {
     setBusy("demo");
@@ -157,7 +160,21 @@ export default function Landing() {
             </p>
           </BlurFade>
           <BlurFade delay={0.28} className="w-full">
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row sm:flex-wrap">
+              <MotionButton
+                type="button"
+                size="lg"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                transition={spring}
+                disabled={anyBusy}
+                aria-busy={tour.launching}
+                onClick={() => void tour.start()}
+                className={cn("h-12 w-full rounded-full bg-[var(--accent-fill)] px-7 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(0,113,227,0.35)] hover:bg-[var(--accent-fill-hover)] sm:w-auto", CTA_FOCUS)}
+              >
+                {tour.launching ? <Loader2 className="animate-spin" /> : <Compass strokeWidth={2} />}
+                Take the 2-minute tour
+              </MotionButton>
               {/* One real <button> each: the motion props live on the button itself, so there is a single
                   tab stop and Enter / Space activate it natively (a motion wrapper with whileTap became
                   its own focusable stop that ignored both keys). */}
@@ -167,10 +184,11 @@ export default function Landing() {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 transition={spring}
-                disabled={busy !== null}
+                variant="secondary"
+                disabled={anyBusy}
                 aria-busy={busy === "demo"}
                 onClick={tryDemo}
-                className={cn("h-12 w-full rounded-full bg-[var(--accent-fill)] px-7 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(0,113,227,0.35)] hover:bg-[var(--accent-fill-hover)] sm:w-auto", CTA_FOCUS)}
+                className={cn("glass h-12 w-full !rounded-full px-7 text-callout font-semibold text-[var(--accent-text)] hover:bg-foreground/6 sm:w-auto", CTA_FOCUS)}
               >
                 {busy === "demo" ? <Loader2 className="animate-spin" /> : null}
                 Try the demo brand <ArrowRight strokeWidth={2} />
@@ -182,7 +200,7 @@ export default function Landing() {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 transition={spring}
-                disabled={busy !== null}
+                disabled={anyBusy}
                 aria-busy={busy === "blank"}
                 onClick={startFresh}
                 className={cn("glass h-12 w-full !rounded-full px-7 text-callout font-semibold text-foreground hover:bg-foreground/6 sm:w-auto", CTA_FOCUS)}
@@ -192,7 +210,7 @@ export default function Landing() {
               </MotionButton>
             </div>
             <p className="mt-3 text-caption text-muted-foreground">
-              Demo: a fictional brand with sample rules, signed in as its Creator. Fresh: an empty workspace and a five-step setup.
+              Tour: nine short steps in a fresh copy of the demo; each one can run itself. Demo: a fictional brand with sample rules, signed in as its Creator. Fresh: an empty workspace and a five-step setup.
             </p>
           </BlurFade>
 

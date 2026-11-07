@@ -12,6 +12,7 @@ from playwright.sync_api import sync_playwright
 
 base = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else "http://127.0.0.1:7860"
 CASES = [
+    ("Take the 2-minute tour", "Enter", "/content/new"), ("Take the 2-minute tour", "Space", "/content/new"),
     ("Try the demo brand", "Enter", "/content/new"), ("Try the demo brand", "Space", "/content/new"),
     ("Start fresh with your brand", "Enter", "/setup"), ("Start fresh with your brand", "Space", "/setup"),
     ("Rohan", "Enter", "/content/new"), ("Kabir", "Space", "/review"),

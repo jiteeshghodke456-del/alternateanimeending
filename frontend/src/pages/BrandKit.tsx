@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { FileUp, Loader2, Pencil, Plus, Power, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
+import { onPdfImportRequest, takePdfImport } from "@/lib/tourBus";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -114,6 +115,14 @@ function RulesTab({ admin }: { admin: boolean }) {
   const [importOff, setImportOff] = useState(false);
   const [fresh, setFresh] = useState<RuleOut[]>([]);
   const [enablingAll, setEnablingAll] = useState(false);
+  const [tourFile, setTourFile] = useState<File | null>(null);
+  // the guided tour asks to import the demo guideline PDF (mailbox: works whether it asked before or after mount)
+  useEffect(() => {
+    if (!admin) return;
+    const take = () => { const f = takePdfImport(); if (f) { setTourFile(f); setImportOpen(true); } };
+    take();
+    return onPdfImportRequest(take);
+  }, [admin]);
   if (q.error) return <ErrorState message={q.error.message} onRetry={q.reload} />;
   if (q.loading && !q.data) return <Skel />;
   const rules = q.data ?? [];
@@ -148,7 +157,7 @@ function RulesTab({ admin }: { admin: boolean }) {
         <span className="text-footnote text-muted-foreground">{shown.length} of {rules.length} rules</span>
         {admin && (
           <span className="ml-auto flex flex-wrap items-center gap-2">
-            {!importOff && <Button variant="secondary" onClick={() => setImportOpen(true)} className="rounded-full"><FileUp strokeWidth={1.75} /> Import from PDF</Button>}
+            {!importOff && <Button data-tour="import-button" variant="secondary" onClick={() => { setTourFile(null); setImportOpen(true); }} className="rounded-full"><FileUp strokeWidth={1.75} /> Import from PDF</Button>}
             <Button onClick={() => setAdding(true)} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Plus strokeWidth={2} /> Add rule</Button>
           </span>
         )}
@@ -192,7 +201,7 @@ function RulesTab({ admin }: { admin: boolean }) {
           ))}
         </ul>
       )}
-      <PdfImportDialog open={importOpen} onOpenChange={setImportOpen} onSwitchedOff={() => setImportOff(true)} onImported={(c) => { setFresh(c); q.reload(); }} />
+      <PdfImportDialog open={importOpen} initialFile={tourFile} onOpenChange={(o) => { setImportOpen(o); if (!o) setTourFile(null); }} onSwitchedOff={() => setImportOff(true)} onImported={(c) => { setFresh(c); q.reload(); }} />
       <RuleDialog rule={edit} open={!!edit || adding} onOpenChange={(o) => { if (!o) { setEdit(null); setAdding(false); } }} onSaved={q.reload} />
     </>
   );

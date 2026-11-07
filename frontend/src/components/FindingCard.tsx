@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { BadgeCheck, Check, Gavel, Link2, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
+import { BadgeCheck, Check, Gavel, Info, Link2, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BAND, SEVERITY_LABEL, SEVERITY_STYLE } from "@/lib/bands";
-import type { FindingOut } from "@/lib/api";
+import type { FindingOut, ItemState } from "@/lib/api";
 import { TipButton } from "@/components/TipButton";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/hooks";
@@ -37,6 +37,25 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted", edited: "Edited", dismissed: "Dismissed", overridden: "Overridden",
 };
 
+/** Read-only view: the item is approved / rejected, or the viewer isn't its creator, or it's an older version. */
+export interface ReadOnlyInfo { itemState: ItemState; nextVersionN: number | null }
+
+/** A quiet, neutral sentence saying where a finding ended up (shown instead of the action buttons). */
+export function findingOutcome(f: FindingOut, ro: ReadOnlyInfo): string {
+  const reason = (f.dismiss_reason ?? "other").replace(/_/g, " ");
+  switch (f.status) {
+    case "dismissed": return `Dismissed: ${reason}${f.dismiss_note ? ` (${f.dismiss_note})` : ""}`;
+    case "overridden": return "Overridden by a reviewer";
+    case "accepted": return ro.nextVersionN ? `Fixed in v${ro.nextVersionN}` : "Fix accepted";
+    case "edited": return ro.nextVersionN ? `Fixed in v${ro.nextVersionN} (creator's edit)` : "Edited by the creator";
+    default:
+      if (ro.itemState === "approved") return "Left open at approval";
+      if (ro.itemState === "rejected") return "Left open when rejected";
+      if (ro.nextVersionN) return `Left as it was in v${ro.nextVersionN}`;
+      return "Open: the creator decides how to handle it";
+  }
+}
+
 /** Findings that share a `fix_group` share one rewrite of one region. The lead card carries the fix; the others link to it. */
 export interface FixGroupInfo { lead: FindingOut; others: FindingOut[]; isLead: boolean }
 
@@ -45,8 +64,10 @@ export interface FindingCardProps {
   group?: FixGroupInfo | null;
   onJump?: (id: number) => void;
   active?: boolean;
-  /** false once the item is locked (approved / rejected) */
+  /** false while actions are briefly unavailable (a check is running) */
   canAct?: boolean;
+  /** set when the viewer can only read this finding: no Accept / Edit / Dismiss, no fix banner, a neutral outcome line */
+  readOnly?: ReadOnlyInfo | null;
   /** show the Override button (reviewer / approver on a blocking finding) */
   canOverride?: boolean;
   overrideDisabledReason?: string | null;
@@ -57,7 +78,7 @@ export interface FindingCardProps {
   onOverride?: (f: FindingOut) => void;
 }
 
-export function FindingCard({ finding: f, group, onJump, active, canAct = true, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
+export function FindingCard({ finding: f, group, onJump, active, canAct = true, readOnly = null, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
   const band = BAND[f.band];
   const BandIcon = band.icon;
   const [editing, setEditing] = useState(false);
@@ -70,6 +91,16 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
   const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? x.category;
   const locked = !canAct;
   const code = f.rule_code ?? f.fact_code ?? null; // claim findings in a brand with no rules have neither
+  const textual = f.span_start != null && f.span_end != null; // image / whole-document findings have no passage to rewrite
+  const overrideBtn = canOverride && f.severity === "blocking" && (
+    <TipButton
+      size="sm" variant="outline" reason={overrideDisabledReason}
+      onClick={(e) => { e.stopPropagation(); onOverride?.(f); }}
+      className="rounded-full"
+    >
+      <Gavel strokeWidth={1.75} /> Override
+    </TipButton>
+  );
 
   async function accept() {
     setBusy("accept");
@@ -98,7 +129,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
             Claim {f.claim_status}
           </span>
         )}
-        {closed && (
+        {closed && !readOnly && (
           <span className="ml-auto rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium">{STATUS_LABEL[f.status] ?? f.status}</span>
         )}
       </div>
@@ -162,7 +193,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
         </p>
       )}
 
-      {f.status === "dismissed" && (
+      {f.status === "dismissed" && !readOnly && (
         <p className="mt-3 rounded-xl bg-foreground/5 p-3 text-footnote text-muted-foreground">
           Dismissed as <span className="font-medium text-foreground">{(f.dismiss_reason ?? "other").replace(/_/g, " ")}</span>
           {f.dismiss_note ? <>: {f.dismiss_note}</> : null}
@@ -202,28 +233,34 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
             </div>
           </div>
         </div>
-      ) : f.status === "open" || f.status === "dismissed" ? (
-        f.status === "open" && <p role="status" data-testid="manual-fix" className="mt-4 flex items-start gap-2 rounded-2xl bg-human/12 p-3.5 text-footnote text-human-text"><TriangleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden /><span><span className="font-semibold">Manual fix needed.</span> We could not produce a safe rewrite for this, so use Edit to write your own.</span></p>
+      ) : !readOnly && f.status === "open" ? (
+        <p data-testid="manual-fix" className="mt-4 flex items-start gap-2 rounded-2xl bg-foreground/5 p-3.5 text-footnote text-muted-foreground">
+          <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden />
+          <span>{textual
+            ? "No automatic rewrite passed our checks for this one. Use Edit to write your own."
+            : "There's no single passage to rewrite here. Change the content and resubmit, or dismiss this with a reason."}</span>
+        </p>
       ) : null}
 
-      {!editing && f.status === "open" && (
+      {readOnly && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <p data-testid="finding-outcome" className="flex items-center gap-1.5 text-footnote text-muted-foreground">
+            <Info className="size-4 shrink-0" strokeWidth={1.5} aria-hidden /> {findingOutcome(f, readOnly)}
+          </p>
+          {f.status === "open" && overrideBtn && <span className="ml-auto">{overrideBtn}</span>}
+        </div>
+      )}
+
+      {!readOnly && !editing && f.status === "open" && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {!linked && (
-            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
+          {!linked && f.fix && (
+            <Button size="sm" disabled={locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} {group && group.others.length > 0 ? `Accept fix for ${group.others.length + 1} findings` : "Accept fix"}
             </Button>
           )}
-          {!linked && <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>}
+          {!linked && textual && <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>}
           <Button size="sm" variant="ghost" disabled={locked} onClick={(e) => { e.stopPropagation(); onDismiss?.(f); }} className="rounded-full text-muted-foreground"><X strokeWidth={1.75} /> Dismiss</Button>
-          {canOverride && f.severity === "blocking" && (
-            <TipButton
-              size="sm" variant="outline" reason={overrideDisabledReason}
-              onClick={(e) => { e.stopPropagation(); onOverride?.(f); }}
-              className="rounded-full"
-            >
-              <Gavel strokeWidth={1.75} /> Override
-            </TipButton>
-          )}
+          {overrideBtn}
         </div>
       )}
     </article>
