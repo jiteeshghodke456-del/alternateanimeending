@@ -17,6 +17,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -85,6 +86,7 @@ class ExplainRequest:
     channel: str
     whole_unit: bool = False
     facts: list[str] = field(default_factory=list)  # approved facts the fix may use / expired fact notes
+    claim_basis: Optional[str] = None  # claim findings: unverified|contradicted|expired (decided in code)
 
 
 def available() -> bool:
@@ -107,6 +109,46 @@ def template_explanation(rule: Optional[RuleSpec], detail: str = "", statement: 
     return f"{base} {detail}".strip() if detail else base
 
 
+# ------------------------------------------------------------------ claim findings: honest reasons
+# Real-brand test (8 Nov): claim explanations said "The brand word list flags '10'" (a claim has no word list
+# behind it) and that an unverified number "cannot stand as written" (nothing showed it was wrong). The code
+# knows why a claim was raised (engine.from_claim -> claim_basis); the prompt states it, and code rejects an
+# explanation that blames a word list or calls an unverified figure false (the code's own wording is used then).
+CLAIM_SOURCE = "the approved-facts check"
+CLAIM_BASIS_LINES = {
+    "unverified": "Why this is a claim finding: no approved fact matches it yet. That makes it unverified, not false. "
+                  "Say that no approved fact matches it and name the rule that asks for evidence, if there is one. "
+                  "Never say the claim or number is false, wrong, inaccurate, made up, misleading, or that it cannot "
+                  "stand as written, and never say a word list flagged it.",
+    "contradicted": "Why this is a claim finding: an approved fact states something different. Name that fact and say "
+                    "what differs. Never say a word list flagged it.",
+    "expired": "Why this is a claim finding: it relies on an approved fact that has expired. Name that fact and its "
+               "end date. Never say a word list flagged it.",
+}
+_DISHONEST = re.compile(
+    r"word ?list|\b(?:is|are|seems?|looks?|appears?|may be|might be|could be|likely)\s+(?:false|wrong|incorrect|inaccurate|"
+    r"untrue|fabricated|made[- ]up|misleading)\b|\b(?:false|fabricated|made[- ]up|untrue)\s+(?:claim|number|figure|statistic|stat)"
+    r"|cannot stand|can't stand|can not stand|not true",
+    re.IGNORECASE)
+
+
+def honest_claim_explanation(text: str, basis: Optional[str]) -> bool:
+    """False if an explanation of a claim finding blames a word list, or calls an unverified claim false.
+    Non-claim findings (basis None) are not checked here."""
+    if basis is None:
+        return True
+    if basis == "unverified":
+        return not _DISHONEST.search(text or "")
+    return "word list" not in (text or "").lower() and "wordlist" not in (text or "").lower()
+
+
+def claim_template(rule: Optional[RuleSpec], detail: str) -> str:
+    """Template explanation for a claim finding (never mentions a word list)."""
+    if rule is None:
+        return detail
+    return template_explanation(rule, detail)
+
+
 def build_messages(req: ExplainRequest, feedback: Optional[str] = None, previous_fix: Optional[str] = None) -> list[dict[str, str]]:
     r = req.rule
     lines = []
@@ -115,6 +157,8 @@ def build_messages(req: ExplainRequest, feedback: Optional[str] = None, previous
         if r.source_quote:
             lines.append(f"Guideline p.{r.page}: \"{r.source_quote}\"")
     lines.append(f"Why it was flagged: {req.problem}")
+    if req.claim_basis in CLAIM_BASIS_LINES:
+        lines.append(CLAIM_BASIS_LINES[req.claim_basis])
     lines.append(f"Channel: {req.channel}")
     if req.facts:
         lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
@@ -126,7 +170,7 @@ def build_messages(req: ExplainRequest, feedback: Optional[str] = None, previous
         lines.append("The excerpt to replace is the whole paragraph.")
     else:
         lines.append(f"The excerpt to replace:\n<content>{req.quote}</content>")
-    code = r.code if r else "the brand word list"
+    code = r.code if r else (CLAIM_SOURCE if req.claim_basis else "the brand word list")
     lines.append(
         "Reply with JSON: {\"explanation\": string, \"fix\": string or null}.\n"
         f"- explanation: one or two plain sentences (at most 280 characters) that name {code} and say why the excerpt breaks it.\n"
@@ -147,6 +191,7 @@ class RegionItem:
     category: str
     problem: str
     quote: str  # masked; the flagged words inside the region
+    claim_basis: Optional[str] = None  # claim findings: unverified|contradicted|expired (decided in code)
 
 
 @dataclass
@@ -186,10 +231,13 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
     lines = ["Problems found in the excerpt:"]
     for it in req.items:
         r = it.rule
-        head = f"{it.key}. Brand rule {r.code} ({r.severity}): {r.statement}" if r else f"{it.key}. The brand word list"
+        source = CLAIM_SOURCE[0].upper() + CLAIM_SOURCE[1:] if it.claim_basis else "The brand word list"
+        head = f"{it.key}. Brand rule {r.code} ({r.severity}): {r.statement}" if r else f"{it.key}. {source}"
         if r is not None and r.source_quote:
             head += f" Guideline p.{r.page}: \"{r.source_quote}\""
         lines.append(f"{head}\n   Flagged words: \"{it.quote}\"\n   Why: {it.problem}")
+        if it.claim_basis in CLAIM_BASIS_LINES:
+            lines.append(f"   {CLAIM_BASIS_LINES[it.claim_basis]}")
     lines.append(f"Channel: {req.channel}")
     if req.facts:
         lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
