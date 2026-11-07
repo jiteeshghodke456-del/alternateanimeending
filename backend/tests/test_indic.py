@@ -253,3 +253,12 @@ def test_marathi_promo_word_with_case_suffix() -> None:
     # Marathi attaches case endings: सवलतीत = "at a discount"; the promo trigger still fires
     assert [c for c, _ in hits("भारतातील फिल्टर कॉफी आता 20% सवलतीत.") if c == "R-CLAIM-04"]
     assert not [c for c, _ in hits("आमचे सेलिब्रेशन पुण्यात आहे.") if c == "R-CLAIM-04"]
+
+
+@pytest.mark.parametrize("fix", ["पुणे की सबसे अच्छी कॉफ़ी।", "भारतातील नंबर १ कॉफी.", "सर्वश्रेष्ठ स्वाद।", "Pune ki sabse best coffee."])
+def test_fix_with_indic_superlative_is_rejected(fix: str) -> None:
+    assert S.superlatives_in(fix)
+
+
+def test_plain_indic_fix_has_no_superlative() -> None:
+    assert S.superlatives_in("हमारी फ़िल्टर कॉफ़ी आ गई है। नंबर 12 पर कॉल करें।") == []

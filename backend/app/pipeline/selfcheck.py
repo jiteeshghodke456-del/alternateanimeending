@@ -47,6 +47,9 @@ SUPERLATIVES = [
     r"\bmost (loved|popular|trusted|awarded|famous|preferred)\b", r"\bbest[- ]selling\b", r"\bunbeatable\b",
     r"\bunmatched\b", r"\bunrivall?ed\b", r"\bultimate\b", r"\bworld[- ]class\b", r"\blike no other\b",
     r"\bsecond to none\b", r"\bever (taste|tasted|had|try|tried)\b",
+    # Hindi / Marathi / Hinglish (no \b: Python's \b breaks at Devanagari vowel signs)
+    r"नंबर\s?(?:1|१)(?![\d०-९])", r"नंबर\s?वन", r"नं\.?\s?(?:1|१)(?![\d०-९])", r"सर्वश्रेष्ठ", r"सर्वोत्तम", r"सर्वोत्कृष्ट", r"बेस्ट", r"बेहतरीन",
+    r"सबसे\s+(?:अच्छ|बढ़िया|बढ़िया|लोकप्रिय|पसंदीदा)", r"सर्वात\s+(?:चांगल|उत्तम|लोकप्रिय|आवडत)", r"\bsabse\s+(?:best|accha|achha|acha|badhiya)\b",
 ]
 
 

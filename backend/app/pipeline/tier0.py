@@ -586,7 +586,7 @@ _DEFAULT_SUPERLATIVES = [r"#\s?1\b", r"\bnumber (one|1)\b", r"\bbest\b", r"\bfin
 # Hindi / Marathi / Hinglish superlatives and guarantees (code defaults, like the English ones above).
 # "\b" is rewritten by _compile so it works inside Devanagari words.
 _INDIC_SUPERLATIVES = [
-    r"\bनंबर\s?(?:1|१|वन)\b", r"\bनं\.?\s?(?:1|१)\b", r"\bसर्वश्रेष्ठ\b", r"\bसर्वोत्तम\b", r"\bसर्वोत्कृष्ट\b",
+    r"\bनंबर\s?(?:1|१|वन)\b(?![\d०-९])", r"\bनं\.?\s?(?:1|१)\b", r"\bसर्वश्रेष्ठ\b", r"\bसर्वोत्तम\b", r"\bसर्वोत्कृष्ट\b",
     r"\bबेस्ट\b", r"\bबेहतरीन\b", r"\bगारंटी\b", r"\bगॅरंटी\b",
     r"\bसबसे\s+(?:अच्छ[ाीे]|बढ़िया|बढ़िया|बड़[ाीे]|बड़[ाीे]|सस्त[ाीे]|लोकप्रिय|पसंदीदा|ताज़[ाीे]|ताज[ाीे])",
     r"\bसर्वात\s+(?:चांगल[ाीे]|उत्तम|मोठ[ाीे]|स्वस्त|लोकप्रिय|आवडत[ाीे]|ताज[ाीे])",
