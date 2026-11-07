@@ -262,10 +262,27 @@ def pack_rows(session: Session, brand_id: int, pack_id: str) -> list[Rule]:
     return list(session.exec(select(Rule).where(Rule.brand_id == brand_id, Rule.pack_id == pack_id)).all())
 
 
-def regulations_for(session: Session, brand_id: Optional[int], rule_code: str) -> list[Rule]:
-    """Pack rules linked to a brand rule (see the module docstring)."""
+def regulation_applies(r: Rule, quote: str) -> bool:
+    """A linked regulation is cited on a brand-rule finding only when its own word list matches the flagged
+    words (a brand urgency rule that also flags "!!!" must not cite False Urgency for the "!!!")."""
+    p = r.params or {}
+    pats = p.get("patterns") if r.check_method == "tier0" else p.get("superlative_patterns")
+    if not pats:
+        return True
+    for pat in pats:
+        try:
+            if re.search(str(pat), quote or "", re.IGNORECASE):
+                return True
+        except re.error:
+            continue
+    return False
+
+
+def regulations_for(session: Session, brand_id: Optional[int], rule_code: str, quote: Optional[str] = None) -> list[Rule]:
+    """Pack rules linked to a brand rule (see the module docstring) that apply to the flagged words."""
     q = select(Rule).where(Rule.pack_id.is_not(None))  # type: ignore[union-attr]
     if brand_id is not None:
         q = q.where(Rule.brand_id == brand_id)
     return [r for r in session.exec(q.order_by(Rule.code)).all()
-            if rule_code in ((r.params or {}).get("linked_rules") or [])]
+            if rule_code in ((r.params or {}).get("linked_rules") or [])
+            and (quote is None or regulation_applies(r, quote))]

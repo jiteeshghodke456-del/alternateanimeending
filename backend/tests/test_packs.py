@@ -186,6 +186,9 @@ def test_apply_is_idempotent_links_brand_rules_and_remove_cleans_up(client: Test
     assert cit["clause"].startswith("Annexure 1 (1): False Urgency")
     assert "Dark Patterns, 2023" in cit["document"] and cit["url"].startswith("https://ccpa.doca.gov.in/")
     assert cit["retrieved"] == "2026-11-07"
+    # the same brand rule's "!!!" finding is not dressed up as False Urgency
+    bangs = [f for f in fs if f["rule_code"] == "R-CLAIM-03" and "only today" not in f["quote"].lower()]
+    assert bangs and all(f["regulations"] == [] for f in bangs), [(f["quote"], f["regulations"]) for f in bangs]
 
     st = next(p for p in client.get("/api/rules/packs").json() if p["id"] == "india_regulatory")
     assert st["applied"] is True and st["applied_count"] == 9 and st["applied_version"] == 1

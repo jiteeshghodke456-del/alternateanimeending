@@ -198,7 +198,7 @@ def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None)
             if r.pack_id is None:  # rule packs: regulations linked to this brand rule
                 from app.packs import regulations_for
 
-                regulations = [rule_ref_of(x) for x in regulations_for(session, brand_id if brand_id is not None else r.brand_id, r.code)]
+                regulations = [rule_ref_of(x) for x in regulations_for(session, brand_id if brand_id is not None else r.brand_id, r.code, f.quote)]
     if f.fact_code:
         q2 = select(Fact).where(Fact.code == f.fact_code)
         if brand_id is not None:

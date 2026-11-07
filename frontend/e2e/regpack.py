@@ -131,7 +131,7 @@ with sync_playwright() as p:
         cit = urg[0]["regulations"][0]["citation"]
         assert cit["clause"].startswith("Annexure 1 (1): False Urgency"), cit
         pg.goto(f"{a.base}/items/{S['item']}")
-        card = pg.locator("article").filter(has=pg.get_by_test_id("regulation-chip")).filter(has_text="False Urgency").first
+        card = pg.locator("article").filter(has=pg.get_by_test_id("regulation-chip")).filter(has_text=re.compile("only today", re.I)).first
         expect(card).to_be_visible(timeout=30000)
         expect(card).to_contain_text("Guidelines for Prevention and Regulation of Dark Patterns, 2023")
         link = card.get_by_role("link", name=re.compile("Official source"))
