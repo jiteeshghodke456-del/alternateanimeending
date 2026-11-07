@@ -1,1628 +1,1628 @@
 {
-  "run_at": "2026-11-07T21:03:46.940455Z",
-  "split": "all",
-  "jev": "jev-latest",
-  "metrics": {
-    "all": {
-      "flag": {
-        "precision": 0.941,
-        "recall": 1.0,
-        "f1": 0.97,
-        "tp": 16,
-        "n_pred": 17,
-        "n_true": 16
-      },
-      "shown": {
-        "precision": 0.976,
-        "recall": 1.0,
-        "f1": 0.988,
-        "tp": 40,
-        "n_pred": 41,
-        "n_true": 40
-      },
-      "band_accuracy": 0.957,
-      "first_party_flagged": 1,
-      "n_rows": 46,
-      "confusion": {
-        "flag->flag": 16,
-        "human->flag": 1,
-        "human->human": 23,
-        "none->human": 1,
-        "none->none": 5
-      }
-    },
-    "by_source": {
-      "swiggy_blog": {
-        "flag": {
-          "precision": 0.75,
-          "recall": 1.0,
-          "f1": 0.857,
-          "tp": 3,
-          "n_pred": 4,
-          "n_true": 3
-        },
-        "shown": {
-          "precision": 0.962,
-          "recall": 1.0,
-          "f1": 0.98,
-          "tp": 25,
-          "n_pred": 26,
-          "n_true": 25
-        },
-        "band_accuracy": 0.931,
-        "first_party_flagged": 1,
-        "n_rows": 29,
-        "confusion": {
-          "flag->flag": 3,
-          "human->flag": 1,
-          "human->human": 21,
-          "none->human": 1,
-          "none->none": 3
-        }
-      },
-      "synthetic": {
-        "flag": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "tp": 13,
-          "n_pred": 13,
-          "n_true": 13
-        },
-        "shown": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "tp": 15,
-          "n_pred": 15,
-          "n_true": 15
-        },
-        "band_accuracy": 1.0,
-        "first_party_flagged": 0,
-        "n_rows": 17,
-        "confusion": {
-          "flag->flag": 13,
-          "human->human": 2,
-          "none->none": 2
-        }
-      }
-    },
-    "by_split": {
-      "dev": {
-        "flag": {
-          "precision": 0.909,
-          "recall": 1.0,
-          "f1": 0.952,
-          "tp": 10,
-          "n_pred": 11,
-          "n_true": 10
-        },
-        "shown": {
-          "precision": 0.952,
-          "recall": 1.0,
-          "f1": 0.976,
-          "tp": 20,
-          "n_pred": 21,
-          "n_true": 20
-        },
-        "band_accuracy": 0.909,
-        "first_party_flagged": 1,
-        "n_rows": 22,
-        "confusion": {
-          "flag->flag": 10,
-          "human->flag": 1,
-          "human->human": 9,
-          "none->human": 1,
-          "none->none": 1
-        }
-      },
-      "test": {
-        "flag": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "tp": 6,
-          "n_pred": 6,
-          "n_true": 6
-        },
-        "shown": {
-          "precision": 1.0,
-          "recall": 1.0,
-          "f1": 1.0,
-          "tp": 20,
-          "n_pred": 20,
-          "n_true": 20
-        },
-        "band_accuracy": 1.0,
-        "first_party_flagged": 0,
-        "n_rows": 24,
-        "confusion": {
-          "flag->flag": 6,
-          "human->human": 14,
-          "none->none": 4
-        }
-      }
-    }
+ "run_at": "2026-11-07T21:03:46.940455Z",
+ "split": "all",
+ "jev": "jev-latest",
+ "metrics": {
+  "all": {
+   "flag": {
+    "precision": 0.941,
+    "recall": 1.0,
+    "f1": 0.97,
+    "tp": 16,
+    "n_pred": 17,
+    "n_true": 16
+   },
+   "shown": {
+    "precision": 0.976,
+    "recall": 1.0,
+    "f1": 0.988,
+    "tp": 40,
+    "n_pred": 41,
+    "n_true": 40
+   },
+   "band_accuracy": 0.957,
+   "first_party_flagged": 1,
+   "n_rows": 46,
+   "confusion": {
+    "flag->flag": 16,
+    "human->flag": 1,
+    "human->human": 23,
+    "none->human": 1,
+    "none->none": 5
+   }
   },
-  "jev_calls": 90,
-  "cost_usd": 0.002738,
-  "n_items": 45,
-  "errors": [
-    "C-010",
-    "C-014"
-  ],
-  "items": [
-    {
-      "id": "C-001",
-      "preds": [
-        {
-          "start": 32,
-          "end": 35,
-          "band": "human",
-          "quote": "368",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "368",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 476,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.94,
-          "p_record": 0.96,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
+  "by_source": {
+   "swiggy_blog": {
+    "flag": {
+     "precision": 0.75,
+     "recall": 1.0,
+     "f1": 0.857,
+     "tp": 3,
+     "n_pred": 4,
+     "n_true": 3
     },
-    {
-      "id": "C-002",
-      "preds": [
-        {
-          "start": 75,
-          "end": 176,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "none",
-          "span": "1,197",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "1,142",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "1,089",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "1,033",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 160,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "figures",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.98,
-          "p_record": 0.94,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
+    "shown": {
+     "precision": 0.962,
+     "recall": 1.0,
+     "f1": 0.98,
+     "tp": 25,
+     "n_pred": 26,
+     "n_true": 25
     },
-    {
-      "id": "C-003",
-      "preds": [
-        {
-          "start": 30,
-          "end": 31,
-          "band": "human",
-          "quote": "7",
-          "rule": null,
-          "p": null
-        },
-        {
-          "start": 37,
-          "end": 59,
-          "band": "human",
-          "quote": "11 AM and again from 4",
-          "rule": null,
-          "p": null
-        },
-        {
-          "start": 65,
-          "end": 66,
-          "band": "human",
-          "quote": "7",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "7 AM – 11 AM and again from 4 PM – 7 PM",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 433,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.93,
-          "p_record": 0.77,
-          "gated": "first_party"
-        },
-        {
-          "text": "11 AM and again from 4 PM",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.9,
-          "p_record": 0.76,
-          "gated": "first_party"
-        },
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.54,
-          "p_record": 0.79,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-004",
-      "preds": [
-        {
-          "start": 12,
-          "end": 83,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "[real-brand text not stored] minutes",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 98,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.95,
-          "p_record": 0.65,
-          "gated": "maybe_record"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-005",
-      "preds": [
-        {
-          "start": 56,
-          "end": 70,
-          "band": "human",
-          "quote": "1 in every 127",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "1 in every 127",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 97,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.9,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-006",
-      "preds": [
-        {
-          "start": 124,
-          "end": 126,
-          "band": "human",
-          "quote": "7x",
-          "rule": null,
-          "p": null
-        },
-        {
-          "start": 149,
-          "end": 150,
-          "band": "human",
-          "quote": "4",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "none",
-          "span": "10x",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "7x",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "4x",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 104,
-      "claims": [
-        {
-          "text": "Bhubaneswar rose 4x",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.97,
-          "p_record": 0.75,
-          "gated": "first_party"
-        },
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "jev",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.97,
-          "p_record": 0.66,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-007",
-      "preds": [
-        {
-          "start": 65,
-          "end": 67,
-          "band": "human",
-          "quote": "16",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "16x",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 101,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.94,
-          "p_record": 0.8,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-008",
-      "preds": [
-        {
-          "start": 53,
-          "end": 56,
-          "band": "human",
-          "quote": "666",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "666",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 84,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.71,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-009",
-      "preds": [
-        {
-          "start": 28,
-          "end": 33,
-          "band": "human",
-          "quote": "1,780",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "1,780",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 103,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.77,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-010",
-      "preds": [
-        {
-          "start": 0,
-          "end": 71,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "human",
-          "span": "[real-brand text not stored]",
-          "kind": "unlabelled"
-        }
-      ],
-      "latency_ms": 207,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.86,
-          "p_record": 0.66,
-          "gated": "maybe_record"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-011",
-      "preds": [
-        {
-          "start": 29,
-          "end": 131,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "12:05 PM",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "7:36 PM",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 98,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.95,
-          "p_record": 0.8,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-012",
-      "preds": [
-        {
-          "start": 48,
-          "end": 56,
-          "band": "human",
-          "quote": "4,36,153",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "₹4,36,153",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 149,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.93,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-013",
-      "preds": [
-        {
-          "start": 47,
-          "end": 51,
-          "band": "human",
-          "quote": "491%",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "+491%",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 118,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.97,
-          "p_record": 0.85,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-014",
-      "preds": [
-        {
-          "start": 40,
-          "end": 70,
-          "band": "flag",
-          "quote": "[real-brand text not stored]",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "flag",
-          "span": "[real-brand text not stored] cities",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 134,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.95,
-          "p_record": 0.26,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-015",
-      "preds": [
-        {
-          "start": 61,
-          "end": 64,
-          "band": "human",
-          "quote": "500",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "₹500 crores",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 113,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.96,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-016",
-      "preds": [
-        {
-          "start": 52,
-          "end": 77,
-          "band": "human",
-          "quote": "1,00,000 for just ₹7,000,",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "₹1,00,000 for just ₹7,000",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 125,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.96,
-          "p_record": 0.7,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-017",
-      "preds": [
-        {
-          "start": 48,
-          "end": 92,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "[real-brand text not stored] minutes",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 97,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.95,
-          "p_record": 0.78,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-018",
-      "preds": [
-        {
-          "start": 92,
-          "end": 94,
-          "band": "human",
-          "quote": "#1",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        },
-        {
-          "start": 125,
-          "end": 140,
-          "band": "human",
-          "quote": "9 of the top 10",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "#1 spot for late-night orders in 9 of the top 10",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 109,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.97,
-          "p_record": 0.66,
-          "gated": "maybe_record"
-        },
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.97,
-          "p_record": 0.68,
-          "gated": "maybe_record"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-019",
-      "preds": [
-        {
-          "start": 54,
-          "end": 80,
-          "band": "human",
-          "quote": "[real-brand text not stored]",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "400%",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 149,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.93,
-          "p_record": 0.94,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-020",
-      "preds": [
-        {
-          "start": 0,
-          "end": 78,
-          "band": "flag",
-          "quote": "[real-brand text not stored]",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "India’s leading quick commerce platform",
-          "kind": "comparative_or_superlative"
-        }
-      ],
-      "latency_ms": 176,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.94,
-          "p_record": 0.12,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-021",
-      "preds": [
-        {
-          "start": 316,
-          "end": 318,
-          "band": "flag",
-          "quote": "10",
-          "rule": "R-EVAL-NUM",
-          "p": 0.96
-        }
-      ],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "none",
-          "span": "125+",
-          "kind": "first_party_statistic"
-        },
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "in 10 minutes",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 96,
-      "claims": [
-        {
-          "text": "[real-brand text not stored]",
-          "status": "unsupported",
-          "via": "jev",
-          "kind": "service_promise",
-          "p_checkable": 0.93,
-          "p_record": 0.05,
-          "gated": null
-        },
-        {
-          "text": "[real-brand text not stored]",
-          "status": "supported",
-          "via": "jev",
-          "kind": "service_promise",
-          "p_checkable": 0.96,
-          "p_record": 0.13,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-022",
-      "preds": [
-        {
-          "start": 70,
-          "end": 72,
-          "band": "flag",
-          "quote": "10",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "within 10 minutes",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 105,
-      "claims": [
-        {
-          "text": "within 10 minutes!",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.93,
-          "p_record": 0.04,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-023",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 76,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-024",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 91,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-025",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 85,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-026",
-      "preds": [
-        {
-          "start": 0,
-          "end": 13,
-          "band": "flag",
-          "quote": "India's No. 1",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "India's No. 1",
-          "kind": "comparative_or_superlative"
-        }
-      ],
-      "latency_ms": 88,
-      "claims": [
-        {
-          "text": "India's No. 1 sunscreen brand, trusted by dermatologists.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.9,
-          "p_record": 0.07,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-027",
-      "preds": [
-        {
-          "start": 28,
-          "end": 30,
-          "band": "flag",
-          "quote": "30",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "30 minutes",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 127,
-      "claims": [
-        {
-          "text": "Get your order delivered in 30 minutes or it's free.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.94,
-          "p_record": 0.03,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-028",
-      "preds": [
-        {
-          "start": 5,
-          "end": 8,
-          "band": "flag",
-          "quote": "50%",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "50%",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 87,
-      "claims": [
-        {
-          "text": "Flat 50% off on all serums this weekend.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.93,
-          "p_record": 0.02,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-029",
-      "preds": [],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "none",
-          "span": "20 g",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 113,
-      "claims": [
-        {
-          "text": "Our protein bar packs 20 g of protein with no added sugar.",
-          "status": "supported",
-          "via": "jev",
-          "kind": "service_promise",
-          "p_checkable": 0.98,
-          "p_record": 0.03,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-030",
-      "preds": [
-        {
-          "start": 41,
-          "end": 49,
-          "band": "flag",
-          "quote": "40% in 8",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "40% in 8 weeks",
-          "kind": "health_or_safety"
-        }
-      ],
-      "latency_ms": 89,
-      "claims": [
-        {
-          "text": "Clinically proven to reduce hair fall by 40% in 8 weeks.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "health_or_safety",
-          "p_checkable": 0.97,
-          "p_record": 0.14,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-031",
-      "preds": [
-        {
-          "start": 5,
-          "end": 7,
-          "band": "human",
-          "quote": "10",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "10 lakh",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 135,
-      "claims": [
-        {
-          "text": "Over 10 lakh happy customers and counting!",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.89,
-          "p_record": 0.86,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-032",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 102,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-033",
-      "preds": [],
-      "rows": [
-        {
-          "expected": "none",
-          "predicted": "none",
-          "span": "4.5 stars by over 2,000",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 90,
-      "claims": [
-        {
-          "text": "Rated 4.5 stars by over 2,000 customers on our app.",
-          "status": "supported",
-          "via": "jev",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.97,
-          "p_record": 0.92,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-034",
-      "preds": [
-        {
-          "start": 0,
-          "end": 54,
-          "band": "flag",
-          "quote": "Boosts immunity and keeps your family safe from germs.",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "Boosts immunity",
-          "kind": "health_or_safety"
-        }
-      ],
-      "latency_ms": 180,
-      "claims": [
-        {
-          "text": "Boosts immunity and keeps your family safe from germs.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "health_or_safety",
-          "p_checkable": 0.79,
-          "p_record": 0.02,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-035",
-      "preds": [
-        {
-          "start": 3,
-          "end": 22,
-          "band": "flag",
-          "quote": "more hydration than",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        },
-        {
-          "start": 0,
-          "end": 1,
-          "band": "flag",
-          "quote": "3",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "3x more hydration than",
-          "kind": "comparative_or_superlative"
-        }
-      ],
-      "latency_ms": 140,
-      "claims": [
-        {
-          "text": "3x more hydration than ordinary moisturisers.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.93,
-          "p_record": 0.04,
-          "gated": null
-        },
-        {
-          "text": "3x more hydration than ordinary moisturisers.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.93,
-          "p_record": 0.04,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-036",
-      "preds": [
-        {
-          "start": 35,
-          "end": 38,
-          "band": "flag",
-          "quote": "499",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "₹499",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 98,
-      "claims": [
-        {
-          "text": "Free delivery on all orders above ₹499.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.96,
-          "p_record": 0.03,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-037",
-      "preds": [
-        {
-          "start": 11,
-          "end": 17,
-          "band": "human",
-          "quote": "12,000",
-          "rule": null,
-          "p": null
-        }
-      ],
-      "rows": [
-        {
-          "expected": "human",
-          "predicted": "human",
-          "span": "12,000",
-          "kind": "first_party_statistic"
-        }
-      ],
-      "latency_ms": 100,
-      "claims": [
-        {
-          "text": "We shipped 12,000 orders last Diwali, thank you for the love!",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "first_party_statistic",
-          "p_checkable": 0.96,
-          "p_record": 0.98,
-          "gated": "first_party"
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-038",
-      "preds": [
-        {
-          "start": 4,
-          "end": 8,
-          "band": "flag",
-          "quote": "best",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "best",
-          "kind": "comparative_or_superlative"
-        }
-      ],
-      "latency_ms": 79,
-      "claims": [
-        {
-          "text": "The best gift for your loved ones this festive season.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.09,
-          "p_record": 0.02,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-039",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 166,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-040",
-      "preds": [
-        {
-          "start": 25,
-          "end": 29,
-          "band": "flag",
-          "quote": "100%",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "100% organic cotton",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 101,
-      "claims": [
-        {
-          "text": "Our kurtas are made from 100% organic cotton.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.98,
-          "p_record": 0.07,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-041",
-      "preds": [
-        {
-          "start": 6,
-          "end": 22,
-          "band": "flag",
-          "quote": "70% off on 5,000",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "70%",
-          "kind": "service_promise"
-        },
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "5,000+",
-          "kind": "service_promise"
-        }
-      ],
-      "latency_ms": 107,
-      "claims": [
-        {
-          "text": "Up to 70% off on 5,000+ styles, sale ends Sunday!",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "service_promise",
-          "p_checkable": 0.95,
-          "p_record": 0.03,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-042",
-      "preds": [
-        {
-          "start": 0,
-          "end": 43,
-          "band": "flag",
-          "quote": "Faster than any other delivery app in Pune.",
-          "rule": "IN-ASCI-02",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "Faster than any other delivery app",
-          "kind": "comparative_or_superlative"
-        }
-      ],
-      "latency_ms": 145,
-      "claims": [
-        {
-          "text": "Faster than any other delivery app in Pune.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "comparative_or_superlative",
-          "p_checkable": 0.9,
-          "p_record": 0.05,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-043",
-      "preds": [
-        {
-          "start": 17,
-          "end": 22,
-          "band": "flag",
-          "quote": "99.9%",
-          "rule": "R-EVAL-NUM",
-          "p": 1.0
-        }
-      ],
-      "rows": [
-        {
-          "expected": "flag",
-          "predicted": "flag",
-          "span": "99.9%",
-          "kind": "health_or_safety"
-        }
-      ],
-      "latency_ms": 94,
-      "claims": [
-        {
-          "text": "Our baby wash is 99.9% free of harmful chemicals and safe for newborns.",
-          "status": "unsupported",
-          "via": "no_facts",
-          "kind": "health_or_safety",
-          "p_checkable": 0.94,
-          "p_record": 0.04,
-          "gated": null
-        }
-      ],
-      "warnings": []
-    },
-    {
-      "id": "C-044",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 82,
-      "claims": [],
-      "warnings": []
-    },
-    {
-      "id": "C-045",
-      "preds": [],
-      "rows": [],
-      "latency_ms": 114,
-      "claims": [],
-      "warnings": []
+    "band_accuracy": 0.931,
+    "first_party_flagged": 1,
+    "n_rows": 29,
+    "confusion": {
+     "flag->flag": 3,
+     "human->flag": 1,
+     "human->human": 21,
+     "none->human": 1,
+     "none->none": 3
     }
-  ]
+   },
+   "synthetic": {
+    "flag": {
+     "precision": 1.0,
+     "recall": 1.0,
+     "f1": 1.0,
+     "tp": 13,
+     "n_pred": 13,
+     "n_true": 13
+    },
+    "shown": {
+     "precision": 1.0,
+     "recall": 1.0,
+     "f1": 1.0,
+     "tp": 15,
+     "n_pred": 15,
+     "n_true": 15
+    },
+    "band_accuracy": 1.0,
+    "first_party_flagged": 0,
+    "n_rows": 17,
+    "confusion": {
+     "flag->flag": 13,
+     "human->human": 2,
+     "none->none": 2
+    }
+   }
+  },
+  "by_split": {
+   "dev": {
+    "flag": {
+     "precision": 0.909,
+     "recall": 1.0,
+     "f1": 0.952,
+     "tp": 10,
+     "n_pred": 11,
+     "n_true": 10
+    },
+    "shown": {
+     "precision": 0.952,
+     "recall": 1.0,
+     "f1": 0.976,
+     "tp": 20,
+     "n_pred": 21,
+     "n_true": 20
+    },
+    "band_accuracy": 0.909,
+    "first_party_flagged": 1,
+    "n_rows": 22,
+    "confusion": {
+     "flag->flag": 10,
+     "human->flag": 1,
+     "human->human": 9,
+     "none->human": 1,
+     "none->none": 1
+    }
+   },
+   "test": {
+    "flag": {
+     "precision": 1.0,
+     "recall": 1.0,
+     "f1": 1.0,
+     "tp": 6,
+     "n_pred": 6,
+     "n_true": 6
+    },
+    "shown": {
+     "precision": 1.0,
+     "recall": 1.0,
+     "f1": 1.0,
+     "tp": 20,
+     "n_pred": 20,
+     "n_true": 20
+    },
+    "band_accuracy": 1.0,
+    "first_party_flagged": 0,
+    "n_rows": 24,
+    "confusion": {
+     "flag->flag": 6,
+     "human->human": 14,
+     "none->none": 4
+    }
+   }
+  }
+ },
+ "jev_calls": 90,
+ "cost_usd": 0.002738,
+ "n_items": 45,
+ "errors": [
+  "C-010",
+  "C-014"
+ ],
+ "items": [
+  {
+   "id": "C-001",
+   "preds": [
+    {
+     "start": 32,
+     "end": 35,
+     "band": "human",
+     "quote": "368",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "368",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 476,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.94,
+     "p_record": 0.96,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-002",
+   "preds": [
+    {
+     "start": 75,
+     "end": 176,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "none",
+     "span": "1,197",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "1,142",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "1,089",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "1,033",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 160,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "figures",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.98,
+     "p_record": 0.94,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-003",
+   "preds": [
+    {
+     "start": 30,
+     "end": 31,
+     "band": "human",
+     "quote": "7",
+     "rule": null,
+     "p": null
+    },
+    {
+     "start": 37,
+     "end": 59,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    },
+    {
+     "start": 65,
+     "end": 66,
+     "band": "human",
+     "quote": "7",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "7 AM – 11 AM and again from 4 PM – 7 PM",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 433,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.93,
+     "p_record": 0.77,
+     "gated": "first_party"
+    },
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.9,
+     "p_record": 0.76,
+     "gated": "first_party"
+    },
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.54,
+     "p_record": 0.79,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-004",
+   "preds": [
+    {
+     "start": 12,
+     "end": 83,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "[real-brand text not stored] minutes",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 98,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.95,
+     "p_record": 0.65,
+     "gated": "maybe_record"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-005",
+   "preds": [
+    {
+     "start": 56,
+     "end": 70,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "1 in every 127",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 97,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.9,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-006",
+   "preds": [
+    {
+     "start": 124,
+     "end": 126,
+     "band": "human",
+     "quote": "7x",
+     "rule": null,
+     "p": null
+    },
+    {
+     "start": 149,
+     "end": 150,
+     "band": "human",
+     "quote": "4",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "none",
+     "span": "10x",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "7x",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "4x",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 104,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.97,
+     "p_record": 0.75,
+     "gated": "first_party"
+    },
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "jev",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.97,
+     "p_record": 0.66,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-007",
+   "preds": [
+    {
+     "start": 65,
+     "end": 67,
+     "band": "human",
+     "quote": "16",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "16x",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 101,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.94,
+     "p_record": 0.8,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-008",
+   "preds": [
+    {
+     "start": 53,
+     "end": 56,
+     "band": "human",
+     "quote": "666",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "666",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 84,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.71,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-009",
+   "preds": [
+    {
+     "start": 28,
+     "end": 33,
+     "band": "human",
+     "quote": "1,780",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "1,780",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 103,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.77,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-010",
+   "preds": [
+    {
+     "start": 0,
+     "end": 71,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "human",
+     "span": "[real-brand text not stored]",
+     "kind": "unlabelled"
+    }
+   ],
+   "latency_ms": 207,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.86,
+     "p_record": 0.66,
+     "gated": "maybe_record"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-011",
+   "preds": [
+    {
+     "start": 29,
+     "end": 131,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "12:05 PM",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "7:36 PM",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 98,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.95,
+     "p_record": 0.8,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-012",
+   "preds": [
+    {
+     "start": 48,
+     "end": 56,
+     "band": "human",
+     "quote": "4,36,153",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "₹4,36,153",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 149,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.93,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-013",
+   "preds": [
+    {
+     "start": 47,
+     "end": 51,
+     "band": "human",
+     "quote": "491%",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "+491%",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 118,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.97,
+     "p_record": 0.85,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-014",
+   "preds": [
+    {
+     "start": 40,
+     "end": 70,
+     "band": "flag",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "flag",
+     "span": "[real-brand text not stored] cities",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 134,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.95,
+     "p_record": 0.26,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-015",
+   "preds": [
+    {
+     "start": 61,
+     "end": 64,
+     "band": "human",
+     "quote": "500",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "₹500 crores",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 113,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.96,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-016",
+   "preds": [
+    {
+     "start": 52,
+     "end": 77,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "₹1,00,000 for just ₹7,000",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 125,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.96,
+     "p_record": 0.7,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-017",
+   "preds": [
+    {
+     "start": 48,
+     "end": 92,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "[real-brand text not stored] minutes",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 97,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.95,
+     "p_record": 0.78,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-018",
+   "preds": [
+    {
+     "start": 92,
+     "end": 94,
+     "band": "human",
+     "quote": "#1",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    },
+    {
+     "start": 125,
+     "end": 140,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "#1 spot for late-night orders in 9 of the top 10",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 109,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.97,
+     "p_record": 0.66,
+     "gated": "maybe_record"
+    },
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.97,
+     "p_record": 0.68,
+     "gated": "maybe_record"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-019",
+   "preds": [
+    {
+     "start": 54,
+     "end": 80,
+     "band": "human",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "400%",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 149,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.93,
+     "p_record": 0.94,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-020",
+   "preds": [
+    {
+     "start": 0,
+     "end": 78,
+     "band": "flag",
+     "quote": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "India’s leading quick commerce platform",
+     "kind": "comparative_or_superlative"
+    }
+   ],
+   "latency_ms": 176,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.94,
+     "p_record": 0.12,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-021",
+   "preds": [
+    {
+     "start": 316,
+     "end": 318,
+     "band": "flag",
+     "quote": "10",
+     "rule": "R-EVAL-NUM",
+     "p": 0.96
+    }
+   ],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "none",
+     "span": "125+",
+     "kind": "first_party_statistic"
+    },
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "in 10 minutes",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 96,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "jev",
+     "kind": "service_promise",
+     "p_checkable": 0.93,
+     "p_record": 0.05,
+     "gated": null
+    },
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "supported",
+     "via": "jev",
+     "kind": "service_promise",
+     "p_checkable": 0.96,
+     "p_record": 0.13,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-022",
+   "preds": [
+    {
+     "start": 70,
+     "end": 72,
+     "band": "flag",
+     "quote": "10",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "within 10 minutes",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 105,
+   "claims": [
+    {
+     "text": "[real-brand text not stored; see claims_dataset.jsonl ref]",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.93,
+     "p_record": 0.04,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-023",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 76,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-024",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 91,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-025",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 85,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-026",
+   "preds": [
+    {
+     "start": 0,
+     "end": 13,
+     "band": "flag",
+     "quote": "India's No. 1",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "India's No. 1",
+     "kind": "comparative_or_superlative"
+    }
+   ],
+   "latency_ms": 88,
+   "claims": [
+    {
+     "text": "India's No. 1 sunscreen brand, trusted by dermatologists.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.9,
+     "p_record": 0.07,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-027",
+   "preds": [
+    {
+     "start": 28,
+     "end": 30,
+     "band": "flag",
+     "quote": "30",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "30 minutes",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 127,
+   "claims": [
+    {
+     "text": "Get your order delivered in 30 minutes or it's free.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.94,
+     "p_record": 0.03,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-028",
+   "preds": [
+    {
+     "start": 5,
+     "end": 8,
+     "band": "flag",
+     "quote": "50%",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "50%",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 87,
+   "claims": [
+    {
+     "text": "Flat 50% off on all serums this weekend.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.93,
+     "p_record": 0.02,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-029",
+   "preds": [],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "none",
+     "span": "20 g",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 113,
+   "claims": [
+    {
+     "text": "Our protein bar packs 20 g of protein with no added sugar.",
+     "status": "supported",
+     "via": "jev",
+     "kind": "service_promise",
+     "p_checkable": 0.98,
+     "p_record": 0.03,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-030",
+   "preds": [
+    {
+     "start": 41,
+     "end": 49,
+     "band": "flag",
+     "quote": "40% in 8",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "40% in 8 weeks",
+     "kind": "health_or_safety"
+    }
+   ],
+   "latency_ms": 89,
+   "claims": [
+    {
+     "text": "Clinically proven to reduce hair fall by 40% in 8 weeks.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "health_or_safety",
+     "p_checkable": 0.97,
+     "p_record": 0.14,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-031",
+   "preds": [
+    {
+     "start": 5,
+     "end": 7,
+     "band": "human",
+     "quote": "10",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "10 lakh",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 135,
+   "claims": [
+    {
+     "text": "Over 10 lakh happy customers and counting!",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.89,
+     "p_record": 0.86,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-032",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 102,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-033",
+   "preds": [],
+   "rows": [
+    {
+     "expected": "none",
+     "predicted": "none",
+     "span": "4.5 stars by over 2,000",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 90,
+   "claims": [
+    {
+     "text": "Rated 4.5 stars by over 2,000 customers on our app.",
+     "status": "supported",
+     "via": "jev",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.97,
+     "p_record": 0.92,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-034",
+   "preds": [
+    {
+     "start": 0,
+     "end": 54,
+     "band": "flag",
+     "quote": "Boosts immunity and keeps your family safe from germs.",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "Boosts immunity",
+     "kind": "health_or_safety"
+    }
+   ],
+   "latency_ms": 180,
+   "claims": [
+    {
+     "text": "Boosts immunity and keeps your family safe from germs.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "health_or_safety",
+     "p_checkable": 0.79,
+     "p_record": 0.02,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-035",
+   "preds": [
+    {
+     "start": 3,
+     "end": 22,
+     "band": "flag",
+     "quote": "more hydration than",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    },
+    {
+     "start": 0,
+     "end": 1,
+     "band": "flag",
+     "quote": "3",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "3x more hydration than",
+     "kind": "comparative_or_superlative"
+    }
+   ],
+   "latency_ms": 140,
+   "claims": [
+    {
+     "text": "3x more hydration than ordinary moisturisers.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.93,
+     "p_record": 0.04,
+     "gated": null
+    },
+    {
+     "text": "3x more hydration than ordinary moisturisers.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.93,
+     "p_record": 0.04,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-036",
+   "preds": [
+    {
+     "start": 35,
+     "end": 38,
+     "band": "flag",
+     "quote": "499",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "₹499",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 98,
+   "claims": [
+    {
+     "text": "Free delivery on all orders above ₹499.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.96,
+     "p_record": 0.03,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-037",
+   "preds": [
+    {
+     "start": 11,
+     "end": 17,
+     "band": "human",
+     "quote": "12,000",
+     "rule": null,
+     "p": null
+    }
+   ],
+   "rows": [
+    {
+     "expected": "human",
+     "predicted": "human",
+     "span": "12,000",
+     "kind": "first_party_statistic"
+    }
+   ],
+   "latency_ms": 100,
+   "claims": [
+    {
+     "text": "We shipped 12,000 orders last Diwali, thank you for the love!",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "first_party_statistic",
+     "p_checkable": 0.96,
+     "p_record": 0.98,
+     "gated": "first_party"
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-038",
+   "preds": [
+    {
+     "start": 4,
+     "end": 8,
+     "band": "flag",
+     "quote": "best",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "best",
+     "kind": "comparative_or_superlative"
+    }
+   ],
+   "latency_ms": 79,
+   "claims": [
+    {
+     "text": "The best gift for your loved ones this festive season.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.09,
+     "p_record": 0.02,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-039",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 166,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-040",
+   "preds": [
+    {
+     "start": 25,
+     "end": 29,
+     "band": "flag",
+     "quote": "100%",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "100% organic cotton",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 101,
+   "claims": [
+    {
+     "text": "Our kurtas are made from 100% organic cotton.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.98,
+     "p_record": 0.07,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-041",
+   "preds": [
+    {
+     "start": 6,
+     "end": 22,
+     "band": "flag",
+     "quote": "70% off on 5,000",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "70%",
+     "kind": "service_promise"
+    },
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "5,000+",
+     "kind": "service_promise"
+    }
+   ],
+   "latency_ms": 107,
+   "claims": [
+    {
+     "text": "Up to 70% off on 5,000+ styles, sale ends Sunday!",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "service_promise",
+     "p_checkable": 0.95,
+     "p_record": 0.03,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-042",
+   "preds": [
+    {
+     "start": 0,
+     "end": 43,
+     "band": "flag",
+     "quote": "Faster than any other delivery app in Pune.",
+     "rule": "IN-ASCI-02",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "Faster than any other delivery app",
+     "kind": "comparative_or_superlative"
+    }
+   ],
+   "latency_ms": 145,
+   "claims": [
+    {
+     "text": "Faster than any other delivery app in Pune.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "comparative_or_superlative",
+     "p_checkable": 0.9,
+     "p_record": 0.05,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-043",
+   "preds": [
+    {
+     "start": 17,
+     "end": 22,
+     "band": "flag",
+     "quote": "99.9%",
+     "rule": "R-EVAL-NUM",
+     "p": 1.0
+    }
+   ],
+   "rows": [
+    {
+     "expected": "flag",
+     "predicted": "flag",
+     "span": "99.9%",
+     "kind": "health_or_safety"
+    }
+   ],
+   "latency_ms": 94,
+   "claims": [
+    {
+     "text": "Our baby wash is 99.9% free of harmful chemicals and safe for newborns.",
+     "status": "unsupported",
+     "via": "no_facts",
+     "kind": "health_or_safety",
+     "p_checkable": 0.94,
+     "p_record": 0.04,
+     "gated": null
+    }
+   ],
+   "warnings": []
+  },
+  {
+   "id": "C-044",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 82,
+   "claims": [],
+   "warnings": []
+  },
+  {
+   "id": "C-045",
+   "preds": [],
+   "rows": [],
+   "latency_ms": 114,
+   "claims": [],
+   "warnings": []
+  }
+ ]
 }

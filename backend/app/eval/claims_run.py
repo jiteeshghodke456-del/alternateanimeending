@@ -4,7 +4,7 @@
     python -m app.eval.claims_run --no-jev         # code-only (what a confidential item gets)
     python -m app.eval.claims_run --tag before     # writes results/claims-before.json
 
-Dataset: app/eval/claims_dataset.jsonl (see claims_README.md). Each label is a span in the text with the band a
+Dataset: app/eval/claims_dataset.jsonl (see claims_README.md; real-brand rows are fetched by reference: set WEBFETCH_PROXY in a sandbox). Each label is a span in the text with the band a
 reviewer expects for that claim: flag (a rule asks for evidence and none matches), human (a reminder to verify a
 figure), none (no claim finding: opinion, not a claim, or covered by an approved fact).
 
@@ -21,6 +21,7 @@ shown) and band accuracy.
 from __future__ import annotations
 
 import argparse
+import sys
 import asyncio
 import csv
 import json
@@ -47,9 +48,51 @@ EVAL_NUMBER_RULE = {
 }
 
 
-def load_rows(split: str = "all", path: Path = DATASET) -> list[dict]:
+CACHE = APP_DIR / "eval" / ".cache"
+
+
+def _page_text(url: str) -> str:
+    """Text of a third-party page as the Web page source extracts it (fetched once, cached outside git)."""
+    import hashlib
+
+    CACHE.mkdir(exist_ok=True)
+    f = CACHE / (hashlib.sha1(url.encode()).hexdigest() + ".txt")
+    if not f.exists():
+        from app.pipeline import webfetch, webpage
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(1) as ex:  # may be called from inside a running event loop (evaluate)
+            html = ex.submit(lambda: asyncio.run(webfetch.fetch_page(url))).result().html
+        f.write_text(webpage.to_units(webpage.parse_page(html, url), max_chars=200_000, max_blocks=500).text, encoding="utf-8")
+    return f.read_text(encoding="utf-8")
+
+
+def resolve(row: dict) -> Optional[dict]:
+    """Rows from a real brand's page don't store its text (it belongs to the brand): `ref` points at a span of the
+    page as fetched now. If the page changed (sha1 mismatch) the row is skipped rather than scored on other text."""
+    ref = row.get("ref")
+    if row.get("text") or not ref:
+        return row
+    import hashlib
+
+    try:
+        text = _page_text(ref["url"])[ref["start"]:ref["end"]]
+    except Exception as exc:  # noqa: BLE001  (offline, blocked, changed site)
+        print(f"skip {row['id']}: page unavailable ({type(exc).__name__})", file=sys.stderr)
+        return None
+    if hashlib.sha1(text.encode()).hexdigest() != ref["sha1"]:
+        print(f"skip {row['id']}: the page changed since it was labelled", file=sys.stderr)
+        return None
+    return {**row, "text": text}
+
+
+def load_rows(split: str = "all", path: Path = DATASET, *, resolve_refs: bool = True) -> list[dict]:
     rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
-    return [r for r in rows if split == "all" or r.get("split") == split]
+    rows = [r for r in rows if split == "all" or r.get("split") == split]
+    if not resolve_refs:
+        return rows
+    return [x for x in (resolve(r) for r in rows) if x is not None]
 
 
 def load_facts(path: Path = FACTS) -> list[Any]:
@@ -134,7 +177,8 @@ async def evaluate(split: str = "all", *, use_jev: Optional[bool] = None, limit:
     from app.pipeline.context import CheckContext, UnitIn
     from app.pipeline.units import split_text
 
-    rows_in = [r for r in load_rows(split) if not ids or r["id"] in ids][: limit or None]
+    picked = [r for r in load_rows(split, resolve_refs=False) if not ids or r["id"] in ids][: limit or None]
+    rows_in = [x for x in (resolve(r) for r in picked) if x is not None]
     facts = {f.code: f for f in load_facts()}
     base = CheckContext(channel="website", rules=eval_rules(), today=TODAY)
     calls = jev.CallLog()

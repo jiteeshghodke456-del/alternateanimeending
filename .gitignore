@@ -42,3 +42,4 @@ env.txt
 
 # full-size UI screenshots are generated locally, not committed
 frontend/screenshots/
+backend/app/eval/.cache/

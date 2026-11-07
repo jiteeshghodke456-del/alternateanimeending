@@ -8,7 +8,7 @@ band a reviewer would expect. Runner: `python -m app.eval.claims_run` (see its d
 (`labelled_by: "draft-ai"`) before the gate was built, and not changed after seeing results.
 
 ## Sources
-- `source: "swiggy_blog"` (25 items): sentences copied verbatim from Swiggy Instamart's public blog post
+- `source: "swiggy_blog"` (25 items): sentences from Swiggy Instamart's public blog post, stored only as a reference (URL, character span and sha1 of the page as the Web page source extracts it) and fetched at run time
   "How India Instamarted 2025" (a brand's own year-in-review), extracted from the saved HTML with Python. Used only
   as test input; the text belongs to Swiggy.
 - `source: "synthetic"` (20 items): sentences written for this set to mimic typical Indian D2C ads (sunscreen,
