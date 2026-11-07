@@ -1,0 +1,350 @@
+{
+  "id": "india_regulatory",
+  "version": 1,
+  "name": "India regulatory pack",
+  "description": "Checks for Indian advertising law and self-regulation: the CCPA dark-patterns and misleading-advertisement guidelines, the ASCI Code and ASCI's influencer guidelines. Each rule cites the clause it comes from. These are checks, not legal advice: a person still decides.",
+  "retrieved": "2026-11-07",
+  "sources": [
+    {
+      "id": "ccpa_dark_patterns_2023",
+      "title": "Guidelines for Prevention and Regulation of Dark Patterns, 2023",
+      "short": "CCPA Dark Patterns Guidelines, 2023",
+      "issuer": "Central Consumer Protection Authority (CCPA), Government of India",
+      "year": 2023,
+      "status": "In force since 30 Nov 2023 (Gazette of India, Extraordinary, Part III, Sec. 4, No. 783; F. No. CCPA-1/1/2023-CCPA (Reg))",
+      "url": "https://ccpa.doca.gov.in/files/The%20Guidelines%20for%20Prevention%20and%20Regulation%20of%20Dark%20Patterns,%202023_1732707717.pdf",
+      "retrieved": "2026-11-07"
+    },
+    {
+      "id": "ccpa_misleading_ads_2022",
+      "title": "Guidelines for Prevention of Misleading Advertisements and Endorsements for Misleading Advertisements, 2022",
+      "short": "CCPA Misleading Advertisements Guidelines, 2022",
+      "issuer": "Central Consumer Protection Authority (CCPA), Government of India",
+      "year": 2022,
+      "status": "In force since 9 Jun 2022 (F. No. J-25/4/2020-CCPA (Reg))",
+      "url": "https://ccpa.doca.gov.in/files/CCPA_Notification.pdf",
+      "retrieved": "2026-11-07"
+    },
+    {
+      "id": "cpa_2019",
+      "title": "The Consumer Protection Act, 2019 (35 of 2019)",
+      "short": "Consumer Protection Act, 2019",
+      "issuer": "Parliament of India (Department of Consumer Affairs copy)",
+      "year": 2019,
+      "status": "In force",
+      "url": "https://consumeraffairs.gov.in/public/upload/files/CP%20Act%202019_1732700731.pdf",
+      "retrieved": "2026-11-07"
+    },
+    {
+      "id": "asci_code",
+      "title": "The Code for Self-Regulation of Advertising Content in India (ASCI Code), Chapter I: Truthful and Honest Representation",
+      "short": "ASCI Code, Chapter I",
+      "issuer": "Advertising Standards Council of India (ASCI), self-regulatory",
+      "year": 2025,
+      "status": "Self-regulatory code (codes and guidelines book; clause 1.8 dated 10 Jul 2025)",
+      "url": "https://www.ascionline.in/wp-content/uploads/guidelines/ASCI_Codes_Guidelines_Book.pdf",
+      "retrieved": "2026-11-07"
+    },
+    {
+      "id": "asci_influencer",
+      "title": "ASCI Guidelines for Influencer Advertising in Digital Media",
+      "short": "ASCI Influencer Guidelines",
+      "issuer": "Advertising Standards Council of India (ASCI), self-regulatory",
+      "year": 2021,
+      "status": "Self-regulatory guidelines (issued 27 May 2021; addenda 2021 and 2023)",
+      "url": "https://www.ascionline.in/social/wp-content/uploads/2025/04/ASCI-Influencer-Guidelines.pdf",
+      "retrieved": "2026-11-07"
+    },
+    {
+      "id": "it_rules_sgi_2026",
+      "title": "Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021, as amended on 10 Feb 2026 (synthetically generated information)",
+      "short": "IT Rules 2021, 2026 amendment on synthetic media",
+      "issuer": "Ministry of Electronics and Information Technology (MeitY), Government of India",
+      "year": 2026,
+      "status": "Notified 10 Feb 2026 (MeitY consolidated text 'updated as on 10.02.2026'). The labelling duty falls on intermediaries; a further amendment proposed in Apr 2026 is a draft only.",
+      "url": "https://www.meity.gov.in/static/uploads/2026/02/550681ab908f8afb135b0ad42816a1c9.pdf",
+      "retrieved": "2026-11-07"
+    }
+  ],
+  "rules": [
+    {
+      "code": "IN-CCPA-01",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "tier0",
+      "statement": "Don't create a false sense of urgency or scarcity (\"only today\", \"last few left\", countdowns) unless it is true and you can show it.",
+      "citation": {
+        "source": "ccpa_dark_patterns_2023",
+        "clause": "Annexure 1 (1): False Urgency",
+        "quote": "falsely stating or implying the sense of urgency or scarcity"
+      },
+      "params": {
+        "case_insensitive": true,
+        "patterns": [
+          "\\bonly today\\b",
+          "\\btoday only\\b",
+          "\\bhurry\\b",
+          "\\blast chance\\b",
+          "\\bact now\\b",
+          "\\bends (?:today|tonight|soon|at midnight)\\b",
+          "\\boffer ends\\b",
+          "\\bending soon\\b",
+          "\\b(?:only|just) \\d+ (?:left|remaining|pieces left|units left|seats left)\\b",
+          "\\blast few (?:left|pieces|units|seats|packs|bags)\\b",
+          "\\bselling fast\\b",
+          "\\balmost gone\\b",
+          "\\bbefore (?:it'?s|they'?re) gone\\b",
+          "\\bbefore stocks? runs? out\\b",
+          "\\blimited time only\\b",
+          "\\b\\d+ (?:people|others|customers) (?:are )?(?:viewing|looking at|buying) (?:this|it)\\b",
+          "\\bsirf aaj\\b",
+          "\\bkewal aaj\\b",
+          "\\baaj hi\\b",
+          "\\bjaldi (?:karo|karein|kijiye|kare)\\b",
+          "\\baakhri mauka\\b",
+          "\\bstock khatam\\b",
+          "सिर्फ़? आज",
+          "केवल आज",
+          "आज ही",
+          "जल्दी करें",
+          "जल्दी करो",
+          "जल्दी कीजिए",
+          "आखिरी मौका",
+          "आख़िरी मौका",
+          "सीमित समय",
+          "स्टॉक ख़?त्म"
+        ]
+      },
+      "examples_violating": [
+        "Only today: 20% off every cold brew.",
+        "Hurry, only 3 left at this price.",
+        "Sirf aaj! Flat 30% off on filter coffee.",
+        "आज ही ऑर्डर करें, स्टॉक खत्म होने वाला है।"
+      ],
+      "examples_ok": [
+        "Our festive box is available until 31 October.",
+        "The new roast is here whenever you are ready."
+      ]
+    },
+    {
+      "code": "IN-CCPA-02",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "tier0",
+      "statement": "Show the full price upfront. Don't hint at fees or charges that are added later without saying what they are.",
+      "citation": {
+        "source": "ccpa_dark_patterns_2023",
+        "clause": "Annexure 1 (8)(i): Drip Pricing",
+        "quote": "elements of prices are not revealed upfront"
+      },
+      "params": {
+        "case_insensitive": true,
+        "patterns": [
+          "\\b(?:extra|additional|other|hidden) (?:charges|fees|costs) (?:may )?apply\\b",
+          "\\b(?:charges|fees) (?:extra|additional|as applicable)\\b",
+          "\\bplus (?:applicable )?(?:fees|charges|convenience fee|platform fee|handling fee)\\b",
+          "\\b(?:convenience|platform|handling|service|packing) (?:fee|charge)s? extra\\b",
+          "\\bexcl(?:uding|\\.)? (?:all )?(?:fees|charges)\\b",
+          "\\bcharges? (?:will be )?added at checkout\\b"
+        ]
+      },
+      "examples_violating": [
+        "Rs 199 per cup, platform fee extra.",
+        "Tickets at Rs 499, extra charges apply."
+      ],
+      "examples_ok": [
+        "Rs 199 per cup, incl. taxes and delivery.",
+        "Rs 499 per ticket plus a Rs 30 booking fee (Rs 529 in total)."
+      ]
+    },
+    {
+      "code": "IN-CCPA-03",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "jev",
+      "statement": "Don't shame, mock or guilt readers who say no or don't buy (confirm shaming).",
+      "citation": {
+        "source": "ccpa_dark_patterns_2023",
+        "clause": "Annexure 1 (3): Confirm Shaming",
+        "quote": "create a sense of fear or shame or ridicule or guilt"
+      },
+      "params": {},
+      "examples_violating": [
+        "No thanks, I don't care about fresh coffee.",
+        "You would be silly to skip this."
+      ],
+      "examples_ok": [
+        "Not today? No problem, we roast again on Friday.",
+        "Maybe later"
+      ]
+    },
+    {
+      "code": "IN-CCPA-04",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "jev",
+      "statement": "Don't ask for card details or an auto-debit (e.g. UPI AutoPay) just to start a free trial or free subscription (subscription trap).",
+      "citation": {
+        "source": "ccpa_dark_patterns_2023",
+        "clause": "Annexure 1 (5)(iii): Subscription Trap",
+        "quote": "forcing a user to provide payment details or authorization for auto debits for availing a free subscription"
+      },
+      "params": {},
+      "examples_violating": [
+        "Start your free 7-day coffee club trial. Add your card to begin.",
+        "Free first month! Set up UPI AutoPay to activate."
+      ],
+      "examples_ok": [
+        "Try the coffee club free for 7 days. No card needed.",
+        "Join the coffee club for Rs 499 a month. Cancel any time from your account page."
+      ]
+    },
+    {
+      "code": "IN-CCPA-05",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "jev",
+      "statement": "Don't dress an ad up as news, an independent review or a customer's own post; say clearly that it is an ad (disguised advertisement).",
+      "citation": {
+        "source": "ccpa_dark_patterns_2023",
+        "clause": "Annexure 1 (9): Disguised Advertisement",
+        "quote": "posing, masking advertisements as other types of content"
+      },
+      "also_cites": [
+        {
+          "source": "asci_code",
+          "clause": "Chapter I, 1.8 (ads on media handles must be clearly identifiable)"
+        },
+        {
+          "source": "cpa_2019",
+          "clause": "Section 2(28): misleading advertisement"
+        }
+      ],
+      "params": {},
+      "examples_violating": [
+        "BREAKING: Pune's coffee lovers can't stop talking about this new roast. Order yours at saffronsteam.in.",
+        "Honest review from a regular customer (not sponsored): this is the only coffee I buy now."
+      ],
+      "examples_ok": [
+        "Ad: Our new monsoon roast is out. Order at saffronsteam.in.",
+        "We roast every Tuesday and Friday, so your bag is always fresh."
+      ]
+    },
+    {
+      "code": "IN-CCPA-06",
+      "category": "legal",
+      "severity": "blocking",
+      "check_method": "jev",
+      "statement": "Don't call something free if the reader must pay, buy something else or pay a fee to get it.",
+      "citation": {
+        "source": "ccpa_misleading_ads_2022",
+        "clause": "Guideline 7(a): Free claims advertisements",
+        "quote": "not describe any goods, product or service to be 'free'"
+      },
+      "also_cites": [
+        {
+          "source": "ccpa_dark_patterns_2023",
+          "clause": "Annexure 1 (8)(iii): Drip Pricing (advertised as free)"
+        },
+        {
+          "source": "asci_code",
+          "clause": "Chapter I, 1.4(a)"
+        }
+      ],
+      "params": {},
+      "examples_violating": [
+        "Free mug with every order! Just pay Rs 99 packing and handling.",
+        "Get a free tasting kit. Rs 149 handling fee applies."
+      ],
+      "examples_ok": [
+        "Free mug with any coffee bag (delivery charges as usual).",
+        "Free tasting at our Koregaon Park cafe this Sunday, no purchase needed."
+      ]
+    },
+    {
+      "code": "IN-ASCI-01",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "jev",
+      "statement": "A creator's or partner's paid, gifted or affiliate post must carry a clear label (Ad, Sponsored, Collaboration, Partnership, Free gift, Affiliate) at the start, not hidden at the end or among hashtags.",
+      "citation": {
+        "source": "asci_influencer",
+        "clause": "Guideline 1, 1.2 and 1.3: Disclosure (upfront and prominent; permitted labels)",
+        "quote": "Disclosure should not be buried in a group of hashtags or links"
+      },
+      "params": {
+        "channels": [
+          "instagram",
+          "linkedin"
+        ]
+      },
+      "examples_violating": [
+        "Loving my morning brew from @saffronsteam, use my code PRIYA10! #coffee #pune #mornings #ad",
+        "Thanks @saffronsteam for the gift box, my new favourite roast! #coffeelover #gifted"
+      ],
+      "examples_ok": [
+        "#Ad Loving my morning brew from @saffronsteam, use my code PRIYA10!",
+        "Our new roast is out today. Come taste it at the cafe."
+      ]
+    },
+    {
+      "code": "IN-ASCI-02",
+      "category": "claims",
+      "severity": "major",
+      "check_method": "claim",
+      "statement": "\"Best\", \"No. 1\" and other ranking or comparison claims must be backed by evidence you can produce (an approved fact).",
+      "citation": {
+        "source": "asci_code",
+        "clause": "Chapter I, 1.1: Truthful and honest representation",
+        "quote": "should be capable of substantiation"
+      },
+      "params": {
+        "superlative_patterns": [
+          "#\\s?1\\b",
+          "\\bnumber (?:one|1)\\b",
+          "\\bno\\.? ?1\\b",
+          "\\bbest\\b",
+          "\\bfinest\\b",
+          "\\bmost (?:loved|popular|trusted)\\b",
+          "\\bindia'?s (?:best|favou?rite|top|no\\.? ?1|#\\s?1)\\b",
+          "\\bworld'?s (?:best|finest|top)\\b"
+        ]
+      },
+      "examples_violating": [
+        "India's No. 1 filter coffee.",
+        "The best cold brew in Pune."
+      ],
+      "examples_ok": [
+        "Rated 4.6 by 1,200 customers on our app (Oct 2026).",
+        "A smooth, chocolatey cold brew."
+      ]
+    },
+    {
+      "code": "IN-ASCI-03",
+      "category": "legal",
+      "severity": "major",
+      "check_method": "jev",
+      "statement": "When a post shows a virtual influencer, an AI avatar or an AI-made realistic person or voice, it must say clearly that they are not real (e.g. \"AI-generated\", \"virtual influencer\").",
+      "citation": {
+        "source": "asci_influencer",
+        "clause": "Guideline 1.4: Virtual influencers",
+        "quote": "must additionally disclose to consumers that they are not interacting with a real human being"
+      },
+      "also_cites": [
+        {
+          "source": "it_rules_sgi_2026",
+          "clause": "Rules 2(1)(wa) and 3(3)(a)(ii): label for synthetically generated information (a platform duty)"
+        }
+      ],
+      "params": {},
+      "examples_violating": [
+        "Meet Aanya, our new brand ambassador (we created her with AI)! She tried the monsoon roast and loved it.",
+        "Our AI avatar Kabir answers your DMs personally every evening, just like a real barista."
+      ],
+      "examples_ok": [
+        "Meet Aanya, our AI-generated virtual barista. She isn't a real person.",
+        "Photo of our real cafe team, Koregaon Park."
+      ]
+    }
+  ]
+}
