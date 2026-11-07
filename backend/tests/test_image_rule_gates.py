@@ -45,9 +45,15 @@ def test_type_rule_passes_on_a_logo_only_image(monkeypatch):  # noqa: ANN001
     from fakes import FakeJev, install
 
     logo = str(Path(__file__).resolve().parents[1] / "app" / "seed" / "logo.png")
-    rule = _r("Headlines are set in Gilroy Bold, in sentence case.")
+    rule = _r("Headlines are written in sentence case.")  # a named typeface is not judged from pixels at all
     for copy, want in ((0.02, []), (0.98, ["R-X"])):
         install(monkeypatch, FakeJev(rules={"R-X": 0.84, "has_copy": copy, "has_text": 0.99}))
         ctx = CheckContext(channel="instagram", rules=[rule], version_kind="image")
         res = asyncio.run(E.analyze([UnitIn(id=1, kind="image", idx=0, image_path=logo)], ctx, calls=CallLog(), use_llm=False))
         assert [d.rule_code for d in res.findings] == want
+
+
+def test_named_typeface_rules_are_not_judged_from_pixels():
+    assert not Q.image_checkable(_r("Set subheads in Gilroy Medium."))
+    assert not Q.image_checkable(_r("Set headlines in Gilroy Extrabold."))
+    assert Q.image_checkable(_r("Use sentence case for headlines, subheads, and body."))

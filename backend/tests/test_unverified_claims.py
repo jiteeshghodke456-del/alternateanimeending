@@ -29,3 +29,12 @@ def test_number_without_any_evidence_rule_is_a_reminder_not_a_flag():
 def test_brand_rule_requiring_facts_still_flags():
     ds = _claims(seed_rules())  # the demo brand's R-CLAIM-02: every number must match an approved fact
     assert any(d.rule_code and d.band in ("flag", "human") and d.severity != "minor" for d in ds)
+
+
+def test_several_unverified_figures_in_one_paragraph_become_one_reminder():
+    text = "In 2025 we sold 4 packets of milk a second. We filled 26,000 pools. We shipped 368 orders of curry leaves."
+    ctx = CheckContext(channel="website", rules=[], post_text=text, confidential=True)
+    res = asyncio.run(E.analyze(text_units(text), ctx, calls=CallLog()))
+    rem = [d for d in res.findings if d.tier == "claim"]
+    assert len(rem) == 1 and rem[0].band == "human" and rem[0].fix is None
+    assert "figures in this paragraph" in rem[0].explanation and "doesn't make them wrong" in rem[0].explanation

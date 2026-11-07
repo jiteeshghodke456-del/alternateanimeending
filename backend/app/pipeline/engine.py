@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import replace, dataclass, field
 from typing import Any, Awaitable, Callable, Optional
 
 from app.pipeline import claims as C
@@ -669,7 +669,39 @@ class _Run:
         extra = self.post_level_drafts()
         await asyncio.gather(*[self.unit_emit(u, ds + extra.get(u.idx, [])) for u, ds in zip(self.units, drafts)])
 
+    @staticmethod
+    def is_reminder(d: FindingDraft) -> bool:
+        """An unverified figure no rule asks evidence for (see from_claim): confirmed by a person, never rewritten."""
+        return d.tier == "claim" and d.local_only and d.rule_code is None and d.claim_status == "unsupported"
+
+    def group_reminders(self, u: UnitIn, drafts: list[FindingDraft]) -> list[FindingDraft]:
+        """Several unverified figures in one paragraph become ONE reminder that lists them (real-brand test: a blog
+        post gave 46 separate "not in your facts yet" cards across 31 paragraphs)."""
+        rem = [d for d in drafts if self.is_reminder(d) and d.band != "pass" and d.local_start is not None and d.local_end is not None]
+        if len(rem) < 2 or not u.is_text:
+            return drafts
+        rem.sort(key=lambda d: d.local_start or 0)
+        figs: list[str] = []
+        for d in rem:
+            q = (u.text[d.hit_start - u.char_start:d.hit_end - u.char_start]
+                 if d.hit_start is not None and d.hit_end is not None and u.char_start is not None else d.quote).strip()
+            if q and q not in figs:
+                figs.append(q)
+        g = replace(rem[0])
+        g.local_start, g.local_end = min(d.local_start for d in rem), max(d.local_end for d in rem)  # type: ignore[type-var]
+        g.quote = u.text[g.local_start:g.local_end]
+        if u.char_start is not None:
+            g.span_start, g.span_end = u.char_start + g.local_start, u.char_start + g.local_end
+        g.hit_start = g.hit_end = None
+        shown = ", ".join(f"\u201c{x[:40]}\u201d" for x in figs[:6]) + (f" and {len(figs) - 6} more" if len(figs) > 6 else "")
+        g.detail = g.problem = g.explanation = (
+            f"{len(figs)} figures in this paragraph aren't in your approved facts yet ({shown}), so they couldn't be "
+            "verified. That doesn't make them wrong. Add the correct ones as facts with their source and they will pass "
+            "here and in later posts; edit any that aren't right.")
+        return [d for d in drafts if d not in rem] + [g]
+
     async def unit_emit(self, u: UnitIn, drafts: list[FindingDraft]) -> None:
+        drafts = self.group_reminders(u, drafts)
         await self.on_progress("explain", self.res)
         await asyncio.gather(*[self.emit(g[0]) if span is None else self.emit_region(u, span, g)
                                for span, g in self.plan_regions(u, drafts)])

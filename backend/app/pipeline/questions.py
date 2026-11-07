@@ -119,12 +119,16 @@ _TYPE_WORDS = re.compile(r"\b(headlines?|typeface|font|type size|body copy|sub-?
                          re.IGNORECASE)
 # Production specs that cannot be read from pixels (kerning, leading, point sizes, print colour codes).
 _NOT_FROM_PIXELS = re.compile(r"\b(kerning|leading|\d+\s?pt\b|cmyk|pantone)", re.IGNORECASE)
+# Named typefaces ("Set subheads in Gilroy Medium"): a picture can't reliably tell one sans-serif from another
+# (real-brand test: Gilroy rules flagged a blog banner at 0.85); the PDF font check reads embedded font names instead.
+_NAMED_TYPEFACE = re.compile(r"\b(set|use|write)\b[^.]*\bin\s+[A-Z][\w-]+(\s+(thin|light|regular|medium|semibold|bold|"
+                             r"extrabold|extra bold|black|heavy|italic))+\b", re.IGNORECASE)
 
 
 def image_checkable(rule: RuleSpec) -> bool:
     """False for print/production specs a picture cannot show; those rules are left to people."""
     plain = not (set(rule.params or {}) - {"imported_from"})  # written in words, no machine params
-    return not (plain and _NOT_FROM_PIXELS.search(rule.statement))
+    return not (plain and (_NOT_FROM_PIXELS.search(rule.statement) or _NAMED_TYPEFACE.search(rule.statement)))
 
 
 def image_precondition(rule: RuleSpec) -> Optional[tuple[str, Noul]]:
