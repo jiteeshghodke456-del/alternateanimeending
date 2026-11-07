@@ -24,6 +24,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
+from app import workspaces as W
 from app.config import get_settings
 from app.db import get_engine
 from app.deps import AdminUser, CurrentUser, SessionDep
@@ -55,7 +56,14 @@ STALE_MESSAGE = "The server restarted while this audience run was in progress. S
 OLD_RUN_MESSAGE = "The audience model was updated since this preview was made. Run it again to see the new results."
 FAILED_MESSAGE = "The audience run failed. Try again in a moment."
 
-_active: set[int] = set()  # version ids with an audience run in progress (this process)
+_active: set = set()  # W.key(version id) of audience runs in progress (this process)
+
+
+def _busy(ws_id: str) -> bool:
+    return any(isinstance(k, tuple) and k[0] == ws_id for k in list(_active))
+
+
+W.busy_checks.append(_busy)
 
 
 # ------------------------------------------------------------------ helpers
@@ -75,7 +83,7 @@ def _latest_run(session: Session, version_id: int, *, done_only: bool = False) -
 
 
 def _mark_stale(session: Session, run: AudienceRun) -> None:
-    if run.status == "running" and run.version_id not in _active:
+    if run.status == "running" and W.key(run.version_id) not in _active:
         run.status, run.error, run.updated_at = "error", STALE_MESSAGE, utcnow()
         session.add(run)
         session.commit()
@@ -201,7 +209,7 @@ async def _run_audience(run_id: int) -> None:
             log.exception("could not record the failed audience run %s", run_id)
     finally:
         if version_id is not None:
-            _active.discard(version_id)
+            _active.discard(W.key(version_id))
 
 
 # ------------------------------------------------------------------ audience endpoints
@@ -212,7 +220,7 @@ async def start_audience(version_id: int, session: SessionDep, user: CurrentUser
         raise HTTPException(status_code=409, detail=CONFIDENTIAL_MESSAGE)
     if not jev.available():
         raise HTTPException(status_code=503, detail=NO_JEV_MESSAGE)
-    if version_id in _active:
+    if W.key(version_id) in _active:
         return audience_out(session, v, item)
     if not (v.text or "").strip() and not session.exec(select(Unit).where(Unit.version_id == v.id, Unit.kind == "image")).first():
         raise HTTPException(status_code=422, detail="This version has no text or image to show the audience.")
@@ -221,11 +229,11 @@ async def start_audience(version_id: int, session: SessionDep, user: CurrentUser
     session.add(run)
     session.commit()
     session.refresh(run)
-    _active.add(version_id)
+    _active.add(W.key(version_id))
     try:
         pipeline_run.schedule(run_audience(run.id))
     except Exception:  # noqa: BLE001
-        _active.discard(version_id)
+        _active.discard(W.key(version_id))
         run.status, run.error = "error", FAILED_MESSAGE
         session.add(run)
         session.commit()
@@ -272,6 +280,14 @@ IMPORT_GONE_MESSAGE = "That import has expired (the server may have restarted). 
 MAX_IMPORTS = 20
 
 _imports: dict[str, dict] = {}  # import_id -> job (in memory, newest last)
+
+
+def _job(import_id: str) -> dict:
+    """The import job, only from the workspace that started it."""
+    job = _imports.get(import_id)
+    if job is None or job.get("ws") != W.current_id():
+        raise HTTPException(status_code=404, detail=IMPORT_GONE_MESSAGE)
+    return job
 
 
 def _pdf_enabled() -> None:
@@ -334,7 +350,7 @@ async def import_pdf(user: AdminUser, file: UploadFile = File(...)) -> ImportPdf
 
     import_id = uuid.uuid4().hex[:12]
     _imports[import_id] = {"id": import_id, "status": "running", "filename": file.filename or "guideline.pdf",
-                           "pages": len(pages), "user_id": user.id, "page_text": pages}
+                           "pages": len(pages), "user_id": user.id, "page_text": pages, "ws": W.current_id()}
     while len(_imports) > MAX_IMPORTS:
         _imports.pop(next(iter(_imports)))
     pipeline_run.schedule(run_import(import_id, pages))
@@ -344,18 +360,14 @@ async def import_pdf(user: AdminUser, file: UploadFile = File(...)) -> ImportPdf
 @router.get("/brand/import-pdf/{import_id}", response_model=ImportPdfOut)
 def get_import(import_id: str, user: AdminUser) -> ImportPdfOut:
     _pdf_enabled()
-    job = _imports.get(import_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail=IMPORT_GONE_MESSAGE)
+    job = _job(import_id)
     return _import_out(job)
 
 
 @router.post("/brand/import-pdf/{import_id}/confirm", response_model=ImportPdfConfirmOut)
 def confirm_import(import_id: str, body: ImportPdfConfirmIn, session: SessionDep, user: AdminUser) -> ImportPdfConfirmOut:
     _pdf_enabled()
-    job = _imports.get(import_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail=IMPORT_GONE_MESSAGE)
+    job = _job(import_id)
     if job["status"] != "done":
         raise HTTPException(status_code=409, detail="The proposals aren't ready yet." if job["status"] == "running"
                             else "This import failed, so there is nothing to confirm. Upload the PDF again.")

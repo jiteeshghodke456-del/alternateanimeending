@@ -8,12 +8,28 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
+from app import workspaces
 from app.config import get_settings
 
 _engine: Engine | None = None
 
 
+def install_pragmas(engine: Engine) -> None:
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_conn, _record) -> None:  # noqa: ANN001
+        cur = dbapi_conn.cursor()
+        cur.execute("PRAGMA journal_mode=WAL")
+        cur.execute("PRAGMA foreign_keys=ON")
+        cur.execute("PRAGMA synchronous=NORMAL")
+        cur.close()
+
+
 def get_engine() -> Engine:
+    """The engine of the current workspace (app/workspaces.py), or the default DB at DB_PATH when
+    no workspace is active (workspaces off, CLI scripts, startup)."""
+    ref = workspaces.current_ref()
+    if ref is not None:
+        return workspaces.engine_for(workspaces.ensure(ref))
     global _engine
     if _engine is None:
         path = Path(get_settings().db_path)
@@ -22,14 +38,7 @@ def get_engine() -> Engine:
             f"sqlite:///{path}",
             connect_args={"check_same_thread": False, "timeout": 30},
         )
-
-        @event.listens_for(_engine, "connect")
-        def _sqlite_pragmas(dbapi_conn, _record) -> None:  # noqa: ANN001
-            cur = dbapi_conn.cursor()
-            cur.execute("PRAGMA journal_mode=WAL")
-            cur.execute("PRAGMA foreign_keys=ON")
-            cur.execute("PRAGMA synchronous=NORMAL")
-            cur.close()
+        install_pragmas(_engine)
 
     return _engine
 
@@ -84,6 +93,7 @@ def drop_db() -> None:
 
 
 def get_session() -> Iterator[Session]:
-    """FastAPI dependency. Background tasks must open their own `Session(get_engine())`."""
+    """FastAPI dependency (per workspace). Background tasks open their own `Session(get_engine())`;
+    pipeline.run._schedule binds them to the workspace that scheduled them."""
     with Session(get_engine()) as session:
         yield session

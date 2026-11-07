@@ -66,7 +66,9 @@ def audit(
 
 
 def upload_dir() -> Path:
-    p = Path(get_settings().upload_dir)
+    from app import workspaces
+
+    p = workspaces.current_upload_dir() or Path(get_settings().upload_dir)
     p.mkdir(parents=True, exist_ok=True)
     return p
 
