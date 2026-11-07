@@ -184,6 +184,17 @@ SAME_TOPIC = Noul(
         "false": "`revised` talks about a different product, news or offer, or drops the main point of `original`.",
     },
 )
+
+
+def same_topic_question(post: Optional[str] = None) -> Noul:
+    """SAME_TOPIC for one paragraph of a longer post: the post goes in this question only (a short line like
+    "Order now." has no visible topic on its own; the other questions don't need the post)."""
+    if not post:
+        return SAME_TOPIC
+    return Noul(instructions=f"Is `revised` about the same product, news or offer as `original`? Both are a paragraph of this post: “{post}”",
+                criteria=SAME_TOPIC.criteria)
+
+
 ORIGINAL_HAS_CTA = Noul(
     instructions="Does `original` ask the reader to do something, such as visit, order, buy or subscribe?",
     criteria={"true": "`original` asks the reader to act, like “Order now.”",

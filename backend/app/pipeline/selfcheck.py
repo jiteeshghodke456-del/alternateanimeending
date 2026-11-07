@@ -188,6 +188,7 @@ async def verify_fix(
         # on both the paragraph and the whole post (questions.meaning_kept_split).
         meaning_qs: dict = {} if deterministic else {k: q for k, q in Q.MEANING_QUESTIONS.items() if k != "same_topic"}
         qs: dict = {} if deterministic else {**Q.MEANING_QUESTIONS,
+                                             "same_topic": Q.same_topic_question(m_state["original"] if whole else None),
                                              "new_superlative": Q.new_superlative_question(mask_pii(fix)[0])}
         targets = [r for r in text_rules_for_jev(ctx) if r.severity == "blocking"]
         for r in rules:
