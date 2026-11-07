@@ -16,6 +16,7 @@ import logging
 import re
 import statistics
 import threading
+import unicodedata
 from dataclasses import dataclass
 from typing import Literal, Optional
 
@@ -279,6 +280,9 @@ def split_text(text: str, start_idx: int = 0, kind: str = "text") -> list[UnitDr
 def validate_text(text: str) -> str:
     s = get_settings()
     text = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    # One Unicode form (NFC) for every stored text, so Indic words typed with a different sequence of
+    # combining marks (e.g. a nukta) still match the brand word list. Offsets are computed after this.
+    text = unicodedata.normalize("NFC", text)
     if len(text) > s.max_text_chars:
         raise UploadError(f"The text is {len(text):,} characters. The limit is {s.max_text_chars:,}.", 413)
     return text

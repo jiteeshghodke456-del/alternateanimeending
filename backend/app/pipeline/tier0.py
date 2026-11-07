@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Iterable, Optional
 
+from app.pipeline import lang as L
 from app.pipeline.context import CheckContext, RuleSpec, TermSpec, UnitIn
 
 log = logging.getLogger("brandgate.tier0")
@@ -71,16 +72,17 @@ _APOS = "['’]"
 
 
 def phrase_regex(phrase: str, case_insensitive: bool = True) -> re.Pattern[str]:
-    """Exact phrase with word boundaries that also work for phrases like "S&S" or "No. 1"."""
-    esc = re.escape(phrase.strip()).replace("\\'", _APOS).replace("'", _APOS)
+    """Exact phrase with word boundaries that also work for phrases like "S&S" or "No. 1", and for Indic
+    words: a vowel sign or virama counts as part of the word ("मुफ्त" doesn't match inside "मुफ्ती")."""
+    esc = re.escape(L.nfc(phrase.strip())).replace("\\'", _APOS).replace("'", _APOS)
     esc = re.sub(r"(\\ )+", r"\\s+", esc)
-    return re.compile(rf"(?<![\w]){esc}(?![\w])", re.IGNORECASE if case_insensitive else 0)
+    return re.compile(rf"{L.BEFORE}{esc}{L.AFTER}", re.IGNORECASE if case_insensitive else 0)
 
 
 @lru_cache(maxsize=512)
 def _compile(pattern: str, flags: int) -> Optional[re.Pattern[str]]:
     try:
-        return re.compile(pattern, flags)
+        return re.compile(L.unicode_boundaries(pattern), flags)  # \b that works inside Indic words
     except re.error:
         log.warning("tier0: invalid regex in rule params: %r", pattern)
         return None
@@ -96,7 +98,8 @@ def _hit(rule: RuleSpec, text: str, s: int, e: int, **kw) -> Tier0Hit:  # noqa: 
 
 
 _ABBR = {"incl", "rs", "no", "co", "st", "dr", "mr", "mrs", "ms", "approx", "vs", "etc", "e.g", "i.e", "inr", "min", "max"}
-_SENT_END = re.compile(r"[.!?]+[\"'’”)\]]*(?=\s|$)|\n+")
+# "." "!" "?" and the Devanagari danda "।" / double danda "॥" end a sentence.
+_SENT_END = re.compile(r"[.!?।॥]+[\"'’”)\]]*(?=\s|$)|\n+")
 
 
 def sentences(text: str) -> list[tuple[int, int]]:
@@ -371,9 +374,34 @@ def fk_grade(text: str) -> Optional[float]:
 MIN_WORDS_FOR_READABILITY = 12
 
 
+# Non-English text: Flesch-Kincaid counts English syllables, so its grade is meaningless for Hindi, Marathi,
+# Tamil or Hinglish (romanised Hindi). Those units get a language-neutral check instead: sentence length in
+# words. Plain-language guidance in any language keeps sentences short; 30 words is a generous ceiling, so only
+# really long sentences are flagged. No grade is ever shown for them.
+LONG_SENTENCE_WORDS = 30
+_ANY_WORD = re.compile(rf"[{L.WORD}]+(?:['’][{L.WORD}]+)*")
+
+
+def check_sentence_length(rule: RuleSpec, text: str, info: "L.LangInfo") -> list[Tier0Hit]:
+    hits = []
+    for s, e in sentences(text):
+        n = len(_ANY_WORD.findall(text[s:e]))
+        if n > LONG_SENTENCE_WORDS:
+            hits.append(_hit(rule, text, s, e, kind="readability",
+                             detail=(f"This sentence has {n} words. Reading-grade formulas only work for English, so for "
+                                     f"{info.name} text Brand Gate checks sentence length instead: at most "
+                                     f"{LONG_SENTENCE_WORDS} words.")))
+    return hits
+
+
 def check_readability(rule: RuleSpec, text: str, channel: str, channel_targets: dict) -> list[Tier0Hit]:
     target = (channel_targets.get(channel) or {}).get("max_grade")
-    if target is None or len(_WORD.findall(text)) < MIN_WORDS_FOR_READABILITY:
+    if target is None:
+        return []
+    info = L.detect(text)
+    if not info.is_english:
+        return check_sentence_length(rule, text, info) if info.lang != "none" else []
+    if len(_WORD.findall(text)) < MIN_WORDS_FOR_READABILITY:
         return []
     grade = fk_grade(text)
     if grade is None or grade <= float(target):
@@ -555,6 +583,16 @@ _DATE = re.compile(
 _NUMBER = re.compile(r"(?<![A-Za-z\d])\d[\d,]*(?:\.\d+)?\s?%?")
 _AWARD = re.compile(r"\b(won|wins|award(?:s|ed)?|gold|silver|bronze|medal|certified|rated)\b", re.IGNORECASE)
 _DEFAULT_SUPERLATIVES = [r"#\s?1\b", r"\bnumber (one|1)\b", r"\bbest\b", r"\bfinest\b", r"\bcheapest\b", r"\bguaranteed\b"]
+# Hindi / Marathi / Hinglish superlatives and guarantees (code defaults, like the English ones above).
+# "\b" is rewritten by _compile so it works inside Devanagari words.
+_INDIC_SUPERLATIVES = [
+    r"\bनंबर\s?(?:1|१|वन)\b", r"\bनं\.?\s?(?:1|१)\b", r"\bसर्वश्रेष्ठ\b", r"\bसर्वोत्तम\b", r"\bसर्वोत्कृष्ट\b",
+    r"\bबेस्ट\b", r"\bबेहतरीन\b", r"\bगारंटी\b", r"\bगॅरंटी\b",
+    r"\bसबसे\s+(?:अच्छ[ाीे]|बढ़िया|बढ़िया|बड़[ाीे]|बड़[ाीे]|सस्त[ाीे]|लोकप्रिय|पसंदीदा|ताज़[ाीे]|ताज[ाीे])",
+    r"\bसर्वात\s+(?:चांगल[ाीे]|उत्तम|मोठ[ाीे]|स्वस्त|लोकप्रिय|आवडत[ाीे]|ताज[ाीे])",
+    r"\b(?:भारत|देश)\S*\s+(?:\S+\s+)?(?:पहल[ाीे]|पहिल[ाीे])\b",  # "India's first"
+    r"\bsabse\s+(?:best|accha|achha|acha|badhiya|sasta|bada)\b",
+]
 _COMPARATIVE = re.compile(r"\b(?:(\w+er)|more \w+|less \w+)\s+than\b", re.IGNORECASE)
 _NOT_COMPARATIVE = {"rather", "other", "later", "earlier", "never", "ever", "under", "over", "after", "either", "whether", "faster"}
 
@@ -568,7 +606,7 @@ def claim_triggers(text: str, rules: list[RuleSpec]) -> list[ClaimTrigger]:
     out: list[ClaimTrigger] = []
     sup_rule = _rule_with(rules, "superlative_patterns")
     sup = list((sup_rule.params or {}).get("superlative_patterns", [])) if sup_rule else []
-    for pat in sup + _DEFAULT_SUPERLATIVES:
+    for pat in sup + _DEFAULT_SUPERLATIVES + _INDIC_SUPERLATIVES:
         rx = _compile(str(pat), re.IGNORECASE)
         if rx:
             out += [ClaimTrigger("superlative", m.start(), m.end(), m.group(0)) for m in rx.finditer(text) if m.end() > m.start()]

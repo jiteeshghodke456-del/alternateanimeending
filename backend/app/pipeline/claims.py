@@ -29,6 +29,7 @@ from typing import Optional
 from rapidfuzz import fuzz
 
 from app.pipeline import jev
+from app.pipeline import lang as L
 from app.pipeline import questions as Q
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, FactSpec, RuleSpec
@@ -165,15 +166,31 @@ def _fact_text(f: FactSpec) -> str:
 
 
 def top_facts(claim_text: str, facts: list[FactSpec], k: int = TOP_K, min_score: float = MIN_FACT_SCORE) -> list[tuple[FactSpec, float]]:
+    """Facts that may be about the same thing as the claim (rapidfuzz token-set ratio).
+
+    Facts are written in English. A claim in another language or script (Hindi, Marathi, Tamil, Hinglish)
+    shares almost no words with them, so there a fact that contains every number of the claim is also a
+    candidate for Jev (score MIN_FACT_SCORE). A shared number alone is weak evidence ("40 कैफ़े" vs "40 hours"),
+    so without Jev these candidates are not strong enough for rule 3 and the claim goes to a human."""
     scored = [(f, float(fuzz.token_set_ratio(claim_text.lower(), _fact_text(f).lower()))) for f in facts]
+    if not L.detect(claim_text).is_english:
+        nums = numbers(claim_text)
+        if nums:
+            scored = [(f, max(sc, float(MIN_FACT_SCORE)) if nums <= numbers(_fact_text(f)) else sc) for f, sc in scored]
     scored = [x for x in scored if x[1] >= min_score]
     return sorted(scored, key=lambda x: -x[1])[:k]
 
 
 def numbers(text: str) -> set[str]:
-    """Digits in a text, normalised ("1,299" -> "1299"), ignoring dates and codes like MONSOON20."""
-    no_dates = _DATE.sub(" ", text)
-    return {m.group(0).replace(",", "").rstrip(".") for m in _NUM_TOKEN.finditer(no_dates)}
+    """Digits in a text, normalised ("1,299" and "1,00,000" -> plain digits; Devanagari ०-९ -> 0-9;
+    "1 लाख" / "2 crore" / "५० हजार" -> their value), ignoring dates and codes like MONSOON20."""
+    t = L.ascii_digits(L.nfc(text))
+    out: set[str] = set()
+    for s, e, v in reversed(L.scaled_numbers(t)):
+        out.add(v)
+        t = t[:s] + " " * (e - s) + t[e:]
+    no_dates = _DATE.sub(" ", t)
+    return out | {m.group(0).replace(",", "").rstrip(".") for m in _NUM_TOKEN.finditer(no_dates)}
 
 
 def _coverage(claim_nums: set[str], cands: list[tuple[FactSpec, float, Optional[float]]], today: date,
