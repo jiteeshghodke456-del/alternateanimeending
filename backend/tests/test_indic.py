@@ -247,3 +247,9 @@ def test_audience_language_note() -> None:
     assert note and "Marathi" in note and "2 of 4" in note and "50%" in note
     assert "1 of 4" in (A.language_note("Jaldi karo, hamara Monsoon Malabar almost khatam hai.", readers) or "")
     assert A.language_note("Visit us this weekend.", readers) is None
+
+
+def test_marathi_promo_word_with_case_suffix() -> None:
+    # Marathi attaches case endings: सवलतीत = "at a discount"; the promo trigger still fires
+    assert [c for c, _ in hits("भारतातील फिल्टर कॉफी आता 20% सवलतीत.") if c == "R-CLAIM-04"]
+    assert not [c for c, _ in hits("आमचे सेलिब्रेशन पुण्यात आहे.") if c == "R-CLAIM-04"]
