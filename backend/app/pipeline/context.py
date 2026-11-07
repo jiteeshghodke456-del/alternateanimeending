@@ -74,7 +74,7 @@ class CheckContext:
     post_text: str = ""  # Version.text (all text units), for post-level checks
     confidential: bool = False
     version_id: Optional[int] = None
-    today: date = field(default_factory=date.today)
+    today: date = field(default_factory=lambda: _local_today())
     logo_path: Optional[str] = None  # the approved logo file (Asset kind=logo, meta.variant=approved), for P1 logo fidelity
     web_issues: list[dict[str, Any]] = field(default_factory=list)  # web pages: accessibility issues found at fetch time
     # Channel limits (pipeline/channels.py): platform defaults overlaid with the brand's overrides; brand fonts
@@ -102,3 +102,8 @@ def rule_applies_to_channel(rule: RuleSpec, channel: str, version_kind: str) -> 
     if isinstance(kinds, list) and kinds and version_kind not in [str(k).lower() for k in kinds]:
         return False
     return True
+
+
+def _local_today() -> date:
+    from app.clock import local_today  # local import: clock reads settings
+    return local_today()
