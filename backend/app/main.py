@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
     yield
 
 
-app = FastAPI(title="Brand Gate API", version=APP_VERSION, lifespan=lifespan,
+app = FastAPI(title="Rulemint API", version=APP_VERSION, lifespan=lifespan,
               docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
 app.add_middleware(WorkspaceMiddleware)  # per-visitor workspace from the bg_ws cookie (app/workspaces.py)
@@ -154,9 +154,9 @@ def api_not_found(rest: str) -> None:
 app.include_router(api)
 
 # ------------------------------------------------------------------ frontend (SPA)
-_NO_BUILD_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Brand Gate</title></head>
+_NO_BUILD_HTML = """<!doctype html><html><head><meta charset="utf-8"><title>Rulemint</title></head>
 <body style="font-family:system-ui;max-width:640px;margin:4rem auto;padding:0 1rem">
-<h1>Brand Gate API is running</h1><p>The frontend hasn't been built yet (no <code>frontend/dist</code>).
+<h1>Rulemint API is running</h1><p>The frontend hasn't been built yet (no <code>frontend/dist</code>).
 See <a href="/api/docs">/api/docs</a> and <a href="/api/health">/api/health</a>.</p></body></html>"""
 
 

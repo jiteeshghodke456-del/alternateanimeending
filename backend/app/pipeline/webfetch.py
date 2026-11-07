@@ -12,7 +12,7 @@ Rules (each one has a test in tests/test_webpage.py):
   with their own 8 s deadline; a failed image is skipped, never fatal.
 - robots.txt is honoured for our user agent; if it can't be loaded, the fetch goes ahead.
 - No cookies are ever sent (the jar is cleared before every request), no credentials, no proxy from the
-  environment (trust_env=False). User agent: BrandGateBot/1.0 (+<contact url>).
+  environment (trust_env=False). User agent: RulemintBot/1.0 (+<contact url>).
 
 `WEBFETCH_PROXY` (dev only, off by default) sends requests through an HTTP proxy, for sandboxes whose outbound
 traffic must go through one. The DNS check then runs before each hop instead of at connect time.
@@ -45,7 +45,7 @@ MAX_HTML_BYTES = 2 * 1024 * 1024
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_ROBOTS_BYTES = 256 * 1024
 MAX_IMAGES = 4
-BOT_NAME = "BrandGateBot"
+BOT_NAME = "RulemintBot"
 _HTML_TYPES = ("text/html", "application/xhtml+xml")
 
 
@@ -58,7 +58,7 @@ class FetchError(Exception):
         self.status_code = status_code
 
 
-BLOCKED = ("That address points to a private or internal network, so Brand Gate won't fetch it. "
+BLOCKED = ("That address points to a private or internal network, so Rulemint won't fetch it. "
            "Paste the address of a public web page.")
 
 
@@ -269,7 +269,7 @@ async def fetch_page(url: str) -> FetchedPage:
             async with make_client() as client:
                 allowed = await robots_allows(client, t.url)
                 if allowed is False:
-                    raise FetchError("This site's robots.txt asks bots not to fetch this page, so Brand Gate respects that. "
+                    raise FetchError("This site's robots.txt asks bots not to fetch this page, so Rulemint respects that. "
                                      "Paste the page's text instead.", 403)
                 r, body, final = await _get(client, t.url, MAX_HTML_BYTES, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.1",
                                             "That page is larger than 2 MB, so it wasn't fetched.")

@@ -96,7 +96,7 @@ async def create_item_from_url(body: FromUrlIn, session: SessionDep, user: Curre
     if not units.blocks and not stored:
         raise HTTPException(status_code=422, detail=(
             "No readable text or images were found on that page. It may build its content with JavaScript, "
-            "which Brand Gate doesn't run. Paste the page's text on the Text tab instead."))
+            "which Rulemint doesn't run. Paste the page's text on the Text tab instead."))
     chosen = [im.url for im, _ in stored]
     issues = P.audit(parsed, units, chosen)
     n_text = len(units.blocks)

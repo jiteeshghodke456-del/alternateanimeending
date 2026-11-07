@@ -249,7 +249,7 @@ def test_fetch_page_and_images(server: _Server) -> None:
     page = asyncio.run(F.fetch_page(server.base + "/page"))
     assert page.status == 200 and "Saffron" in page.html and page.robots == "no robots.txt"
     req = next(r for r in server.seen if r["path"] == "/page")
-    assert req["headers"]["User-Agent"].startswith("BrandGateBot/1.0 (+")
+    assert req["headers"]["User-Agent"].startswith("RulemintBot/1.0 (+")
     assert "Cookie" not in req["headers"] and "Authorization" not in req["headers"]
     parsed = P.parse_page(page.html, page.final_url)
     imgs, skipped = asyncio.run(F.fetch_images([c.url for c in P.image_candidates(parsed)]))
@@ -344,7 +344,7 @@ def test_not_html_and_http_errors(server: _Server) -> None:
 
 
 def test_robots_disallow_and_unreachable_robots(server: _Server) -> None:
-    server.routes["/robots.txt"] = lambda h: send(h, b"User-agent: BrandGateBot\nDisallow: /page\n", "text/plain")
+    server.routes["/robots.txt"] = lambda h: send(h, b"User-agent: RulemintBot\nDisallow: /page\n", "text/plain")
     with pytest.raises(F.FetchError) as e:
         asyncio.run(F.fetch_page(server.base + "/page"))
     assert e.value.status_code == 403 and "robots.txt" in e.value.message

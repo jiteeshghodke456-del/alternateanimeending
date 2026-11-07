@@ -389,7 +389,7 @@ def check_sentence_length(rule: RuleSpec, text: str, info: "L.LangInfo") -> list
         if n > LONG_SENTENCE_WORDS:
             hits.append(_hit(rule, text, s, e, kind="readability",
                              detail=(f"This sentence has {n} words. Reading-grade formulas only work for English, so for "
-                                     f"{info.name} text Brand Gate checks sentence length instead: at most "
+                                     f"{info.name} text Rulemint checks sentence length instead: at most "
                                      f"{LONG_SENTENCE_WORDS} words.")))
     return hits
 

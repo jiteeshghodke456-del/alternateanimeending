@@ -329,7 +329,7 @@ def tune(per_item: list[dict], rules: dict[str, Any]) -> dict[str, Any]:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
-    ap = argparse.ArgumentParser(description="Brand Gate evaluation")
+    ap = argparse.ArgumentParser(description="Rulemint evaluation")
     ap.add_argument("--split", choices=["dev", "test", "all"], default="test")
     ap.add_argument("--tune", action="store_true", help="tune per-category thresholds (dev split only)")
     ap.add_argument("--with-explain", action="store_true", help="include LLM explanations and self-checks")
