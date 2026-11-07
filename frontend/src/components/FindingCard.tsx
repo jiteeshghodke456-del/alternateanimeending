@@ -1,8 +1,12 @@
-import { BadgeCheck, Check, Pencil, TriangleAlert, X } from "lucide-react";
+import { useState } from "react";
+import { BadgeCheck, Check, Gavel, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BAND, SEVERITY_LABEL, SEVERITY_STYLE } from "@/lib/bands";
-import type { MockFinding } from "@/lib/mock";
+import type { FindingOut } from "@/lib/api";
+import { TipButton } from "@/components/TipButton";
+import { Textarea } from "@/components/ui/textarea";
+import { formatDate } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
 /** Word-level diff (LCS). Returns tokens tagged same / del / add. */
@@ -26,53 +30,133 @@ export function wordDiff(a: string, b: string) {
   return { before: merge(before), after: merge(after) };
 }
 
+const TIER_LABEL: Record<string, string> = {
+  tier0: "Rule-based check", jev: "Jev judgment", claim: "Claim check", visual: "Visual check", logo: "Logo check",
+};
+const STATUS_LABEL: Record<string, string> = {
+  accepted: "Accepted", edited: "Edited", dismissed: "Dismissed", overridden: "Overridden",
+};
+
 export interface FindingCardProps {
-  finding: MockFinding;
+  finding: FindingOut;
   active?: boolean;
-  onAccept?: (id: string) => void;
-  onEdit?: (id: string) => void;
-  onDismiss?: (id: string) => void;
+  /** false once the item is locked (approved / rejected) */
+  canAct?: boolean;
+  /** show the Override button (reviewer / approver on a blocking finding) */
+  canOverride?: boolean;
+  overrideDisabledReason?: string | null;
+  onSelect?: (id: number) => void;
+  onAccept?: (f: FindingOut) => Promise<void> | void;
+  onEdit?: (f: FindingOut, text: string) => Promise<void> | void;
+  onDismiss?: (f: FindingOut) => void;
+  onOverride?: (f: FindingOut) => void;
 }
 
-export function FindingCard({ finding: f, active, onAccept, onEdit, onDismiss }: FindingCardProps) {
+export function FindingCard({ finding: f, active, canAct = true, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
   const band = BAND[f.band];
   const BandIcon = band.icon;
-  const diff = f.fix ? wordDiff(f.original, f.fix) : null;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(f.edited_text ?? f.fix ?? f.quote);
+  const [busy, setBusy] = useState<"accept" | "edit" | null>(null);
+  const shownFix = f.status === "edited" && f.edited_text ? f.edited_text : f.fix;
+  const diff = shownFix && f.quote ? wordDiff(f.quote, shownFix) : null;
   const closed = f.status !== "open";
+  const locked = !canAct;
+  const code = f.rule_code ?? f.fact_code ?? "Finding";
+
+  async function accept() {
+    setBusy("accept");
+    try { await onAccept?.(f); } finally { setBusy(null); }
+  }
+  async function saveEdit() {
+    setBusy("edit");
+    try { await onEdit?.(f, draft.trim()); setEditing(false); } catch { /* parent toasts; keep editor open */ } finally { setBusy(null); }
+  }
+
   return (
-    <motion.article
-      layout
-      aria-label={`${band.label}: ${f.rule_id}`}
-      className={cn("glass-strong p-5", active && "ring-2 ring-[#0A84FF]/60", closed && "opacity-70")}
+    <article
+      aria-label={`${band.label}: ${code}`}
+      onClick={() => onSelect?.(f.id)}
+      className={cn("glass-strong p-5", active && "ring-2 ring-[#0A84FF]/60", closed && "opacity-80")}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-medium", SEVERITY_STYLE[f.severity])}>
           {f.severity === "blocking" && <TriangleAlert className="size-3.5" strokeWidth={1.75} aria-hidden />}
           {SEVERITY_LABEL[f.severity]}
         </span>
-        <span className="rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium">{f.category}</span>
-        <span className="font-mono text-caption text-muted-foreground">{f.rule_id}</span>
-        {closed && <span className="ml-auto rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium capitalize">{f.status}</span>}
+        <span className="rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium capitalize">{f.category}</span>
+        <span className="font-mono text-caption text-muted-foreground">{code}</span>
+        {f.claim_status && (
+          <span className={cn("rounded-full px-2.5 py-1 text-caption font-medium capitalize", f.claim_status === "supported" ? "bg-pass/14 text-pass-text" : "bg-human/15 text-human-text")}>
+            Claim {f.claim_status}
+          </span>
+        )}
+        {closed && (
+          <span className="ml-auto rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium">{STATUS_LABEL[f.status] ?? f.status}</span>
+        )}
       </div>
 
-      <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
-        <p className="text-footnote italic text-foreground/85">&ldquo;{f.quote}&rdquo;</p>
-        <p className="mt-0.5 text-caption text-muted-foreground">Guideline p.{f.page}</p>
-      </blockquote>
+      {f.quote && (
+        <p className="mt-3 break-words rounded-xl bg-foreground/5 px-3 py-2 text-footnote">
+          <span className="text-muted-foreground">In your content: </span>
+          <span className="font-medium">&ldquo;{f.quote}&rdquo;</span>
+        </p>
+      )}
+
+      {f.rule && (
+        <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
+          <p className="text-footnote italic text-foreground/85">&ldquo;{f.rule.source_quote || f.rule.statement}&rdquo;</p>
+          <p className="mt-0.5 text-caption text-muted-foreground">
+            {f.rule.page != null ? `Guideline p.${f.rule.page}` : "Guideline"} · {f.rule.code} v{f.rule.version}
+          </p>
+        </blockquote>
+      )}
+      {f.fact && (
+        <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
+          <p className="text-footnote italic text-foreground/85">&ldquo;{f.fact.statement}&rdquo;</p>
+          <p className="mt-0.5 text-caption text-muted-foreground">
+            Approved fact {f.fact.code} · {f.fact.source}
+            {f.fact.valid_until && <> · valid until {formatDate(f.fact.valid_until)}</>}
+            {f.fact.expired && <span className="ml-1.5 rounded-full bg-flag/12 px-2 py-0.5 font-medium text-flag-text">expired</span>}
+          </p>
+        </blockquote>
+      )}
 
       <div className="mt-4">
         <div className="mb-1.5 flex items-center justify-between text-caption">
           <span className={cn("inline-flex items-center gap-1 font-medium", band.text)}><BandIcon className="size-3.5" strokeWidth={1.75} aria-hidden /> {band.label}</span>
-          <span className="tabular-nums text-muted-foreground">p = {f.probability.toFixed(2)}</span>
+          <span className="tabular-nums text-muted-foreground">
+            {f.probability != null ? `p = ${f.probability.toFixed(2)}` : TIER_LABEL[f.tier] ?? f.tier}
+          </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={f.probability} aria-label="Probability of a problem">
-          <motion.div className={cn("h-full rounded-full", band.bar)} initial={{ width: 0 }} animate={{ width: `${f.probability * 100}%` }} transition={{ type: "spring", stiffness: 140, damping: 22 }} />
-        </div>
+        {f.probability != null && (
+          <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8" role="meter" aria-valuemin={0} aria-valuemax={1} aria-valuenow={f.probability} aria-label="Probability of a problem">
+            <motion.div className={cn("h-full rounded-full", band.bar)} initial={{ width: 0 }} animate={{ width: `${f.probability * 100}%` }} transition={{ type: "spring", stiffness: 140, damping: 22 }} />
+          </div>
+        )}
       </div>
 
       <p className="mt-4 text-body">{f.explanation}</p>
 
-      {diff ? (
+      {f.status === "dismissed" && (
+        <p className="mt-3 rounded-xl bg-foreground/5 p-3 text-footnote text-muted-foreground">
+          Dismissed as <span className="font-medium text-foreground">{(f.dismiss_reason ?? "other").replace(/_/g, " ")}</span>
+          {f.dismiss_note ? <>: {f.dismiss_note}</> : null}
+        </p>
+      )}
+
+      {editing ? (
+        <div className="mt-4 space-y-2">
+          <label htmlFor={`edit-${f.id}`} className="text-caption font-medium text-muted-foreground">Your replacement text</label>
+          <Textarea id={`edit-${f.id}`} value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} className="rounded-2xl bg-background/60 text-footnote" />
+          <div className="flex gap-2">
+            <Button size="sm" disabled={!draft.trim() || busy === "edit"} onClick={saveEdit} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+              {busy === "edit" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} Save edit
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="rounded-full">Cancel</Button>
+          </div>
+        </div>
+      ) : diff ? (
         <div className="mt-4 overflow-hidden rounded-2xl bg-foreground/5">
           <div className="grid gap-px bg-border/60 sm:grid-cols-2">
             <div className="bg-[var(--glass-strong-bg)] p-3.5">
@@ -82,7 +166,9 @@ export function FindingCard({ finding: f, active, onAccept, onEdit, onDismiss }:
             <div className="bg-[var(--glass-strong-bg)] p-3.5">
               <p className="mb-1 flex items-center justify-between text-caption font-medium text-muted-foreground">
                 After
-                {f.fix_verified ? (
+                {f.status === "edited" ? (
+                  <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-foreground">Your edit</span>
+                ) : f.fix_verified ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-pass/14 px-2 py-0.5 text-pass-text"><BadgeCheck className="size-3.5" strokeWidth={1.75} aria-hidden /> Verified</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 rounded-full bg-human/15 px-2 py-0.5 text-human-text">Not verified</span>
@@ -92,15 +178,28 @@ export function FindingCard({ finding: f, active, onAccept, onEdit, onDismiss }:
             </div>
           </div>
         </div>
-      ) : (
-        <p className="mt-4 rounded-2xl bg-human/12 p-3.5 text-footnote text-human-text">Manual fix needed. We could not produce a safe rewrite.</p>
-      )}
+      ) : f.status === "open" || f.status === "dismissed" ? (
+        f.status === "open" && <p className="mt-4 rounded-2xl bg-human/12 p-3.5 text-footnote text-human-text">Manual fix needed. We could not produce a safe rewrite, so use Edit to write your own.</p>
+      ) : null}
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button size="sm" disabled={!f.fix || closed} onClick={() => onAccept?.(f.id)} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Check strokeWidth={2} /> Accept</Button>
-        <Button size="sm" variant="secondary" disabled={closed} onClick={() => onEdit?.(f.id)} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>
-        <Button size="sm" variant="ghost" disabled={closed} onClick={() => onDismiss?.(f.id)} className="rounded-full text-muted-foreground"><X strokeWidth={1.75} /> Dismiss</Button>
-      </div>
-    </motion.article>
+      {!editing && f.status === "open" && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+            {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} Accept fix
+          </Button>
+          <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>
+          <Button size="sm" variant="ghost" disabled={locked} onClick={(e) => { e.stopPropagation(); onDismiss?.(f); }} className="rounded-full text-muted-foreground"><X strokeWidth={1.75} /> Dismiss</Button>
+          {canOverride && f.severity === "blocking" && (
+            <TipButton
+              size="sm" variant="outline" reason={overrideDisabledReason}
+              onClick={(e) => { e.stopPropagation(); onOverride?.(f); }}
+              className="rounded-full"
+            >
+              <Gavel strokeWidth={1.75} /> Override
+            </TipButton>
+          )}
+        </div>
+      )}
+    </article>
   );
 }

@@ -1,5 +1,5 @@
 import { CheckCircle2, Eye, OctagonAlert, type LucideIcon } from "lucide-react";
-import type { Band, Severity } from "./mock";
+import type { Band, Severity } from "./api";
 
 /** Band thresholds from CLAUDE.md: p >= 0.70 flag, 0.30 to 0.70 human look, < 0.30 pass. */
 export function bandOf(p: number): Band {

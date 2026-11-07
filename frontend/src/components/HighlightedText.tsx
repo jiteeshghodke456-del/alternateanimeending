@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { BAND } from "@/lib/bands";
-import type { Band } from "@/lib/mock";
+import type { Band } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 export interface HighlightSpan { start: number; end: number; band: Band; id?: string; label?: string }
@@ -9,12 +9,13 @@ export interface HighlightSpan { start: number; end: number; band: Band; id?: st
 export function HighlightedText({ text, spans, activeId, onSelect, className }: {
   text: string; spans: HighlightSpan[]; activeId?: string; onSelect?: (id: string) => void; className?: string;
 }) {
-  const sorted = [...spans].sort((a, b) => a.start - b.start);
+  const sorted = [...spans].filter((s) => s.end > s.start && s.start >= 0 && s.start < text.length).sort((a, b) => a.start - b.start);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   sorted.forEach((s, i) => {
     if (s.start < cursor) return; // skip overlaps
     if (s.start > cursor) parts.push(<Fragment key={`t${i}`}>{text.slice(cursor, s.start)}</Fragment>);
+    const end = Math.min(s.end, text.length);
     const b = BAND[s.band];
     const Icon = b.icon;
     const active = s.id && s.id === activeId;
@@ -29,7 +30,7 @@ export function HighlightedText({ text, spans, activeId, onSelect, className }: 
         title={s.label ?? b.label}
       >
         {(() => {
-          const seg = text.slice(s.start, s.end);
+          const seg = text.slice(s.start, end);
           const k = seg.lastIndexOf(" ") + 1;
           return (
             <>
@@ -43,8 +44,8 @@ export function HighlightedText({ text, spans, activeId, onSelect, className }: 
         })()}
       </mark>,
     );
-    cursor = s.end;
+    cursor = end;
   });
   if (cursor < text.length) parts.push(<Fragment key="tail">{text.slice(cursor)}</Fragment>);
-  return <p className={cn("whitespace-pre-wrap text-callout leading-[1.75]", className)}>{parts}</p>;
+  return <p className={cn("whitespace-pre-wrap break-words text-callout leading-[1.75]", className)}>{parts}</p>;
 }

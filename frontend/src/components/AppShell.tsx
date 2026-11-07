@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { BarChart3, ClipboardCheck, FileText, LayoutDashboard, Palette, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -8,7 +8,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BlurFade } from "@/components/ui/blur-fade";
-import { DEMO_USERS } from "@/lib/mock";
+import { HealthBanner } from "@/components/HealthBanner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ROLE_LABELS } from "@/lib/api";
+import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 
 export const NAV: { to: string; label: string; icon: LucideIcon }[] = [
@@ -20,13 +23,15 @@ export const NAV: { to: string; label: string; icon: LucideIcon }[] = [
 ];
 
 function RoleSwitcher() {
-  const { user, login } = useSession();
+  const { user, users, login } = useSession();
   return (
     <Select
       value={user?.id ?? ""}
       onValueChange={async (id) => {
-        const u = await login(id);
-        toast.success(`Now signed in as ${u.name}, ${u.role}`);
+        try {
+          const u = await login(id);
+          toast.success(`Now signed in as ${u.name}, ${ROLE_LABELS[u.role]}`);
+        } catch (e) { reportError(e); }
       }}
     >
       <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 backdrop-blur-xl sm:min-w-[190px]">
@@ -40,11 +45,11 @@ function RoleSwitcher() {
         )}
       </SelectTrigger>
       <SelectContent className="rounded-2xl border-[var(--glass-border)] bg-[var(--glass-strong-bg)] backdrop-blur-2xl">
-        {DEMO_USERS.map((u) => (
+        {users.map((u) => (
           <SelectItem key={u.id} value={u.id} className="rounded-xl py-2">
             <span className="flex items-center gap-2">
               <UserAvatar id={u.id} name={u.name} className="size-6 text-caption" />
-              {u.name} <span className="text-muted-foreground">· {u.role}</span>
+              {u.name} <span className="text-muted-foreground">· {ROLE_LABELS[u.role]}</span>
             </span>
           </SelectItem>
         ))}
@@ -61,8 +66,8 @@ function TopBar() {
         <div className="flex items-center gap-3 md:hidden"><Logo /></div>
         <div className="hidden min-w-0 md:block">
           <p className="truncate text-footnote text-muted-foreground">
-            {user ? <>Signed in as <span className="font-medium text-foreground">{user.name}</span>, {user.role}</> : "Not signed in"}
-            {backendOnline === false && <span className="ml-2 rounded-full bg-human/15 px-2 py-0.5 text-caption text-human-text">Backend offline, showing sample data</span>}
+            {user ? <>Signed in as <span className="font-medium text-foreground">{user.name}</span>, {ROLE_LABELS[user.role]}</> : "Not signed in"}
+            {backendOnline === false && <span className="ml-2 rounded-full bg-human/15 px-2 py-0.5 text-caption text-human-text">Can't reach the server</span>}
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -129,6 +134,8 @@ function BottomTabs() {
 
 export function AppShell() {
   const { pathname } = useLocation();
+  const { user, ready } = useSession();
+  if (ready && !user) return <Navigate to="/" replace state={{ from: pathname }} />;
   return (
     <div className="min-h-dvh">
       <MeshBackground />
@@ -137,9 +144,14 @@ export function AppShell() {
       <div className="md:pl-[248px]">
         <TopBar />
         <main id="main" className="mx-auto max-w-[1200px] px-4 pb-32 pt-6 md:px-8 md:pb-16 md:pt-8">
-          <BlurFade key={pathname} duration={0.3} offset={8}>
-            <Outlet />
-          </BlurFade>
+          <HealthBanner />
+          {!ready ? (
+            <div className="space-y-4"><Skeleton className="h-10 w-64" /><Skeleton className="h-40" /></div>
+          ) : (
+            <BlurFade key={`${pathname}:${user?.id}`} duration={0.3} offset={8}>
+              <Outlet />
+            </BlurFade>
+          )}
         </main>
       </div>
       <BottomTabs />

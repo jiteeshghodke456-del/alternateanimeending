@@ -1,4 +1,3 @@
-import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
@@ -14,9 +13,6 @@ import Item from "@/pages/Item";
 import Review from "@/pages/Review";
 import Eval from "@/pages/Eval";
 import NotFound from "@/pages/NotFound";
-
-// dev only: tree-shaken out of production builds
-const Gallery = import.meta.env.DEV ? lazy(() => import("@/pages/Gallery")) : null;
 
 export default function App() {
   return (
@@ -34,7 +30,6 @@ export default function App() {
                 <Route path="/items/:id" element={<Item />} />
                 <Route path="/review" element={<Review />} />
                 <Route path="/eval" element={<Eval />} />
-                {Gallery && <Route path="/dev/gallery" element={<Suspense fallback={null}><Gallery /></Suspense>} />}
                 <Route path="*" element={<NotFound />} />
               </Route>
             </Routes>
