@@ -112,7 +112,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
   const improved = moved.filter((x) => x.s.delta.mean_score <= -MOVE).length;
   const worse = moved.filter((x) => x.s.delta.mean_score >= MOVE).length;
   const verdict = dir === "better"
-    ? `Readers find v${thisN} more believable: the average moved from ${f1(before)} to ${f1(after)} (lower is more believable)${now.mean_score > 2.5 ? ", but on average they are still not leaning to believe it" : ""}.`
+    ? `Readers find v${thisN} more believable: the average moved from ${f1(before)} to ${f1(after)} (lower is more believable)${now.mean_score >= 2.55 ? (now.mean_score < 3.5 ? ", though on average readers are still unsure" : ", but on average readers still doubt it") : ""}.`
     : dir === "worse" ? `Readers find v${thisN} less believable: the average moved from ${f1(before)} to ${f1(after)}.`
     : `Credibility barely moved (${f1(before)} to ${f1(after)}).`;
   const groupLine = moved.length ? ` ${improved} of ${moved.length} groups find it more believable${worse ? `, ${worse} less` : ""}.` : "";
