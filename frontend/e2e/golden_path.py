@@ -130,12 +130,12 @@ with sync_playwright() as p:
             assert 1.0 <= o["mean_score"] <= 5.0 and o["answered"] > 0, o
             segs = au["segments"]
             assert segs and all(1.0 <= s["mean_score"] <= 5.0 and "vs_overall" in s for s in segs), "bad group scores"
-            expect(pg.locator("[role=meter][aria-label='All simulated readers, average reaction']")).to_be_visible(timeout=20000)
+            expect(pg.locator("[role=meter][aria-label='All simulated readers, average credibility']")).to_be_visible(timeout=20000)
             S["au1"] = o
             S["au1_groups"] = {s["key"]: s["mean_score"] for s in segs}
             pg.get_by_role("tab", name="Findings").click()
             rng = max(S["au1_groups"].values()) - min(S["au1_groups"].values())
-            return (f"mean {o['mean_score']:.2f} sd {o['sd']:.2f} trust {o['trust_pct']:.0%} doubt {o['doubt_pct']:.0%}; "
+            return (f"mean {o['mean_score']:.2f} sd {o['sd']:.2f} believe {o['trust_pct']:.0%} doubt {o['doubt_pct']:.0%} not-for-them {o.get('not_for_them_pct', 0):.0%}; "
                     f"group range {rng:.2f}; cost ${au.get('cost_usd')}")
 
     # ------------------------------------------------------------ 2 accept all
@@ -214,9 +214,9 @@ with sync_playwright() as p:
                 assert "text-flag-text" not in cls, f"improved but big number is red: {cls}"
             summary = sec.locator("p.text-footnote").first.inner_text()
             if d <= -0.15:
-                assert "react better" in summary, summary
+                assert "more believable" in summary, summary
             elif d >= 0.15:
-                assert "react worse" in summary, summary
+                assert "less believable" in summary, summary
             cmp = au["compare_to_previous_version"]
             assert cmp, "no compare"
             assert len(cmp["segments"]) == len(au["segments"]), "groups missing from the compare"

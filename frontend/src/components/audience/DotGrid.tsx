@@ -4,16 +4,17 @@ import { cn } from "@/lib/utils";
 export const TOTAL_DOTS = 240;
 
 /**
- * The five reaction levels (1 trusts it and would act ... 5 distrusts it or is put off).
+ * The five credibility levels (1 believes it ... 5 thinks it is spam or misleading); labels match
+ * questions.AUDIENCE_LEVEL_LABELS.
  * Colour is always paired with the level number inside the dot and the words in the legend.
  * The number is dark (black/75), which passes 4.5:1 on every fill.
  */
 export const LEVELS = [
-  { n: 1, label: "Trusts it, would act", bg: "#30D158" },
-  { n: 2, label: "Mostly trusts it", bg: "#A8DD5A" },
-  { n: 3, label: "Unsure", bg: "#FFD60A" },
-  { n: 4, label: "Doubts it", bg: "#FF9F0A" },
-  { n: 5, label: "Distrusts it, put off", bg: "#FF6B5E" },
+  { n: 1, label: "Believes it", bg: "#30D158" },
+  { n: 2, label: "Mostly believes it", bg: "#A8DD5A" },
+  { n: 3, label: "Can't tell", bg: "#FFD60A" },
+  { n: 4, label: "Seems exaggerated", bg: "#FF9F0A" },
+  { n: 5, label: "Seems misleading", bg: "#FF6B5E" },
 ] as const;
 export const levelInfo = (n: number) => LEVELS[Math.min(5, Math.max(1, Math.round(n))) - 1];
 /** Colour for a 1..5 mean (nearest level). */
@@ -40,7 +41,7 @@ export function DotLegend({ counts, confused, className }: { counts: number[]; c
 
 /**
  * One small glass dot per simulated reader, grouped by reader group. Each dot lights up when its answer arrives,
- * coloured by its reaction level (1-5) with the number inside; a blue ring marks readers who may misread it.
+ * coloured by its credibility level (1-5) with the number inside; a blue ring marks readers who may misread it.
  */
 export function DotGrid({ personas, segmentOrder, finished, selected, onSelect, total }: {
   personas: AudiencePersona[]; segmentOrder: string[]; finished: boolean;

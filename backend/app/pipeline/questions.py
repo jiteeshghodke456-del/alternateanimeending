@@ -273,33 +273,58 @@ def question_text(q: Any) -> dict[str, Any]:
 # trust or doubt), then the question. State: {"content": masked post text} or, for an image post,
 # {"image": Image, "caption": masked caption}. Code turns the answers into scores and shares (audience.py).
 AUDIENCE_CONFUSED_AT = 0.70  # `confused` Noul above this: this reader would misunderstand the main message
-AUDIENCE_TRUST_MAX = 2.5  # expected reaction (1-5) at or below this: leans towards trusting it
+AUDIENCE_NOT_FOR_THEM_AT = 0.70  # `not_for_them` Noul above this: the post isn't relevant to this reader
+AUDIENCE_TRUST_MAX = 2.5  # credibility (1-5) at or below this: leans towards believing it  (bands: see DECISIONS)
 AUDIENCE_DOUBT_MIN = 3.5  # at or above this: leans towards doubting it; in between: unsure
 AUDIENCE_CULPRIT_AT = 0.70  # `any_distrust` companion: report the culprit paragraph above this ...
 AUDIENCE_CULPRIT_MAYBE_AT = 0.30  # ... as "possible" between the two, and not at all below
 
-# The five reaction levels, in Score order (level index 0..4 = reaction 1..5). Each is a situation that
-# reads on its own (skill: "describe each Score level as a situation").
-AUDIENCE_REACTION_LEVELS = (
-    "This reader trusts the post and would act on it: open the link, try the offer, or forward it to people they know.",
-    "This reader mostly trusts the post and is interested, but would check one detail before acting.",
-    "This reader is unsure: the post could be true, but nothing in it convinces them either way, so they would not act yet.",
-    "This reader doubts the post: a claim, number or promise in it does not fit what they know or need, so they would not act on it.",
-    "This reader distrusts the post or is put off by it: it reads to them like spam, a scam or a sales push that ignores "
-    "people like them, so they would ignore it or warn others.",
+# Three judgments per reader, each one condition (skill: "one judgment per question"):
+#   credibility  Score  how believable and honest the post seems to this reader (NOT whether they would act,
+#                       NOT whether the product suits them: both used to be mixed in and made every ad look
+#                       doubted, 8 Nov);
+#   not_for_them Noul   is the post outside this reader's needs (relevance, reported separately);
+#   confused     Noul   would this reader misunderstand the main message.
+# The five credibility levels, in Score order (level index 0..4 = credibility 1..5). Each is a situation that
+# reads on its own (skill: "describe each Score level as a situation"). Level 1 names the case that caused
+# confusion before: a reader can believe a post about something they don't want.
+AUDIENCE_CREDIBILITY_LEVELS = (
+    "This reader finds the post clear and believable: its claims about the product, price or offer seem honest, "
+    "whether or not they want it themselves.",
+    "This reader mostly believes the post but would check one detail, such as a rating, a number or a condition.",
+    "This reader can't tell whether the post is honest: its statements could be true or could be exaggerated.",
+    "This reader thinks parts of the post are exaggerated or misleading, such as a claim, number or promise that "
+    "sounds too strong.",
+    "This reader thinks the post is spam, a scam or deliberately misleading, and would not believe it.",
 )
-AUDIENCE_LEVEL_LABELS = ("Trusts it, would act", "Mostly trusts it", "Unsure", "Doubts it", "Distrusts it, put off")
+AUDIENCE_LEVEL_LABELS = ("Believes it", "Mostly believes it", "Can't tell", "Seems exaggerated",
+                         "Seems misleading")
 
 
 def audience_subject(is_image: bool) -> str:
     return "the post (`image` with its `caption`)" if is_image else "the post in `content`"
 
 
-def audience_reaction_question(reader: str, is_image: bool = False) -> Score:
-    """Reader first, then one judgment: how this reader reacts. `reader` comes from audience.reader_profile()."""
+def audience_credibility_question(reader: str, is_image: bool = False) -> Score:
+    """Reader first, then one judgment: how believable the post seems to this reader.
+    `reader` comes from audience.reader_profile()."""
     return Score(
-        instructions=f"Reader: {reader}\n\nHow would this reader react to {audience_subject(is_image)}?",
-        criteria=list(AUDIENCE_REACTION_LEVELS),
+        instructions=f"Reader: {reader}\n\nHow believable and honest does {audience_subject(is_image)} seem to this reader?",
+        criteria=list(AUDIENCE_CREDIBILITY_LEVELS),
+    )
+
+
+def audience_not_for_them_question(reader: str, is_image: bool = False) -> Noul:
+    """Relevance, high = problem: the post is about something outside this reader's needs or life."""
+    subj = audience_subject(is_image)
+    return Noul(
+        instructions=f"Reader: {reader}\n\nIs {subj} about something this reader has no use for?",
+        criteria={
+            "true": f"What {subj} offers doesn't fit this reader's needs, budget or daily life, so they would scroll "
+                    "past it even if they believe it, like a premium gift box for someone counting every rupee.",
+            "false": f"What {subj} offers fits something this reader needs or does, like a coffee offer for someone "
+                     "who buys coffee every week.",
+        },
     )
 
 

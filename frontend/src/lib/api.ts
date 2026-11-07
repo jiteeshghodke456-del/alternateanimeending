@@ -517,22 +517,26 @@ export interface AudiencePersona {
   segment: string; // reader-group key
   bio: string; // short: "34, Shop owner, Nagpur, Maharashtra"
   detail: string; // the group's description and trust / doubt triggers
-  score: number | null; // expected reaction 1 (trusts it, would act) .. 5 (distrusts it, put off); null = not answered
+  score: number | null; // expected credibility 1 (believes it) .. 5 (thinks it is spam / misleading); null = not answered
   level: 1 | 2 | 3 | 4 | 5 | null; // nearest level, decided in code
-  lean: AudienceLean | null; // <= 2.5 trust, >= 3.5 doubt, else unsure (decided in code)
+  lean: AudienceLean | null; // "trust" = leans to believe, "doubt", else "unsure" (bands decided in code)
   confused: number | null; // Jev p that this reader would misunderstand the main message
   confused_flag: boolean | null; // confused > 0.70
+  not_for_them?: number | null; // Jev p that the post isn't relevant to this reader (never part of score)
+  not_for_them_flag?: boolean | null; // not_for_them > 0.70
 }
 export interface AudienceTotals {
   n: number;
   answered: number;
-  mean_score: number; // 1..5, lower = more trusting
+  mean_score: number; // credibility 1..5, lower = more believable
   sd: number; // spread of the readers' scores
-  trust_pct: number; // 0..1, share with score <= 2.5
+  trust_pct: number; // 0..1, share leaning to believe it
   unsure_pct: number;
-  doubt_pct: number; // share with score >= 3.5
+  doubt_pct: number; // share leaning to doubt it
   confused_pct: number; // share with confused p > 0.70
   mean_confused: number;
+  not_for_them_pct?: number; // relevance (separate from credibility): share for whom the post isn't relevant
+  mean_not_for_them?: number;
   levels: number[]; // readers at each level 1..5
 }
 export interface AudienceSegment extends AudienceTotals {
@@ -540,7 +544,7 @@ export interface AudienceSegment extends AudienceTotals {
   label: string; // e.g. "First-time college students"
   description: string;
   vs_overall: number; // group mean minus the post's mean (positive = more negative than average)
-  worst: AudiencePersona[]; // the 3 most negative readers
+  worst: AudiencePersona[]; // the 3 least convinced readers (credibility only)
   why: string | null; // optional LLM sentence (an AI guess); null when not asked or the call failed
   why_source: "llm" | null;
 }
@@ -555,12 +559,13 @@ export interface AudienceCulprit {
   probabilities: { index: number; p: number }[];
 }
 export interface AudienceDelta {
-  mean_score: number; // this version minus the compared one (negative = reacts better)
+  mean_score: number; // this version minus the compared one (negative = believed more)
   trust_pct: number;
   unsure_pct: number;
   doubt_pct: number;
   confused_pct: number;
   mean_confused: number;
+  not_for_them_pct?: number;
 }
 export interface AudienceCompare {
   version_id: number;
