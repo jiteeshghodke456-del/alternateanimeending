@@ -103,3 +103,14 @@ def test_llm_and_jev_never_see_pii_and_fix_is_unmasked(monkeypatch, pii) -> None
     raw = pii.split()[-1]
     assert all(raw not in str(c["state"]) for c in jf.calls)
     assert res.pii_masked >= 1
+
+
+def test_boundary_duplicate_is_rejected() -> None:
+    from app.pipeline.selfcheck import boundary_duplicate
+
+    text = "Cheap? No way, it is great."
+    assert boundary_duplicate(text, 0, 5, "Expensive? No way,") == "? No way,"
+    assert boundary_duplicate(text, 0, 5, "Pricey") == ""
+    assert boundary_duplicate("Try our Steam Classic today.", 8, 21, "Saffron Signature Roast") == ""
+    assert boundary_duplicate("Visit our cafe today.", 10, 14, "our cafe") == ""  # 3-letter overlap is too short to count
+    assert boundary_duplicate("We roast fresh beans weekly.", 9, 14, "small-batch fresh beans") == "fresh beans"

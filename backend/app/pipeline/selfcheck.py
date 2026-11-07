@@ -59,6 +59,9 @@ async def verify_fix(
     reasons: list[str] = []
     if fixed.strip() == original.strip():
         return SelfCheckResult(False, ["the fix doesn't change the text"], fixed)
+    dup = boundary_duplicate(original, start, end, fix)
+    if dup:
+        return SelfCheckResult(False, [f"the fix repeats “{dup}”, which is already next to it"], fixed)
 
     # 1. Tier 0
     post = ctx.post_text
@@ -106,6 +109,21 @@ async def verify_fix(
                 if p is None or to_band(p, r.category) != "pass":
                     reasons.append(f"the fixed text may still break {r.code}")
     return SelfCheckResult(not reasons, reasons, fixed)
+
+
+def boundary_duplicate(text: str, start: int, end: int, fix: str, min_len: int = 4) -> str:
+    """The LLM sometimes rewrites past the excerpt ("Cheap" -> "Expensive? No way." before "? No way.").
+    Returns the repeated words, or "" if the fix fits cleanly."""
+    after, before = text[end:].lstrip(), text[:start].rstrip()
+    f = fix.strip()
+    for n in range(min(len(f), len(after)), min_len - 1, -1):
+        if f[-n:].lower() == after[:n].lower() and not f[-n:].isspace():
+            if len(f[-n:].strip()) >= min_len and any(ch.isalpha() for ch in f[-n:]):
+                return f[-n:].strip()
+    for n in range(min(len(f), len(before)), min_len - 1, -1):
+        if f[:n].lower() == before[-n:].lower() and len(f[:n].strip()) >= min_len and any(ch.isalpha() for ch in f[:n]):
+            return f[:n].strip()
+    return ""
 
 
 def _sig(cl: C.Claim) -> tuple[str, tuple[str, ...]]:
