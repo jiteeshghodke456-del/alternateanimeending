@@ -255,7 +255,7 @@ AudienceRun(id, version_id, results{}, created_at)
 ```
 POST /demo/login {user_id}            GET  /me                POST /demo/reset
 GET  /brand                            GET/POST/PATCH /rules, /terms, /facts
-POST /brand/import-pdf (P1)            POST /brand/import-pdf/confirm (P1)
+POST /brand/import-pdf (P1)  GET /brand/import-pdf/{id}  POST /brand/import-pdf/{id}/confirm (P1)
 POST /items {title, channel, text?, file?, confidential}  → {item_id, version_id}
 GET  /items?state=&mine=               GET /items/{id}       GET /versions/{id}
 GET  /versions/{id}/events  (SSE)      GET /versions/{id}/findings

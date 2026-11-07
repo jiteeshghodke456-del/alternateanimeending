@@ -304,3 +304,35 @@ def test_sse_streams_progress_then_done(client: TestClient, monkeypatch) -> None
                 if names[-1] in ("done", "error"):
                     break
     assert names[-1] == "done"
+
+
+def test_image_post_runs_with_image_state_and_no_culprit(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+    import io
+
+    from PIL import Image as PILImage
+
+    seen: list[Any] = []
+    fake = AudienceJev()
+
+    async def spy(state: Any, questions: dict, **kw: Any) -> Any:
+        if isinstance(state, dict) and "caption" in state and any(k.endswith("_confused") for k in questions):
+            seen.append((state, questions))
+        return await fake(state, questions, **kw)
+
+    install_audience(monkeypatch, fake)
+    monkeypatch.setattr(jev, "_call_api", spy)
+    buf = io.BytesIO()
+    PILImage.new("RGB", (600, 400), (240, 230, 210)).save(buf, "PNG")
+    login(client, "creator")
+    r = client.post("/api/items", data={"title": "img", "channel": "instagram", "confidential": "false",
+                                        "caption": "New roast, call 9876543210"},
+                    files={"file": ("ad.png", buf.getvalue(), "image/png")})
+    assert r.status_code == 201, r.text
+    vid = r.json()["version_id"]
+    assert client.post(f"/api/versions/{vid}/audience").status_code == 202
+    out = _wait(client, vid)
+    assert out["status"] == "done" and out["culprit_paragraph"] is None and len(out["personas"]) == 240
+    assert len(seen) == 12
+    state, qs = seen[0]
+    assert "9876543210" not in state["caption"]  # PII masked before the external call
+    assert "culprit" not in qs and "`image`" in next(iter(qs.values())).instructions
