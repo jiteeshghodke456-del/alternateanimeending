@@ -9,7 +9,7 @@ import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { chartTheme, GlassChartCard } from "@/components/GlassChartCard";
-import { api } from "@/lib/api";
+import { api, namesWithRole } from "@/lib/api";
 import { formatDate, reportError, useAsync } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 
@@ -43,7 +43,7 @@ function calibration(m: Obj): { name: string; actual: number; n: number | null }
 const cell = (v: unknown): string => (v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
 export default function Eval() {
-  const { user } = useSession();
+  const { user, users } = useSession();
   const q = useAsync(() => api.evalLatest(), []);
   const [running, setRunning] = useState(false);
   const admin = user?.role === "admin";
@@ -62,12 +62,13 @@ export default function Eval() {
     return (
       <>
         <PageHeader title="Evaluation" subtitle="Precision and recall on a labelled test split, from a real run." />
+        {d.brand_note && <p role="note" className="mb-5 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p>}
         <EmptyState
           icon={FlaskConical} title="Evaluation hasn't been run on this server yet"
           description="We only show accuracy numbers that come from a real run, so there is nothing to show until one finishes."
           action={admin ? (
-            <Button onClick={run} disabled={running} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{running ? <Loader2 className="animate-spin" /> : <Play strokeWidth={1.75} />} Run on test split</Button>
-          ) : <p className="text-footnote text-muted-foreground">A brand admin can start a run. Switch to Asha in the top bar.</p>}
+            <Button onClick={run} disabled={running} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">{running ? <Loader2 className="animate-spin" /> : <Play strokeWidth={1.75} />} Run on test split</Button>
+          ) : <p className="text-footnote text-muted-foreground">A brand admin can start a run. Switch to {namesWithRole(users, "admin")} in the top bar.</p>}
         />
       </>
     );
@@ -82,6 +83,7 @@ export default function Eval() {
   const cats = categoryRows(m);
   const cal = calibration(m);
   const missCols = d.misses.length ? Object.keys(d.misses[0]).slice(0, 6) : [];
+  const note = d.brand_note ? <p role="note" className="mb-5 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p> : null;
 
   return (
     <>
@@ -90,6 +92,7 @@ export default function Eval() {
         subtitle={`Run ${formatDate(d.run_at)} on the ${d.split ?? "test"} split.${Object.keys(d.models).length ? ` Models: ${Object.values(d.models).join(", ")}.` : ""}`}
         actions={admin ? <Button onClick={run} disabled={running} variant="secondary" className="rounded-full">{running ? <Loader2 className="animate-spin" /> : <Play strokeWidth={1.75} />} Re-run on test split</Button> : undefined}
       />
+      {note}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         {precision != null && <KpiTile label="Precision" value={precision} decimals={1} suffix="%" icon={Target} />}
         {recall != null && <KpiTile label="Recall" value={recall} decimals={1} suffix="%" icon={Crosshair} />}
