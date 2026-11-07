@@ -74,6 +74,16 @@ LLM user message (example for R-CLAIM-01):
 - **Thresholds** (`eval/results/thresholds.json`, tuned on dev only): claims flag 0.50 / human 0.30, tone flag 0.90 / human 0.65, messaging 0.70 / 0.30, defaults 0.70 / 0.30. Tone's 0.90 is high. It reflects 8 tone labels on 42 dev items, so it's at risk of overfitting.
 - **Eval labels are drafts** (`labelled_by: draft-ai`). Several test "false positives" look like real violations the labels missed (E-049 "Flat 25% off" has no supporting fact; E-054 "win a" is a second giveaway trigger). Re-label before quoting numbers.
 
+### P1-1 Audience Preview wording (all in `pipeline/questions.py`; please review)
+State: `{"content": masked post}` (image posts: `{"image", "caption"}`). Each persona goes into its own two questions (240 personas, 20 per request, 12 requests in parallel). High = problem.
+  - `p{i}_distrust` (noul): "Would this person find `content` misleading or hard to trust? Person: {bio}" — `true`: "This person would doubt `content`: a claim sounds too good to be true to them, the numbers or promises seem made up, or the pressure to buy makes them suspicious." `false`: "This person would take `content` at face value, like a plain note that a product costs Rs 495 including taxes or that a shop opens at 8 am."
+  - `p{i}_confused` (noul): "Would this person misunderstand the main message of `content`? Person: {bio}" — `true`: "...could not say what is being offered or what they are asked to do, for example because of slang, codes, mixed messages or English they find hard." `false`: "...could say in one sentence what is offered and what to do next".
+  - `culprit` (choice, first request only, 2–15 paragraphs): "Which paragraph of `content` would most reduce a reader's trust in the brand?" Options are named by each paragraph's opening words; criteria = the paragraph text.
+  - `any_distrust` (companion noul): "Does any part of `content` make a typical reader less likely to trust the brand?" Code reads `culprit` only when this is ≥ 0.30 (≥ 0.70 = certain, else "possibly").
+  - `{bio}` = "{age}-year-old {sex}, {occupation}, from {district}, {state} ({urban/rural}). {dataset persona line}".
+- **Judgment calls:** the "why" sentence (DeepSeek, at most 2 segments with ≥ 25% distrust) is best-effort: omitted on any failure, still logged in `ai_calls`. `distrust` and `confused` are each one Noul; "misleading or hard to trust" is arguably two conditions (kept together; it reads as one reader reaction).
+- **Live (7 Nov, demo post):** the persona barely moves the answer (segment means within ±0.05 on one post). Content drives it. v1 (flawed): 100% distrust in every segment, mean p 0.815–0.824. Hand-cleaned version: 0% distrust, 100% "unsure", mean p 0.40–0.52. The v2 made only by accepting every suggested fix was *not* better (100% distrust, mean 0.83): overlapping fixes left garbled text ("Loved by thousands of happy customers stars by thousands of happy customers"), and "India's favourite" stayed. That's a resubmit/fix-composition issue, not an audience one.
+
 ## Decided
 - Stack fixed per CLAUDE.md (FastAPI + SQLite + React/Vite static, one container, HF Spaces).
 - Frontend: Tailwind v4 (via @tailwindcss/vite, `@config` loads tailwind.config.ts) because the Magic UI registry components use v4 syntax. Magic UI (number-ticker, border-beam, animated-list, blur-fade) came from the official registry into `frontend/src/components/ui/`.
@@ -143,3 +153,19 @@ LLM user message (example for R-CLAIM-01):
   - The rule scan can now draw every judged rule from `version.stats.rule_scan`, including passes.
   - Seeded items can be checked with `POST /versions/{id}/check` (admin or creator), so they no longer need a resubmit.
 - **Backend request (minor):** `GET /api/insights` `by_category` returns a bucket with an empty `key` (visible as "other" in the chart); likely a finding with no category.
+
+## P1 API for UI
+All under `/api`, JSON, session required; errors are `{"detail": "<human message>"}`. Types are in `frontend/src/lib/api.ts`.
+
+### Audience Preview (P1-1)
+- `POST /versions/{id}/audience` → **202** `AudienceOut` (`status: "running"`). If a run is already going for that version, it returns it. **409** for confidential items, **503** without Jev, **422** when the version has no text or image, **404** for an unknown version.
+- `GET /versions/{id}/audience[?compare_to=<version_id>]` → `AudienceOut`. `status`: `none` (never run) | `running` | `done` | `error` (`message` says why) | `unavailable` (confidential or no Jev; `message` says why). Poll every ~0.5 s while `running`, or use SSE.
+- `GET /versions/{id}/audience/events` (SSE, `?token=` works) → `progress` events, then one `done` or `error`. Every event's data is a full `AudienceOut`.
+- `AudienceOut`: `version_id, run_id, status, label, attribution, message, progress{done,total}, overall: AudienceTotals, segments: AudienceSegment[6], personas: AudiencePersona[240], culprit_paragraph, compare_to_previous_version, warnings[], elapsed_ms, judgments, cost_usd, created_at, updated_at`.
+  - `AudienceTotals`: `n, answered, distrust_pct, confused_pct, unsure_pct` (shares 0..1), `mean_distrust, mean_confused` (mean p).
+  - `AudienceSegment` = totals + `key, label, worst: AudiencePersona[3], why (string|null), why_source ("llm"|null)`.
+  - `AudiencePersona`: `id, idx, segment, bio, detail, distrust, confused, signal` (`distrust` red, `confused`/`unsure` amber, `ok` green; null = not answered).
+  - `culprit_paragraph`: `index, text, char_start, char_end` (offsets into `VersionOut.text`), `probability, any_distrust, certain, probabilities[{index, p}]`; null = no paragraph singled out.
+  - `compare_to_previous_version`: by default the item's newest earlier version with a finished run; `?compare_to=` picks any version. `{version_id, version_n, run_id, created_at, overall (that version's totals), delta (this minus that; negative distrust = better), segments[{key, label, previous, delta}], culprit_paragraph}`. Null when nothing to compare.
+- **The UI must always show `label` and `attribution`** (the attribution is required by the CC-BY-4.0 licence). Live, segments differ only slightly; show `mean_distrust` next to the thresholded shares.
+

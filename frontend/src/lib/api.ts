@@ -363,12 +363,82 @@ export interface AIUsageOut {
 }
 
 // ------------------------------------------------------------------ audience (P1)
+// Shapes mirror backend/app/schemas.py (Audience*). Shares are 0..1; "p" values are Jev probabilities.
+export type AudienceSignal = "distrust" | "confused" | "unsure" | "ok";
+export interface AudiencePersona {
+  id: string;
+  idx: number;
+  segment: string; // segment key
+  bio: string; // short: "34, Shop owner, Nagpur, Maharashtra"
+  detail: string; // the dataset's one-line persona
+  distrust: number | null; // null = not answered (its Jev request failed)
+  confused: number | null;
+  signal: AudienceSignal | null; // dot colour, decided in code: distrust red; confused/unsure amber; ok green
+}
+export interface AudienceTotals {
+  n: number;
+  answered: number;
+  distrust_pct: number; // share with distrust p > 0.70
+  confused_pct: number; // share with confused p > 0.70
+  unsure_pct: number; // share with distrust p in 0.30..0.70
+  mean_distrust: number; // mean p; smoother than the shares, use it for small differences
+  mean_confused: number;
+}
+export interface AudienceSegment extends AudienceTotals {
+  key: string;
+  label: string; // "18–24, urban"
+  worst: AudiencePersona[]; // the 3 most negative personas
+  why: string | null; // optional LLM sentence (an AI guess); null when not asked or the call failed
+  why_source: "llm" | null;
+}
+export interface AudienceCulprit {
+  index: number; // paragraph index in the version text
+  text: string;
+  char_start: number | null; // offsets into VersionOut.text, for highlighting
+  char_end: number | null;
+  probability: number; // Jev Choice probability of this paragraph
+  any_distrust: number; // companion Noul: does any part reduce trust?
+  certain: boolean; // false: show as "possibly"
+  probabilities: { index: number; p: number }[];
+}
+export interface AudienceDelta {
+  distrust_pct: number; // this version minus the compared one (negative = trusted more)
+  confused_pct: number;
+  unsure_pct: number;
+  mean_distrust: number;
+  mean_confused: number;
+}
+export interface AudienceCompare {
+  version_id: number;
+  version_n: number | null;
+  run_id: number;
+  created_at: string | null;
+  overall: AudienceTotals; // the compared (previous) version's totals
+  delta: AudienceDelta;
+  segments: { key: string; label: string; previous: AudienceTotals; delta: AudienceDelta }[];
+  culprit_paragraph: AudienceCulprit | null;
+}
 export interface AudienceOut {
   version_id: number;
+  run_id: number | null;
   status: "none" | "running" | "done" | "error" | "unavailable";
-  label: string; // "Simulated audience, directional signal, not a survey"
-  results: Record<string, unknown>;
+  label: string; // "Simulated audience, directional signal, not a survey" (always show it)
+  attribution: string; // "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)" (licence-required; always show it)
+  message: string | null; // human message for error / unavailable
+  progress: { done: number; total: number } | null;
+  overall: AudienceTotals | null;
+  segments: AudienceSegment[];
+  personas: AudiencePersona[]; // fills in while running (240 when done)
+  culprit_paragraph: AudienceCulprit | null;
+  compare_to_previous_version: AudienceCompare | null;
+  warnings: string[];
+  elapsed_ms: number | null;
+  judgments: number | null;
+  cost_usd: number | null;
   created_at: IsoDateTime | null;
+  updated_at: IsoDateTime | null;
+  /** @deprecated never sent by the server; the results are the top-level fields above. */
+  results?: Record<string, unknown>;
 }
 
 // ------------------------------------------------------------------ insights
@@ -577,7 +647,9 @@ export const api = {
 
   // audience (P1)
   startAudience: (versionId: number) => post<AudienceOut>(`/versions/${versionId}/audience`),
-  audience: (versionId: number) => get<AudienceOut>(`/versions/${versionId}/audience`),
+  audience: (versionId: number, q?: { compare_to?: number }) => get<AudienceOut>(`/versions/${versionId}/audience`, q),
+  /** SSE URL: events `progress`, then `done` | `error`; each carries AudienceOut JSON. */
+  audienceEventsUrl: (versionId: number) => withToken(`${BASE}/versions/${versionId}/audience/events`),
 
   // insights / eval
   insights: () => get<InsightsOut>("/insights"),
