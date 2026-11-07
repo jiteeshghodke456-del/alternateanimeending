@@ -173,13 +173,13 @@ export function FactImpactDialog({ factId, open, onOpenChange, onDone }: {
 }
 
 /** Dashboard card: facts expiring within 14 days (and expired ones) that content still relies on. */
-export function ExpiringFactsCard() {
+export function ExpiringFactsCard({ className }: { className?: string }) {
   const q = useAsync(() => claimsApi.expiring(), []);
   const [impact, setImpact] = useState<number | null>(null);
   if (q.error || !q.data) return null; // the dashboard has its own error state; this card is extra
   const rows = [...q.data.expired, ...q.data.expiring];
   return (
-    <section aria-labelledby="expiring-h" className="glass-strong mb-6 p-5 md:p-6" data-testid="expiring-card">
+    <section aria-labelledby="expiring-h" className={cn("glass-strong p-5 md:p-6", className)} data-testid="expiring-card">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 id="expiring-h" className="text-headline">Facts expiring soon</h2>

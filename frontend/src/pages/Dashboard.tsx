@@ -98,7 +98,6 @@ export default function Dashboard() {
     <>
       <PageHeader title="Dashboard" subtitle="How content is doing against the guidelines. Numbers come from checks run on this server." />
       <SetupCard />
-      {!empty && <ExpiringFactsCard />}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <KpiTile label="Items checked" value={k.items_checked} icon={FileCheck2} />
         <KpiTile label="Findings" value={k.findings} icon={Flag} />
@@ -107,6 +106,7 @@ export default function Dashboard() {
         <KpiTile label="Jev judgments" value={k.jev_judgments} icon={Scale} />
         <KpiTile label="Total cost" value={k.total_cost_usd} decimals={4} prefix="$" icon={Coins} />
       </div>
+      {!empty && <ExpiringFactsCard className="mt-6" />}
       {empty ? (
         <EmptyState
           className="mt-6" icon={BarChart3} title="No checks yet" description="Run a check on some content and the charts fill in here."

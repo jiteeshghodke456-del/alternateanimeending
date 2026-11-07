@@ -38,8 +38,8 @@ function Group({ g, onImpact }: { g: LedgerGroup; onImpact: (id: number) => void
             </>
           )}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <span className="text-footnote text-muted-foreground"><span className="font-semibold text-foreground">{items}</span> item{items === 1 ? "" : "s"} rely on it · {g.items_approved} approved · {g.items_in_progress} in progress</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 text-footnote text-muted-foreground"><span className="font-semibold text-foreground">{items}</span> item{items === 1 ? "" : "s"} {f ? (items === 1 ? "relies on it" : "rely on it") : (items === 1 ? "makes these claims" : "make these claims")} · {g.items_approved} approved · {g.items_in_progress} in progress</span>
           {f && <Button size="sm" variant="secondary" className="rounded-full" onClick={() => onImpact(f.id)} aria-label={`Impact of ${f.code}`}><Radar strokeWidth={1.75} /> Impact</Button>}
         </div>
       </header>
