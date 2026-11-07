@@ -190,8 +190,9 @@ function LookStep({ brand, back, next }: { brand: BrandOut; back: () => void; ne
   async function save() {
     setBusy(true);
     try {
-      await api.setPalette(rows.map((r) => ({ name: r.name.trim(), hex: normalizeHex(r.text)! })));
-      if (logo) await api.uploadLogo(logo);
+      if (features?.palette === false && (!logo || features?.logo === false)) { next(); return; }
+      if (features?.palette !== false) await api.setPalette(rows.map((r) => ({ name: r.name.trim(), hex: normalizeHex(r.text)! })));
+      if (logo && features?.logo !== false) await api.uploadLogo(logo);
       await refreshBrand();
       toast.success("Colours saved");
       next();
@@ -269,7 +270,7 @@ function LookStep({ brand, back, next }: { brand: BrandOut; back: () => void; ne
       </div>
 
       <StepFooter onBack={back} onSkip={next}>
-        <Button className={primary} disabled={invalid || busy} onClick={save}>{busy && <Loader2 className="animate-spin" />} Save and continue <ArrowRight strokeWidth={2} /></Button>
+        <Button className={primary} disabled={invalid || busy} onClick={save}>{busy && <Loader2 className="animate-spin" />} {features?.palette === false ? "Continue" : "Save and continue"} <ArrowRight strokeWidth={2} /></Button>
       </StepFooter>
     </>
   );
