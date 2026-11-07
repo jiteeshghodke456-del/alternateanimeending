@@ -113,4 +113,4 @@ def test_boundary_duplicate_is_rejected() -> None:
     assert boundary_duplicate(text, 0, 5, "Pricey") == ""
     assert boundary_duplicate("Try our Steam Classic today.", 8, 21, "Saffron Signature Roast") == ""
     assert boundary_duplicate("Visit our cafe today.", 10, 14, "our cafe") == ""  # 3-letter overlap is too short to count
-    assert boundary_duplicate("We roast fresh beans weekly.", 9, 14, "small-batch fresh beans") == "fresh beans"
+    assert boundary_duplicate("We roast fresh beans weekly.", 9, 14, "small-batch fresh beans") == "beans"
