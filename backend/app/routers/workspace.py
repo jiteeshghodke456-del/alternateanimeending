@@ -32,6 +32,7 @@ def _out(m: W.Meta, brand_name: str, *, full: bool) -> WorkspaceOut:
         id=m.id, kind=m.kind, brand=WorkspaceBrand(name=brand_name), created_at=m.created_iso(),
         expires_at=m.expires_iso() if full else None,
         limits=WorkspaceLimits(max_workspaces=W.max_workspaces(), ttl_hours=s.workspace_ttl_h) if full else None,
+        token=W.sign(m.id),
     )
 
 

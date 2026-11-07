@@ -165,6 +165,9 @@ class WorkspaceOut(_Out):
     created_at: str  # ISO 8601 UTC
     expires_at: Optional[str] = None  # GET /workspace only: deleted after this if idle
     limits: Optional[WorkspaceLimits] = None  # GET /workspace only
+    # Signed workspace token (= the bg_ws cookie value). Only needed where cookies are blocked: send it
+    # back as the X-BG-Workspace header (or ?ws= for EventSource / <img>).
+    token: str = ""
 
 
 class RuleOut(_Out):

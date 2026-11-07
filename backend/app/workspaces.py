@@ -49,6 +49,7 @@ from app.config import get_settings
 log = logging.getLogger("brandgate.workspaces")
 
 COOKIE_NAME = "bg_ws"
+HEADER_NAME = "x-bg-workspace"  # same signed value as the cookie; request fallback + set on creation
 _SALT = "brandgate-workspace-v1"
 KINDS = ("demo", "blank")
 ENGINE_CACHE = 8
@@ -637,7 +638,10 @@ class WorkspaceMiddleware:
             return
         from starlette.requests import HTTPConnection
 
-        ws_id = lookup(unsign(HTTPConnection(scope).cookies.get(COOKIE_NAME)))
+        conn = HTTPConnection(scope)
+        # cookie first; header / ?ws= are the fallback for browsers that block the cookie (cross-site iframe)
+        raw = conn.cookies.get(COOKIE_NAME) or conn.headers.get(HEADER_NAME) or conn.query_params.get("ws")
+        ws_id = lookup(unsign(raw))
         if ws_id:
             touch(ws_id)
         ref = WsRef(id=ws_id)
@@ -645,7 +649,8 @@ class WorkspaceMiddleware:
 
         async def _send(msg: dict) -> None:
             if msg.get("type") == "http.response.start" and ref.created and ref.id:
-                msg = {**msg, "headers": [*msg.get("headers", []), (b"set-cookie", cookie_header(ref.id))]}
+                msg = {**msg, "headers": [*msg.get("headers", []), (b"set-cookie", cookie_header(ref.id)),
+                                          (HEADER_NAME.encode(), sign(ref.id).encode())]}
             await send(msg)
 
         try:

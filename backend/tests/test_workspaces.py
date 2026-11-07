@@ -108,6 +108,11 @@ def test_cookieless_request_gets_a_demo_workspace(clients: list[TestClient]) -> 
     ws = c.get("/api/workspace").json()
     assert ws["kind"] == "demo" and ws["brand"]["name"] and ws["expires_at"] and ws["limits"]["max_workspaces"] >= 1
     assert c.get("/api/workspace").json()["id"] == ws["id"]  # the cookie sticks
+    assert r.headers["x-bg-workspace"] == ws["token"]
+    # cookies blocked (cross-site iframe): the header / ?ws= token selects the same workspace
+    bare = TestClient(app)
+    assert bare.get("/api/workspace", headers={"X-BG-Workspace": ws["token"]}).json()["id"] == ws["id"]
+    assert bare.get(f"/api/workspace?ws={ws['token']}").json()["id"] == ws["id"]
 
 
 def test_two_visitors_are_isolated_and_background_checks_land_in_their_own_workspace(clients: list[TestClient]) -> None:
