@@ -111,7 +111,7 @@ export default function Dashboard() {
           action={<Button asChild className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Link to="/content/new">Check your first post</Link></Button>}
         />
       ) : (
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0">
           <GlassChartCard title="Findings by category">{d.by_category.length ? <SimpleBar data={rows(d.by_category)} /> : <p className="text-footnote text-muted-foreground">No data yet.</p>}</GlassChartCard>
           <GlassChartCard title="Top rules broken" subtitle="Hover a bar for the rule text" height={Math.max(240, d.top_rules.length * 30)}>{d.top_rules.length ? <SimpleBar data={rows(d.top_rules)} horizontal /> : <p className="text-footnote text-muted-foreground">No data yet.</p>}</GlassChartCard>
           <GlassChartCard title="Findings by channel">{d.by_channel.length ? <SimpleBar data={rows(d.by_channel)} /> : <p className="text-footnote text-muted-foreground">No data yet.</p>}</GlassChartCard>
