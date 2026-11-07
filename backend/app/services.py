@@ -188,7 +188,7 @@ def web_source(v: Version) -> Optional[WebSource]:
 
     rec = load_record(v.file_path)
     try:
-        return WebSource(**{k: rec[k] for k in WebSource.model_fields})
+        return WebSource(**{k: rec[k] for k in WebSource.model_fields if k in rec})
     except (KeyError, ValueError):
         return None
 

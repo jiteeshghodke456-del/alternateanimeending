@@ -111,6 +111,7 @@ async def create_item_from_url(body: FromUrlIn, session: SessionDep, user: Curre
         "images": len(stored), "images_skipped": skipped, "truncated": units.truncated, "a11y_issues": len(issues),
         "lang": parsed.lang, "robots": page.robots, "status": page.status,
         "blocks": [{"idx": i, "tag": b.tag, "heading": b.heading} for i, b in enumerate(units.blocks)],
+        "block_tags": [b.tag for b in units.blocks],
         "image_list": [{"idx": n_text + i, "url": im.url, "width": im.width, "height": im.height,
                         "alt": next((r.alt for r in parsed.images if r.url == im.url), None)}
                        for i, (im, _) in enumerate(stored)],

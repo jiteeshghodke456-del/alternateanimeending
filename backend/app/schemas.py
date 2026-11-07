@@ -392,6 +392,7 @@ class WebSource(_Out):
     a11y_issues: int
     lang: str
     robots: str  # "allowed" | "no robots.txt"
+    block_tags: list[str] = []  # per text unit, in order: h1..h6 | p | li | ... (so the UI can show headings)
 
 
 class VersionOut(_Out):
