@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
+from app import workflow as W
 from app.deps import CurrentUser, SessionDep, ensure_role
 from app.models import CHANNELS, ContentItem, Finding, Unit, Version
 from app.pipeline import run as pipeline_run
@@ -142,13 +143,44 @@ def get_item(item_id: int, session: SessionDep, user: CurrentUser) -> ItemDetail
     )
 
 
-# OWNER: workflow-agent
 @router.post("/items/{item_id}/resubmit", response_model=ResubmitOut)
 async def resubmit(item_id: int, session: SessionDep, user: CurrentUser) -> ResubmitOut:
-    """Apply accepted fixes (Finding.fix) and edits (Finding.edited_text) of the latest version
-    onto its text (apply spans from the end backwards), create_version(n=latest+1),
-    item.state="checking", audit("resubmitted"), commit, then pipeline_run.start_check(new_id)."""
-    raise HTTPException(status_code=501, detail="Resubmitting isn't available yet.")
+    """Apply accepted fixes and creator edits of the latest version to its text (spans applied
+    end -> start; overlapping later spans are skipped and reported), create version n+1, set the
+    item to "checking", audit "resubmitted", then start the check. Returns the word-level diff."""
+    item = get_item_or_404(session, item_id)
+    denial = W.can_resubmit(item, user)
+    if denial:
+        raise HTTPException(status_code=denial[0], detail=denial[1])
+    prev = W.latest(session, item.id)
+    if prev is None:
+        raise HTTPException(status_code=409, detail="This item has no version to resubmit.")
+    findings = session.exec(select(Finding).where(Finding.version_id == prev.id, Finding.status.in_(("accepted", "edited")))).all()
+    units = {u.id: u for u in session.exec(select(Unit).where(Unit.version_id == prev.id)).all()}
+    res = W.apply_findings(prev.text, list(findings), units)
+
+    file_bytes, filename, caption, alt = None, "", None, None
+    text: Optional[str] = res.text
+    if prev.kind == "image" and prev.file_path and Path(prev.file_path).is_file():
+        # keep the image; the (possibly fixed) caption is the version text
+        file_bytes, filename, caption, alt, text = Path(prev.file_path).read_bytes(), Path(prev.file_path).name, res.text, prev.alt_text, None
+    # PDFs: the new version is a text version of the corrected paragraphs (the original file stays on version n)
+    try:
+        new = create_version(session, item, n=prev.n + 1, text=text, file_bytes=file_bytes, filename=filename,
+                             caption=caption, alt_text=alt)
+    except UploadError as exc:
+        session.rollback()
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    frm = item.state
+    item.state = "checking"
+    touch(item)
+    session.add(item)
+    audit(session, "resubmitted", item_id=item.id, version_id=new.id, user_id=user.id,
+          detail={"from": frm, "to": "checking", "version": new.n, "applied": res.applied, "skipped": res.skipped})
+    session.commit()
+    pipeline_run.start_check(new.id)
+    return ResubmitOut(item_id=item.id, version_id=new.id, n=new.n, diff=W.word_diff(prev.text, new.text),
+                       applied=res.applied, skipped=res.skipped)
 
 
 # ------------------------------------------------------------------ versions
@@ -199,13 +231,17 @@ def list_findings(version_id: int, session: SessionDep, user: CurrentUser, inclu
 
 
 # ------------------------------------------------------------------ finding actions
-# OWNER: workflow-agent (scaffold implements the simple status change; refine permissions/states)
+# Only the item's creator, a reviewer or an approver may act; only on the latest version; not once final.
 def _finding_ctx(session: Session, finding_id: int, user) -> tuple[Finding, ContentItem]:  # noqa: ANN001
     f = get_finding_or_404(session, finding_id)
     v = get_version_or_404(session, f.version_id)
     item = get_item_or_404(session, v.item_id)
-    if user.role == "creator" and item.creator_id != user.id:
-        raise HTTPException(status_code=403, detail="Only the item's creator, a reviewer or an approver can change this finding.")
+    denial = W.can_act_on_finding(user, item)
+    if denial:
+        raise HTTPException(status_code=denial[0], detail=denial[1])
+    latest = W.latest(session, item.id)
+    if latest and latest.id != v.id:
+        raise HTTPException(status_code=409, detail="This finding belongs to an older version. Open the latest version to act on findings.")
     return f, item
 
 
@@ -224,15 +260,23 @@ def accept_finding(finding_id: int, session: SessionDep, user: CurrentUser) -> F
     f, item = _finding_ctx(session, finding_id, user)
     if not f.fix:
         raise HTTPException(status_code=409, detail="This finding has no suggested fix. Use Edit to write your own.")
+    if f.span_start is None or f.span_end is None:
+        raise HTTPException(status_code=409, detail="This finding isn't tied to a piece of text, so a fix can't be applied automatically. Dismiss it or edit the content.")
     f.status = "accepted"
+    f.edited_text = f.dismiss_reason = f.dismiss_note = None
     return _save_finding(session, f, item, user, "finding_accepted", {"rule_code": f.rule_code})
 
 
 @router.post("/findings/{finding_id}/edit", response_model=FindingOut)
 def edit_finding(finding_id: int, body: FindingEditIn, session: SessionDep, user: CurrentUser) -> FindingOut:
     f, item = _finding_ctx(session, finding_id, user)
+    if not body.text.strip():
+        raise HTTPException(status_code=422, detail="Write the replacement text for this span.")
+    if f.span_start is None or f.span_end is None:
+        raise HTTPException(status_code=409, detail="This finding isn't tied to a piece of text, so an edit can't be applied automatically. Dismiss it or edit the content.")
     f.status = "edited"
     f.edited_text = body.text
+    f.dismiss_reason = f.dismiss_note = None
     return _save_finding(session, f, item, user, "finding_edited", {"rule_code": f.rule_code})
 
 
@@ -243,7 +287,8 @@ def dismiss_finding(finding_id: int, body: FindingDismissIn, session: SessionDep
         raise HTTPException(status_code=422, detail="Please add a short note when the reason is “Other”.")
     f.status = "dismissed"
     f.dismiss_reason = body.reason
-    f.dismiss_note = body.note
+    f.dismiss_note = (body.note or "").strip() or None
+    f.edited_text = None
     return _save_finding(session, f, item, user, "finding_dismissed", {"rule_code": f.rule_code, "reason": body.reason})
 
 
