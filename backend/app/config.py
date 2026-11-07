@@ -6,6 +6,7 @@ import tempfile
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 APP_DIR = Path(__file__).resolve().parent          # backend/app
@@ -75,6 +76,13 @@ class Settings(BaseSettings):
     sift_max_side: int = 640  # logo matching: largest piece one SIFT pass sees (~225 bytes/pixel); bigger images are tiled
     jev_concurrency: int = 8  # Jev calls in flight per process
     audience_readers: int = 240  # simulated readers per Audience Preview run (2 judgments each)
+
+    @field_validator("session_secret")
+    @classmethod
+    def _blank_secret_uses_dev_default(cls, v: str) -> str:
+        # `SESSION_SECRET=` (blank, as in .env.example passed via `docker run --env-file`) must not sign
+        # sessions with an empty key; fall back to the dev default, which is no worse than leaving it unset.
+        return v.strip() or "dev-only-insecure-session-secret-change-me"
 
     @property
     def jev_configured(self) -> bool:
