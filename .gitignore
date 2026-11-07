@@ -27,6 +27,10 @@ frontend/dist/
 backend/app/eval/results/*
 !backend/app/eval/results/latest.json
 !backend/app/eval/results/thresholds.json
+!backend/app/eval/results/claims-before.json
+!backend/app/eval/results/claims-after.json
+!backend/app/eval/results/claims-before-nojev.json
+!backend/app/eval/results/claims-after-nojev.json
 
 # OS / editors
 .DS_Store
