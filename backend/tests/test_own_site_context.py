@@ -18,10 +18,10 @@ from app.pipeline.webpage import brand_owns_host, page_host
 from fakes import FakeJev, install
 
 PACK_FILE = Path(__file__).resolve().parents[1] / "app" / "seed" / "packs" / "india_regulatory.json"
-PRESS_NOTE = [
-    "[fixture text replaced]",
-    "[fixture text replaced]",
-    "[fixture text replaced]",
+PRESS_NOTE = [  # a fictional brand's year-in-review press note, in the style of a real one
+    "Pune, December 20, 2025: Coffee, cookies and cold brew, our customers ordered more than ever in 2025.",
+    "As we publish the third edition of our annual order report, the numbers show a clear shift in what people buy.",
+    "In Nagpur, one regular ordered 312 cold brews over the year, almost one a day.",
 ]
 
 
