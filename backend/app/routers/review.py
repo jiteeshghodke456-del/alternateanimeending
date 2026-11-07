@@ -32,8 +32,9 @@ from app.schemas import (
     ItemDetail,
     NoteIn,
     OverrideIn,
+    SubmitIn,
 )
-from app.services import audit, to_finding_out, to_item_summary, to_version_summary, touch, web_source
+from app.services import audit, channel_target, version_score, to_finding_out, to_item_summary, to_version_summary, touch, web_source
 
 router = APIRouter(tags=["review"])
 
@@ -75,7 +76,7 @@ def _transition(session: Session, item: ContentItem, user: User, action: str, to
     session.commit()
     session.refresh(item)
     versions = session.exec(select(Version).where(Version.item_id == item.id).order_by(Version.n)).all()
-    return ItemDetail(item=to_item_summary(session, item), versions=[to_version_summary(x) for x in versions],
+    return ItemDetail(item=to_item_summary(session, item), versions=[to_version_summary(x, session) for x in versions],
                       actions=item_actions(session, item, user))
 
 
@@ -88,12 +89,26 @@ def _require_note(body: NoteIn, what: str) -> str:
 
 # ------------------------------------------------------------------ transitions
 @router.post("/items/{item_id}/submit", response_model=ItemDetail)
-def submit_item(item_id: int, session: SessionDep, user: CurrentUser) -> ItemDetail:
+def submit_item(item_id: int, session: SessionDep, user: CurrentUser, body: Optional[SubmitIn] = None) -> ItemDetail:
+    """Below the channel's target Brand Score, submitting needs a short reason (stored in the audit event and
+    shown to reviewers). The score never blocks by itself; open blocking findings do (W.can_submit)."""
     item = get_item_or_404(session, item_id)
     _raise(W.can_submit(session, item, user))
     v = W.latest(session, item.id)
     overridden = len(session.exec(select(Finding).where(Finding.version_id == v.id, Finding.status == "overridden")).all())
-    return _transition(session, item, user, "submitted", "in_review", {"overridden_findings": overridden})
+    extra: dict = {"overridden_findings": overridden}
+    sc = version_score(session, v)
+    target = channel_target(session, item.brand_id, item.channel)
+    if sc is not None:
+        extra.update(score=sc.score, target_score=target)
+        if sc.score < target:
+            reason = ((body.reason if body else None) or "").strip()
+            if len(reason) < 3:
+                raise HTTPException(status_code=422, detail=(
+                    f"This version scores {sc.score}, below the {item.channel} target of {target}. "
+                    "Add a short reason for the reviewer to submit it anyway."))
+            extra["below_target_reason"] = reason
+    return _transition(session, item, user, "submitted", "in_review", extra)
 
 
 @router.post("/items/{item_id}/approve", response_model=ItemDetail)

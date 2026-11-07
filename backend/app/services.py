@@ -35,6 +35,7 @@ from app.schemas import (
     FindingOut,
     ItemSummary,
     RuleRef,
+    ScoreOut,
     UnitOut,
     VersionOut,
     VersionSummary,
@@ -153,6 +154,33 @@ def latest_version(session: Session, item_id: int) -> Optional[Version]:
     return session.exec(select(Version).where(Version.item_id == item_id).order_by(Version.n.desc())).first()
 
 
+def version_score(session: Session, v: Optional[Version]) -> Optional[ScoreOut]:
+    """Brand Score of a version (pipeline/score.py), computed live from its findings; None until checked."""
+    from app.pipeline import score as SC
+
+    if v is None or v.check_status != "done":
+        return None
+    rows = session.exec(select(Finding.severity, Finding.band, Finding.status).where(Finding.version_id == v.id)).all()
+    return ScoreOut.model_validate(SC.compute({"severity": a, "band": b, "status": c} for a, b, c in rows).as_dict())
+
+
+def channel_target(session: Session, brand_id: int, channel: str) -> int:
+    from app.pipeline import channels as CH
+
+    brand = session.get(Brand, brand_id)
+    return CH.target_score(channel, dict(brand.channel_targets or {}) if brand else {})
+
+
+def submit_reason(session: Session, item: ContentItem, v: Optional[Version]) -> Optional[str]:
+    """The below-target reason of the latest submit of this version (shown to reviewers)."""
+    if v is None:
+        return None
+    ev = session.exec(select(AuditEvent).where(AuditEvent.item_id == item.id, AuditEvent.action == "submitted",
+                                               AuditEvent.version_id == v.id).order_by(AuditEvent.id.desc())).first()
+    r = (ev.detail or {}).get("below_target_reason") if ev else None
+    return str(r) if r else None
+
+
 def to_item_summary(session: Session, item: ContentItem) -> ItemSummary:
     v = latest_version(session, item.id)
     creator = session.get(User, item.creator_id)
@@ -167,12 +195,20 @@ def to_item_summary(session: Session, item: ContentItem) -> ItemSummary:
         creator_name=creator.name if creator else item.creator_id, state=item.state,
         confidential=item.confidential, created_at=item.created_at, updated_at=item.updated_at,
         latest_version_id=v.id if v else None, latest_version_n=v.n if v else None,
-        open_findings=open_n, blocking_open=blocking_n,
+        open_findings=open_n, blocking_open=blocking_n, **_score_fields(session, item, v),
     )
 
 
-def to_version_summary(v: Version) -> VersionSummary:
-    return VersionSummary(id=v.id, n=v.n, kind=v.kind, check_status=v.check_status, created_at=v.created_at)
+def _score_fields(session: Session, item: ContentItem, v: Optional[Version]) -> dict[str, Any]:
+    sc = version_score(session, v)
+    return {"score": sc.score if sc else None, "score_band": sc.band if sc else None,
+            "target_score": channel_target(session, item.brand_id, item.channel),
+            "submit_reason": submit_reason(session, item, v)}
+
+
+def to_version_summary(v: Version, session: Optional[Session] = None) -> VersionSummary:
+    return VersionSummary(id=v.id, n=v.n, kind=v.kind, check_status=v.check_status, created_at=v.created_at,
+                          score=version_score(session, v) if session is not None else None)
 
 
 def to_unit_out(u: Unit) -> UnitOut:
@@ -226,6 +262,13 @@ def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None)
                 from app.packs import regulations_for
 
                 regulations = [rule_ref_of(x) for x in regulations_for(session, brand_id if brand_id is not None else r.brand_id, r.code, f.quote)]
+    if rule_ref is None and f.rule_code and f.rule_code.startswith("R-CH-"):  # built-in channel limit: cite the platform page
+        from app.pipeline import channels as CH
+
+        spec, cit = CH.catalog()["checks"].get(f.rule_code), CH.citation(f.rule_code)
+        if spec and cit:
+            rule_ref = RuleRef(code=f.rule_code, version=1, statement=spec["statement"], source_quote=spec["quote"],
+                               page=None, pack_id="platform", citation=CitationOut.model_validate(cit))
     if f.fact_code:
         q2 = select(Fact).where(Fact.code == f.fact_code)
         if brand_id is not None:
