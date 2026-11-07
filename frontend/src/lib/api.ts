@@ -439,7 +439,7 @@ export interface AudienceTotals {
 }
 export interface AudienceSegment extends AudienceTotals {
   key: string;
-  label: string; // "first-time college students"
+  label: string; // e.g. "First-time college students"
   description: string;
   vs_overall: number; // group mean minus the post's mean (positive = more negative than average)
   worst: AudiencePersona[]; // the 3 most negative readers

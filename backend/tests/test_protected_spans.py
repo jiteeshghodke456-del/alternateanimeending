@@ -15,7 +15,7 @@ def test_urls_domains_emails_phones_are_protected() -> None:
 
 
 def test_plain_copy_is_not_protected() -> None:
-    t = "Over 2,400 users in 72 countries. Try brandapp today."
+    t = "Over 2,400 users in 72 countries. Try Brandapp today."
     assert not _covered(t, "2,400")
     assert not _covered(t, "72")
-    assert not _covered(t, "brandapp")
+    assert not _covered(t, "Brandapp")
