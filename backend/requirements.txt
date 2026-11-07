@@ -7,6 +7,7 @@ pydantic-settings>=2.6,<3
 sse-starlette>=3,<4
 itsdangerous>=2.2,<3
 python-multipart~=0.0.20
+httpx~=0.28  # web page source (pipeline/webfetch.py); also used by the tests
 
 # AI
 typesafe-sdk~=0.7.5
@@ -24,4 +25,3 @@ rapidfuzz>=3,<4
 # Tests
 python-dotenv>=1,<2  # live tests read the repo .env
 pytest>=8,<10
-httpx~=0.28
