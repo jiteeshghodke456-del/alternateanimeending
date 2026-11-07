@@ -639,6 +639,28 @@ def check_rule_on_text(rule: RuleSpec, text: str, ctx: CheckContext, state: Post
     return hits
 
 
+# Links, email addresses and phone numbers are contact details, not copy: a brand-name rule must not
+# "fix" the lowercase name inside a URL (that breaks the link), and digits in them are not claims.
+_PROTECTED = re.compile(
+    r"https?://\S+|www\.\S+"
+    r"|\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:com|app|in|org|net|io|ai|co|be|gl|ly)(?:/\S*)?"
+    r"|\+?\d[\d\s().-]{7,}\d",
+    re.IGNORECASE,
+)
+
+
+def protected_spans(text: str) -> list[tuple[int, int]]:
+    """Spans of URLs, domains, emails and phone numbers (start, end)."""
+    return [(m.start(), m.end()) for m in _PROTECTED.finditer(text)]
+
+
+def in_protected(start: Optional[int], end: Optional[int], spans: list[tuple[int, int]]) -> bool:
+    if start is None or end is None:
+        return False
+    return any(a <= start and end <= b for a, b in spans)
+
+
 def run_tier0_text(text: str, ctx: CheckContext, state: Optional[PostState] = None) -> list[Tier0Hit]:
     """Tier 0 for one text unit. Pass the same PostState for every unit of a version, in order."""
     state = state or PostState()
@@ -652,6 +674,8 @@ def run_tier0_text(text: str, ctx: CheckContext, state: Optional[PostState] = No
     hits = merge_hits(hits)
     term_hits = check_terms(text, ctx.terms, rules)
     hits += [h for h in term_hits if not any(_overlaps(h, o) for o in hits)]
+    spans = protected_spans(text)
+    hits = [h for h in hits if not in_protected(h.span_start, h.span_end, spans)]
     for h in hits:
         if h.span_start is not None and h.span_end is not None:
             h.quote = text[h.span_start:h.span_end]

@@ -32,7 +32,7 @@ from app.pipeline import jev
 from app.pipeline import questions as Q
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, FactSpec, RuleSpec
-from app.pipeline.tier0 import ClaimTrigger, Tier0Hit, _DATE, claim_triggers, sentences
+from app.pipeline.tier0 import ClaimTrigger, Tier0Hit, _DATE, claim_triggers, in_protected, protected_spans, sentences
 
 MIN_FACT_SCORE = 40
 NO_JEV_FACT_SCORE = 50
@@ -125,6 +125,8 @@ def extract_claims(text: str, ctx: CheckContext, covered: list[Tier0Hit] | None 
     covered = [h for h in (covered or []) if h.kind in ("banned", "term") and h.span_start is not None]
     trig = [t for t in claim_triggers(text, rules)
             if not any(h.span_start <= t.start and t.end <= h.span_end for h in covered)]  # type: ignore[operator]
+    spans = protected_spans(text)
+    trig = [t for t in trig if not in_protected(t.start, t.end, spans)]  # digits in links/phones aren't claims
     out: list[Claim] = []
     for cs, ce in clauses(text):
         inside = [t for t in trig if cs <= t.start < ce]
