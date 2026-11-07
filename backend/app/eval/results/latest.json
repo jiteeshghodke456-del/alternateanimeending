@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-07T10:04:49.421172Z",
+  "run_at": "2026-11-07T16:56:50.272557Z",
   "split": "test",
   "models": {
     "jev": "jev-latest",
@@ -52,86 +52,86 @@
         "n_labels": 1
       }
     },
-    "claim_accuracy": 0.786,
-    "claim_n": 14,
+    "claim_accuracy": 0.8,
+    "claim_n": 15,
     "claim_confusion": {
       "unsupported->unsupported": 5,
       "supported->unsupported": 3,
-      "outdated->outdated": 1,
-      "supported->supported": 5
+      "supported->supported": 6,
+      "outdated->outdated": 1
     },
     "calibration": [
       {
         "bin": "0.0-0.1",
-        "predicted": 0.039,
+        "predicted": 0.037,
         "observed": 0.0,
-        "n": 77
+        "n": 76
       },
       {
         "bin": "0.1-0.2",
-        "predicted": 0.144,
+        "predicted": 0.14,
         "observed": 0.0,
         "n": 24
       },
       {
         "bin": "0.2-0.3",
-        "predicted": 0.229,
+        "predicted": 0.224,
         "observed": 0.0,
-        "n": 11
+        "n": 12
       },
       {
         "bin": "0.3-0.4",
-        "predicted": 0.339,
+        "predicted": 0.344,
         "observed": 0.0,
         "n": 8
       },
       {
         "bin": "0.4-0.5",
-        "predicted": 0.445,
+        "predicted": 0.435,
         "observed": 0.0,
         "n": 4
       },
       {
         "bin": "0.5-0.6",
-        "predicted": 0.55,
-        "observed": 0.111,
-        "n": 9
+        "predicted": 0.545,
+        "observed": 0.1,
+        "n": 10
       },
       {
         "bin": "0.6-0.7",
-        "predicted": 0.633,
+        "predicted": 0.617,
         "observed": 0.0,
-        "n": 7
+        "n": 6
       },
       {
         "bin": "0.7-0.8",
-        "predicted": 0.76,
+        "predicted": 0.755,
         "observed": 0.0,
         "n": 6
       },
       {
         "bin": "0.8-0.9",
-        "predicted": 0.842,
+        "predicted": 0.835,
         "observed": 0.0,
-        "n": 5
+        "n": 6
       },
       {
         "bin": "0.9-1.0",
-        "predicted": 0.961,
+        "predicted": 0.959,
         "observed": 0.3,
         "n": 20
       }
     ],
     "latency_ms": {
-      "median": 122,
-      "p95": 332
+      "median": 111,
+      "p95": 499
     },
-    "latency_median_ms": 122,
-    "latency_p95_ms": 332,
-    "cost_per_item_usd": 0.000109,
-    "total_cost_usd": 0.001966,
-    "jev_calls": 52,
-    "judgments": 286,
+    "latency_median_ms": 111,
+    "latency_p95_ms": 499,
+    "cost_per_item_usd": 0.000111,
+    "total_cost_usd": 0.00199,
+    "jev_calls": 53,
+    "judgments": 289,
     "n_items": 18,
     "stage": "detection (tier0 + Jev + claims)",
     "thresholds": {
@@ -158,7 +158,7 @@
       "code": "R-TONE-01",
       "quote": "A bargain brew for your budget.",
       "band": "human",
-      "p": 0.73
+      "p": 0.8
     },
     {
       "item": "E-048",
@@ -182,7 +182,7 @@
       "code": "R-CLAIM-02",
       "quote": "25",
       "band": "flag",
-      "p": 0.97
+      "p": 0.98
     },
     {
       "item": "E-053",
@@ -190,7 +190,7 @@
       "code": "R-TONE-01",
       "quote": "Drink our cold brew to cure your Monday headache.",
       "band": "human",
-      "p": 0.87
+      "p": 0.88
     },
     {
       "item": "E-054",
@@ -206,7 +206,7 @@
       "code": "R-TONE-01",
       "quote": "Giveaway time! Share this post for a chance to win a gift box.",
       "band": "flag",
-      "p": 0.92
+      "p": 0.91
     }
   ]
 }

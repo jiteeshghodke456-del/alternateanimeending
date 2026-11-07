@@ -36,6 +36,16 @@ Then check your first post. A brand with no rules still gets the word, fact and 
 
 ![Setup: colours and logo](docs/screenshots/setup.jpg)
 
+## More it can do
+
+- **Take the 2-minute tour.** On the landing page, "Take the 2-minute tour" opens a fresh demo and walks through nine steps: check a flawed post, read a finding, accept fixes and resubmit, Audience Preview on v1 and v2, Logo Fidelity, guideline PDF import, and the creator → reviewer → approver workflow. Each step has "Do it for me", which uses the app's own API. A full tour costs about $0.02 in AI calls. Once an item is approved or rejected, its findings become a read-only record ("Fixed in v2", "Left open at approval").
+- **Rule clarity (unclear guidelines).** Brand Kit → Rule clarity scores every rule 0–100 from three signals: vague wording (code), Jev disagreeing with itself when the rule is restated by different readers, and how often people dismiss or override it. It suggests a clearer rewrite with examples, shows the measured effect, and an admin can apply it as a new rule version. On the demo brand the five deliberately vague rules are always the five least clear. A full run costs about $0.016.
+- **Claims ledger and fact impact.** The Claims page lists every claim in your content and the approved fact behind it: supported, unsupported, contradicted or outdated, with expiry countdowns. When a fact expires or changes, its impact view lists every affected item, including approved ones, and a Brand Admin can send them back for review with a re-check. Try it: Brand Kit → Facts → edit F-04 → Mark as expired.
+- **India regulatory pack.** Brand Kit → Rule packs adds 9 rules cited to their source clause (CCPA Dark Patterns Guidelines 2023, CCPA Misleading Ads Guidelines 2022, ASCI Code and Influencer Guidelines). Findings show a Regulation chip with the clause and a link to the official text. Where your own rule already flags the same words, the regulation is shown on that finding instead of flagging twice.
+- **AI-image provenance.** Uploaded images are read for Content Credentials (C2PA), IPTC/XMP "digital source type", EXIF and AI-generator PNG chunks before the stored copy is stripped of metadata. An AI-made image without an "AI-generated" label in its caption or alt text gets a finding with a one-click fix. It runs locally, also for confidential items. Signatures are not verified, and a missing record proves nothing: we never claim to detect AI images without metadata.
+- **Check a live web page.** New content → Web page: paste a URL. The server fetches it safely (public addresses only, size and time limits, robots.txt respected, no browser), checks the main text and up to 4 images against your brand, and adds code-based accessibility findings (alt text, link and button names, heading order, page language, link text, paragraph length).
+- **Hindi, Marathi and Hinglish.** Word lists, urgency and superlative triggers, sentence splitting on "।", Indian digits and lakh/crore in claims, Indian PII masking (phone numbers, UPI, PAN, Aadhaar-like numbers), and fixes that stay in the post's language. On a 23-post Indian-language set, 18 of 18 labelled issues are found (11 before), with fewer false findings; English results are unchanged.
+
 ## What it checks
 
 | Check | How it runs | Examples |
@@ -170,6 +180,9 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 - **Upload limits.** Images: PNG, JPG or WEBP up to 10 MB and 40 megapixels (24 MP for PNG and WEBP). Every image is stored once at up to 2048 px on the long side, which keeps a check under about 300 MiB on the 512 MiB free server. PDFs: up to 20 pages.
 - **Cold start.** After a deploy or 15 idle minutes, the free server takes a moment to start. The page shows "Starting the server…" and opens by itself.
 - **Reset waits for running work.** While a check, Audience Preview or PDF import is running, Reset asks you to wait.
+- **Web pages are fetched without a browser.** Pages that build their text with JavaScript come back empty; accessibility checks are code-based, not a full WCAG audit. On web pages the logo check reports only the genuine logo, a stretched one or a close look-alike.
+- **Rule clarity is a guide.** Jev's self-disagreement is a weak signal on its own, so vague wording does most of the separating, and a suggested rewrite doesn't always lower disagreement (the app shows when it gets worse).
+- **The regulatory pack is not legal advice.** It paraphrases public guidelines and quotes short phrases with links; some patterns (bait and switch, basket sneaking) happen at checkout and can't be judged from content.
 - **Scanned PDFs are not read.** A PDF with no text layer gets a "No text found" message.
 - **Image judging is early.** Jev's image support is early-stage. If an image call fails, the image gets code-only checks and the finding says so.
 - **Logo authenticity is not checked by Jev.** Jev has no copy of the official logo, so a redrawn logo is not caught by the Jev checks.
