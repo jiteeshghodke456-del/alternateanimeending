@@ -174,7 +174,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           <label htmlFor={`edit-${f.id}`} className="text-caption font-medium text-muted-foreground">Your replacement text</label>
           <Textarea id={`edit-${f.id}`} value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} className="rounded-2xl bg-background/60 text-footnote" />
           <div className="flex gap-2">
-            <Button size="sm" disabled={!draft.trim() || busy === "edit"} onClick={saveEdit} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+            <Button size="sm" disabled={!draft.trim() || busy === "edit"} onClick={saveEdit} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "edit" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} Save edit
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="rounded-full">Cancel</Button>
@@ -209,7 +209,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       {!editing && f.status === "open" && (
         <div className="mt-4 flex flex-wrap gap-2">
           {!linked && (
-            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} {group && group.others.length > 0 ? `Accept fix for ${group.others.length + 1} findings` : "Accept fix"}
             </Button>
           )}

@@ -44,7 +44,7 @@ export function LiveMeter({ paragraphs, paragraphsTotal, judgments, judgmentsPer
         </Stat>
       </div>
       <div className="mt-3 flex items-center gap-2 text-caption text-muted-foreground" role="status">
-        <span className={cn("size-1.5 rounded-full", running ? "bg-[#0A84FF]" : "bg-pass")} />
+        <span className={cn("size-1.5 rounded-full", running ? "bg-[var(--accent-fill)]" : "bg-pass")} />
         {running ? "Checking now" : "Check complete"}
       </div>
       {running && <BorderBeam size={120} duration={5} colorFrom="#0A84FF" colorTo="#64D2FF" borderWidth={2} />}

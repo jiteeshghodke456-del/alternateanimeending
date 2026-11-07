@@ -253,7 +253,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
 
   function run() { start(); }
   const runBtn = (label: string, icon: "play" | "again") => (
-    <Button onClick={run} disabled={running} className="rounded-full bg-[#0A84FF] px-5 text-white hover:bg-[#0A84FF]/90">
+    <Button onClick={run} disabled={running} className="rounded-full bg-[var(--accent-fill)] px-5 text-white hover:bg-[var(--accent-fill-hover)]">
       {running ? <Loader2 className="animate-spin" /> : icon === "play" ? <Play strokeWidth={2} /> : <RefreshCw strokeWidth={1.75} />}
       {running ? "Running…" : label}
     </Button>
@@ -291,7 +291,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
         {running && (
           <div className="mt-4" role="status" aria-live="polite">
             <div className="mb-1.5 flex justify-between text-caption text-muted-foreground"><span>Readers are answering…</span><span className="tabular-nums">{answered} of {total}</span></div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8"><div className="h-full rounded-full bg-[#0A84FF] transition-[width] duration-300" style={{ width: `${total ? (answered / total) * 100 : 0}%` }} /></div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8"><div className="h-full rounded-full bg-[var(--accent-fill)] transition-[width] duration-300" style={{ width: `${total ? (answered / total) * 100 : 0}%` }} /></div>
           </div>
         )}
         {done && data?.overall && (
