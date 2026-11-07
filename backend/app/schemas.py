@@ -486,35 +486,42 @@ class AIUsageOut(_Out):
 # ---------------------------------------------------------------- audience (P1)
 AUDIENCE_LABEL = "Simulated audience, directional signal, not a survey"
 AUDIENCE_ATTRIBUTION = "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)"
-AudienceSignal = Literal["distrust", "confused", "unsure", "ok"]
+AudienceLean = Literal["trust", "unsure", "doubt"]
 
 
 class AudiencePersona(_Out):
     id: str
     idx: int
-    segment: str
+    segment: str  # reader-group key
     bio: str  # short: "34, Shop owner, Nagpur, Maharashtra"
-    detail: str  # the dataset's one-line persona
-    distrust: Optional[float]  # Jev p, 0..1 (null = not answered: its request failed)
-    confused: Optional[float]
-    signal: Optional[AudienceSignal]  # dot colour, decided in code: distrust > 0.7 red; confused > 0.7 or 0.3-0.7 amber
+    detail: str  # the group's description and trust / doubt triggers
+    score: Optional[float]  # expected reaction 1 (trusts it, would act) .. 5 (distrusts it, put off); null = not answered
+    level: Optional[int]  # nearest of the 5 levels (decided in code)
+    lean: Optional[AudienceLean]  # <= 2.5 trust, >= 3.5 doubt, else unsure (decided in code)
+    confused: Optional[float]  # Jev p that this reader would misunderstand the main message
+    confused_flag: Optional[bool]  # confused > 0.70
 
 
 class AudienceTotals(_Out):
     n: int
     answered: int
-    distrust_pct: float  # 0..1, share with distrust p > 0.70
+    mean_score: float  # mean expected reaction, 1..5 (lower = more trusting)
+    sd: float  # spread of the readers' scores
+    trust_pct: float  # 0..1, share with score <= 2.5
+    unsure_pct: float  # share with 2.5 < score < 3.5
+    doubt_pct: float  # share with score >= 3.5
     confused_pct: float  # share with confused p > 0.70
-    unsure_pct: float  # share with distrust p in 0.30..0.70
-    mean_distrust: float  # mean p (smoother than the thresholded shares; use it for small differences)
     mean_confused: float
+    levels: list[int]  # readers at each level 1..5
 
 
 class AudienceSegment(AudienceTotals):
     key: str
     label: str
-    worst: list[AudiencePersona]  # the 3 most negative personas
-    why: Optional[str] = None  # one LLM-written sentence for the worst segments (an AI guess)
+    description: str = ""
+    vs_overall: float  # this group's mean minus the post's overall mean (positive = more negative than average)
+    worst: list[AudiencePersona]  # the 3 most negative readers
+    why: Optional[str] = None  # one LLM-written sentence for the most doubtful groups (an AI guess)
     why_source: Optional[Literal["llm"]] = None
 
 
@@ -535,10 +542,11 @@ class AudienceCulprit(_Out):
 
 
 class AudienceDelta(_Out):
-    distrust_pct: float  # this version minus the compared one (negative = trusted more)
-    confused_pct: float
+    mean_score: float  # this version minus the compared one (negative = reacts better)
+    trust_pct: float
     unsure_pct: float
-    mean_distrust: float
+    doubt_pct: float
+    confused_pct: float
     mean_confused: float
 
 
@@ -575,6 +583,7 @@ class AudienceOut(_Out):
     label: str = AUDIENCE_LABEL
     attribution: str = AUDIENCE_ATTRIBUTION
     message: Optional[str] = None  # human message for error / unavailable
+    audience_source: Optional[Literal["brand", "default"]] = None  # brand audiences.json, or the 6 default groups
     progress: Optional[AudienceProgress] = None
     overall: Optional[AudienceTotals] = None
     segments: list[AudienceSegment] = Field(default_factory=list)

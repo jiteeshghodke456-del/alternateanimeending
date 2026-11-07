@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from typesafe_sdk import Choice, Noul
+from typesafe_sdk import Choice, Noul, Score
 
 from app.pipeline.context import FactSpec, RuleSpec
 
@@ -266,44 +266,102 @@ def question_text(q: Any) -> dict[str, Any]:
 
 
 # ------------------------------------------------------------------ P1-1 audience preview
-# Simulated readers (NVIDIA Nemotron-Personas-India, CC-BY-4.0). Each persona is written into its own
-# question (skill: "put each item into its own question" rather than an id into a shared list).
-# State: {"content": masked post text} or, for an image post, {"image": Image, "caption": masked caption}.
-# High = problem. Code turns the probabilities into percentages and dots (audience.py).
-AUDIENCE_DISTRUST_AT = 0.70  # p above this: this simulated reader distrusts / is confused
-AUDIENCE_UNSURE_AT = 0.30  # 0.30..0.70: unsure
+# Simulated readers: brand-defined reader groups (seed audiences.json) or, without that file, the six
+# Nemotron-Personas-India segments with the generic traits below. Each reader is written into its own
+# question, reader first (who they are, what they need, language and digital habits, what makes them
+# trust or doubt), then the question. State: {"content": masked post text} or, for an image post,
+# {"image": Image, "caption": masked caption}. Code turns the answers into scores and shares (audience.py).
+AUDIENCE_CONFUSED_AT = 0.70  # `confused` Noul above this: this reader would misunderstand the main message
+AUDIENCE_TRUST_MAX = 2.5  # expected reaction (1-5) at or below this: leans towards trusting it
+AUDIENCE_DOUBT_MIN = 3.5  # at or above this: leans towards doubting it; in between: unsure
 AUDIENCE_CULPRIT_AT = 0.70  # `any_distrust` companion: report the culprit paragraph above this ...
 AUDIENCE_CULPRIT_MAYBE_AT = 0.30  # ... as "possible" between the two, and not at all below
 
+# The five reaction levels, in Score order (level index 0..4 = reaction 1..5). Each is a situation that
+# reads on its own (skill: "describe each Score level as a situation").
+AUDIENCE_REACTION_LEVELS = (
+    "This reader trusts the post and would act on it: open the link, try the offer, or forward it to people they know.",
+    "This reader mostly trusts the post and is interested, but would check one detail before acting.",
+    "This reader is unsure: the post could be true, but nothing in it convinces them either way, so they would not act yet.",
+    "This reader doubts the post: a claim, number or promise in it does not fit what they know or need, so they would not act on it.",
+    "This reader distrusts the post or is put off by it: it reads to them like spam, a scam or a sales push that ignores "
+    "people like them, so they would ignore it or warn others.",
+)
+AUDIENCE_LEVEL_LABELS = ("Trusts it, would act", "Mostly trusts it", "Unsure", "Doubts it", "Distrusts it, put off")
+
 
 def audience_subject(is_image: bool) -> str:
-    return "the post (`image` with its `caption`)" if is_image else "`content`"
+    return "the post (`image` with its `caption`)" if is_image else "the post in `content`"
 
 
-def audience_distrust_question(bio: str, is_image: bool = False) -> Noul:
+def audience_reaction_question(reader: str, is_image: bool = False) -> Score:
+    """Reader first, then one judgment: how this reader reacts. `reader` comes from audience.reader_profile()."""
+    return Score(
+        instructions=f"Reader: {reader}\n\nHow would this reader react to {audience_subject(is_image)}?",
+        criteria=list(AUDIENCE_REACTION_LEVELS),
+    )
+
+
+def audience_confused_question(reader: str, is_image: bool = False) -> Noul:
     subj = audience_subject(is_image)
     return Noul(
-        instructions=f"Would this person find {subj} misleading or hard to trust? Person: {bio}",
+        instructions=f"Reader: {reader}\n\nWould this reader misunderstand the main message of {subj}?",
         criteria={
-            "true": f"This person would doubt {subj}: a claim sounds too good to be true to them, the numbers or "
-                    "promises seem made up, or the pressure to buy makes them suspicious.",
-            "false": f"This person would take {subj} at face value, like a plain note that a product costs Rs 495 "
-                     "including taxes or that a shop opens at 8 am.",
+            "true": f"After reading {subj}, this reader could not say what is offered or what they are asked to do, "
+                    "for example because of jargon, abbreviations, mixed messages, or a language or format they "
+                    "find hard to read.",
+            "false": f"After reading {subj}, this reader could say in one sentence what is offered and what to do "
+                     "next, like “there is a new app and I can get it from the link”.",
         },
     )
 
 
-def audience_confused_question(bio: str, is_image: bool = False) -> Noul:
-    subj = audience_subject(is_image)
-    return Noul(
-        instructions=f"Would this person misunderstand the main message of {subj}? Person: {bio}",
-        criteria={
-            "true": f"After reading {subj}, this person could not say what is being offered or what they are asked "
-                    "to do, for example because of slang, codes, mixed messages or English they find hard.",
-            "false": f"After reading {subj}, this person could say in one sentence what is offered and what to do "
-                     "next, like “a new product is out and I can order it online”.",
-        },
-    )
+# Generic traits for the six Nemotron segments, used only when the brand has no audiences.json.
+# Keys match `segment` in seed/personas.json.
+AUDIENCE_FALLBACK_GROUPS: dict[str, dict] = {
+    "18-24 urban": {
+        "label": "18–24, urban",
+        "description": "Young adult in a city, on Instagram and YouTube every day",
+        "traits": {"needs": "things that fit a tight budget and feel current",
+                   "trust_triggers": "friends' and creators' recommendations, real reviews, clear prices",
+                   "doubt_triggers": "hype, fake-looking urgency, offers that sound too good to be true",
+                   "language": "comfortable with English and Hinglish; skims quickly on a phone"}},
+    "25-40 urban": {
+        "label": "25–40, urban",
+        "description": "Working adult in a city who shops online and compares before buying",
+        "traits": {"needs": "value for money and saving time",
+                   "trust_triggers": "specific facts, known brands, ratings with a source, clear terms",
+                   "doubt_triggers": "vague superlatives, hidden conditions, pushy deadlines",
+                   "language": "reads English at work; prefers short, plain messages"}},
+    "25-40 tier2/3": {
+        "label": "25–40, tier-2/3 and rural",
+        "description": "Adult in a smaller town or village who uses WhatsApp and a budget smartphone",
+        "traits": {"needs": "practical value and things available nearby",
+                   "trust_triggers": "word of mouth, local shops, prices stated plainly",
+                   "doubt_triggers": "big-city marketing language, English slogans, online-only offers",
+                   "language": "prefers their regional language; English only for simple words"}},
+    "41-60": {
+        "label": "41–60",
+        "description": "Middle-aged adult, careful with money, reads news and forwards on WhatsApp",
+        "traits": {"needs": "reliability and a brand that has been around",
+                   "trust_triggers": "clear facts, a reachable company, family recommendations",
+                   "doubt_triggers": "exaggerated claims, slang, pressure to decide now",
+                   "language": "reads English or a regional language slowly and carefully"}},
+    "students": {
+        "label": "Students",
+        "description": "Student living on pocket money, heavy smartphone user",
+        "traits": {"needs": "low prices, student offers, things useful for study and friends",
+                   "trust_triggers": "peers' opinions, honest reviews, simple deals",
+                   "doubt_triggers": "hidden charges, too-good-to-be-true discounts, adult-sounding hard sell",
+                   "language": "comfortable with English, Hinglish and slang"}},
+    "small_business": {
+        "label": "Small-business owners",
+        "description": "Runs a shop or small business; judges offers by margins and proof",
+        "traits": {"needs": "dependable suppliers and clear costs",
+                   "trust_triggers": "exact numbers, terms in writing, references from other traders",
+                   "doubt_triggers": "unverifiable claims, missing prices, 'guaranteed' promises",
+                   "language": "reads English or a regional language; prefers straight talk"}},
+}
 
 
 # Which paragraph hurts trust most: a Choice over the paragraphs (options named by their opening
@@ -313,8 +371,8 @@ AUDIENCE_ANY_DISTRUST = Noul(
     criteria={
         "true": "Some part of `content` makes a reader doubt the brand, such as an unbelievable claim, a made-up "
                 "looking number, or pressure to buy now.",
-        "false": "Every part of `content` reads as honest and plain, like an opening time, a price with taxes or "
-                 "a friendly invitation to visit.",
+        "false": "Every part of `content` reads as honest and plain, like an opening time, a plain description of "
+                 "what is offered, or a friendly invitation.",
     },
 )
 

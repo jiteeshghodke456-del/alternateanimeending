@@ -52,6 +52,7 @@ CONFIDENTIAL_MESSAGE = ("Audience Preview sends the content to Jev, an external 
                         "confidential items.")
 NO_JEV_MESSAGE = "Audience Preview needs Jev, and Jev isn't configured on this server."
 STALE_MESSAGE = "The server restarted while this audience run was in progress. Start it again."
+OLD_RUN_MESSAGE = "The audience model was updated since this preview was made. Run it again to see the new results."
 FAILED_MESSAGE = "The audience run failed. Try again in a moment."
 
 _active: set[int] = set()  # version ids with an audience run in progress (this process)
@@ -105,6 +106,9 @@ def audience_out(session: Session, v: Version, item: ContentItem, compare_to: Op
         return AudienceOut(version_id=v.id, status="none")
     _mark_stale(session, run)
     res = dict(run.results or {})
+    if run.status in ("done", "running") and res.get("schema") != A.SCHEMA:
+        # saved by the old distrust/unsure model (before 7 Nov): its shape no longer matches; ask for a re-run
+        return AudienceOut(version_id=v.id, status="none", message=OLD_RUN_MESSAGE)
     out = AudienceOut(version_id=v.id, run_id=run.id, status=run.status, message=run.error,  # type: ignore[arg-type]
                       created_at=run.created_at, updated_at=run.updated_at, **res)
     if run.status == "done":
@@ -213,7 +217,7 @@ async def start_audience(version_id: int, session: SessionDep, user: CurrentUser
     if not (v.text or "").strip() and not session.exec(select(Unit).where(Unit.version_id == v.id, Unit.kind == "image")).first():
         raise HTTPException(status_code=422, detail="This version has no text or image to show the audience.")
     run = AudienceRun(version_id=v.id, status="running",
-                      results={"progress": {"done": 0, "total": len(A.load_personas())}})
+                      results={"schema": A.SCHEMA, "progress": {"done": 0, "total": len(A.load_readers())}})
     session.add(run)
     session.commit()
     session.refresh(run)

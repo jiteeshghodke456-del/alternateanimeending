@@ -25,15 +25,16 @@ CLEAN = ("Saffron Signature Roast is back on our shelves.\n\n"
 
 
 class AudienceJev:
-    """Distrust is high when the content has '#1', with a small per-segment shift; the culprit
-    Choice picks the option whose paragraph contains '#1'."""
+    """Readers react badly (Score level 4) when the content has '#1' and well (level 1) otherwise, with a
+    one-level shift for the 41-60 group; the culprit Choice picks the option whose paragraph contains '#1'."""
 
     def __init__(self, fail_requests: int = 0) -> None:
         self.calls: list[dict] = []
         self.fail_requests = fail_requests
 
     async def __call__(self, state: Any, questions: dict, *, model: Any, extra_headers: Any, timeout: float) -> Any:
-        is_audience = isinstance(state, dict) and "content" in state
+        is_audience = isinstance(state, dict) and ("content" in state or "caption" in state) and \
+            any(k.endswith("_reaction") for k in questions)
         if is_audience:
             self.calls.append({"state": state, "questions": questions})
         if is_audience and self.fail_requests > 0:
@@ -44,7 +45,7 @@ class AudienceJev:
             raise TypeSafeInternalServerError(500, {"error": "boom"}, httpx2.Headers())
         content = state.get("content", "") if isinstance(state, dict) else ""
         bad = "#1" in content
-        nouls, choices = {}, {}
+        nouls, choices, scores = {}, {}, {}
         for name, q in questions.items():
             if name == "culprit":
                 opts = list(q.criteria)
@@ -53,14 +54,16 @@ class AudienceJev:
                                                 probabilities={o: (0.6 if o == pick else 0.4 / (len(opts) - 1)) for o in opts})
             elif name == "any_distrust":
                 nouls[name] = SimpleNamespace(noul=0.95 if bad else 0.1)
-            elif name.endswith("_distrust"):
-                idx = int(name[1:].split("_")[0])
-                young = "Person: 2" in q.instructions or "Person: 1" in q.instructions
-                p = (0.85 if bad else 0.2) + (0.05 if young else 0.0) + (idx % 3) * 0.01
-                nouls[name] = SimpleNamespace(noul=min(p, 0.99))
+            elif name.endswith("_reaction"):
+                top = 3 if bad else 0
+                if "Middle-aged adult" in q.instructions:
+                    top += 1
+                probs = {str(k): (0.8 if k == top else 0.05) for k in range(5)}
+                scores[name] = SimpleNamespace(score=float(top), confidence=0.8, probabilities=probs)
             else:
                 nouls[name] = SimpleNamespace(noul=0.1)
-        return SimpleNamespace(model="jev-1.14.0", nouls=nouls, choices=choices, usage=SimpleNamespace(input_tokens=8000))
+        return SimpleNamespace(model="jev-1.14.0", nouls=nouls, choices=choices, scores=scores,
+                               usage=SimpleNamespace(input_tokens=8000))
 
 
 def install_audience(monkeypatch, fake: AudienceJev, llm: Any = None) -> None:  # noqa: ANN001
@@ -78,20 +81,30 @@ def test_personas_load_240_in_six_segments() -> None:
     assert len({p["segment"] for p in ps}) == 6
 
 
-def test_each_persona_gets_its_own_two_questions_in_chunks_of_20() -> None:
-    ps = list(A.load_personas())
+def test_fallback_readers_are_the_six_segments_with_traits() -> None:
+    rs = A.load_readers()
+    assert A.readers_source() == "default" and len(rs) == 240
+    assert {r["segment"] for r in rs} == set(Q.AUDIENCE_FALLBACK_GROUPS)
+    prof = A.reader_profile(rs[0])
+    assert prof.startswith(f"{rs[0]['age']}-year-old") and "Trusts:" in prof and "Doubts:" in prof
+
+
+def test_each_reader_gets_its_own_two_questions_reader_first_in_chunks_of_20() -> None:
+    rs = list(A.load_readers())
     paras = [p.strip() for p in DEMO_TEXT.split("\n\n")]
-    reqs = A.build_requests(ps, paras, is_image=False)
+    reqs = A.build_requests(rs, paras, is_image=False)
     assert len(reqs) == 12
     assert all(len(chunk) == 20 for _, chunk in reqs)
     qs0, chunk0 = reqs[0]
     assert set(qs0) >= {"any_distrust", "culprit"}
-    assert sum(1 for k in qs0 if k.endswith("_distrust") and k != "any_distrust") == 20
-    p = chunk0[0]
-    q = qs0[f"p{p['idx']}_distrust"]
-    assert A.persona_bio(p) in q.instructions and "`content`" in q.instructions
+    assert sum(1 for k in qs0 if k.endswith("_reaction")) == 20 and sum(1 for k in qs0 if k.endswith("_confused")) == 20
+    r = chunk0[0]
+    q = qs0[f"p{r['idx']}_reaction"]
+    assert q.type == "score" and len(q.criteria) == 5
+    assert q.instructions.startswith("Reader: " + A.reader_profile(r))  # the reader comes first
+    assert "`content`" in q.instructions
+    assert qs0[f"p{r['idx']}_confused"].instructions.startswith("Reader: ")
     assert all("culprit" not in qs for qs, _ in reqs[1:])
-    # options are descriptive (opening words), never positional
     assert all(not k.startswith(("p1", "option", "a_")) for k in qs0["culprit"].criteria)
 
 
@@ -100,25 +113,53 @@ def test_option_names_are_unique() -> None:
     assert len(names) == 3 and sorted(names.values()) == [0, 1, 2]
 
 
-def test_wording_lives_in_questions_module() -> None:
-    q = Q.audience_distrust_question("34-year-old shop owner")
-    assert "misleading or hard to trust" in q.instructions
-    assert "at face value" in q.criteria["false"]  # a concrete situation, not "not misleading"
+def test_wording_lives_in_questions_module_and_has_no_brand_examples() -> None:
+    q = Q.audience_confused_question("34-year-old shop owner")
+    assert "misunderstand the main message" in q.instructions
+    texts = [Q.question_text(q), Q.question_text(Q.audience_reaction_question("x")), Q.question_text(Q.AUDIENCE_ANY_DISTRUST)]
+    blob = json.dumps(texts)
+    assert "Rs 495" not in blob and "coffee" not in blob.lower()
+    assert Q.AUDIENCE_REACTION_LEVELS[0].startswith("This reader trusts") and "distrusts" in Q.AUDIENCE_REACTION_LEVELS[4]
 
 
-def test_aggregate_thresholds_and_worst() -> None:
-    ps = [{"idx": i, "id": str(i), "segment": "a" if i < 4 else "b", "age": 30, "sex": "Male", "occupation": "Clerk",
-           "district": "Pune", "state": "Maharashtra", "persona": "x"} for i in range(8)]
-    answers = {0: (0.9, 0.1), 1: (0.5, 0.8), 2: (0.1, 0.1), 3: (0.75, 0.2), 4: (0.2, 0.1), 5: (0.2, 0.1)}
-    out = A.aggregate(ps, answers)
+def test_expected_score_math() -> None:
+    assert A.expected_score({"0": 1.0}) == 1.0
+    assert A.expected_score({"4": 1.0}) == 5.0
+    assert A.expected_score({"0": 0.5, "4": 0.5}) == 3.0  # two peaks average to the middle
+    assert abs(A.expected_score({"1": 0.2, "2": 0.8}) - 2.8) < 1e-9
+    assert abs(A.expected_score({"0": 1, "1": 1}) - 1.5) < 1e-9  # unnormalised probabilities are normalised
+    assert A.expected_score({"x": 1.0, "9": 1.0}, fallback=2.2) == 3.2  # unknown keys -> the API's 0-based score + 1
+    assert A.expected_score({}, fallback=None) is None
+    assert [A.level(x) for x in (1.0, 1.49, 1.5, 3.2, 4.6, 5.0)] == [1, 1, 2, 3, 5, 5]
+
+
+def test_lean_truth_table() -> None:
+    assert [A.lean(x) for x in (1.0, 2.5, 2.51, 3.0, 3.49, 3.5, 5.0)] == ["trust", "trust", "unsure", "unsure",
+                                                                          "unsure", "doubt", "doubt"]
+    assert A.lean(None) is None
+
+
+def _reader(i: int, seg: str) -> dict:
+    return {"idx": i, "id": str(i), "segment": seg, "age": 30, "sex": "Male", "occupation": "Clerk",
+            "district": "Pune", "state": "Maharashtra", "group": {"label": seg.upper(), "description": "d", "traits": {}}}
+
+
+def test_aggregate_per_group_mean_spread_shares_and_vs_overall() -> None:
+    rs = [_reader(i, "a" if i < 4 else "b") for i in range(8)]
+    answers = {0: (1.0, 0.1), 1: (3.0, 0.8), 2: (5.0, 0.1), 3: (4.0, 0.2), 4: (2.0, 0.1), 5: (2.0, 0.1)}
+    out = A.aggregate(rs, answers)
     a = next(s for s in out["segments"] if s["key"] == "a")
-    assert a["distrust_pct"] == 0.5 and a["unsure_pct"] == 0.25 and a["confused_pct"] == 0.25
-    assert [w["idx"] for w in a["worst"]] == [0, 3, 1]
+    assert a["mean_score"] == 3.25 and a["label"] == "A"
+    assert abs(a["sd"] - 1.479) < 0.001
+    assert a["trust_pct"] == 0.25 and a["unsure_pct"] == 0.25 and a["doubt_pct"] == 0.5 and a["confused_pct"] == 0.25
+    assert a["levels"] == [1, 0, 1, 1, 1]
+    assert [w["idx"] for w in a["worst"]] == [2, 3, 1]
     b = next(s for s in out["segments"] if s["key"] == "b")
-    assert b["answered"] == 2 and b["n"] == 4  # 6 and 7 were not answered
-    assert out["overall"]["answered"] == 6
-    sig = {r["idx"]: r["signal"] for r in out["personas"]}
-    assert sig[0] == "distrust" and sig[1] == "confused" and sig[2] == "ok" and sig[6] is None
+    assert b["answered"] == 2 and b["n"] == 4 and b["mean_score"] == 2.0 and b["sd"] == 0.0  # 6, 7 not answered
+    assert out["overall"]["answered"] == 6 and abs(out["overall"]["mean_score"] - 17 / 6) < 1e-3
+    assert abs(a["vs_overall"] - (3.25 - out["overall"]["mean_score"])) < 1e-3 and b["vs_overall"] < 0
+    rows = {r["idx"]: r for r in out["personas"]}
+    assert rows[0]["lean"] == "trust" and rows[2]["level"] == 5 and rows[1]["confused_flag"] and rows[6]["score"] is None
 
 
 def test_culprit_truth_table() -> None:
@@ -137,12 +178,74 @@ def test_culprit_truth_table() -> None:
     assert A.culprit(paras, jev.JevResult(ok=False, error="x")) is None
 
 
-def test_compare_delta_sign() -> None:
-    cur = {"overall": {"n": 2, "answered": 2, "distrust_pct": 0.0, "confused_pct": 0.0, "unsure_pct": 0.5, "mean_distrust": 0.3, "mean_confused": 0.1},
-           "segments": []}
-    prev = {"overall": {**cur["overall"], "distrust_pct": 1.0, "mean_distrust": 0.8}, "segments": []}
+def test_compare_per_group_delta_sign() -> None:
+    rs = [_reader(i, "a" if i < 2 else "b") for i in range(4)]
+    prev = {**A.aggregate(rs, {0: (4.0, 0.1), 1: (5.0, 0.1), 2: (3.0, 0.1), 3: (3.0, 0.1)}), "schema": A.SCHEMA}
+    cur = {**A.aggregate(rs, {0: (2.0, 0.1), 1: (2.0, 0.1), 2: (3.0, 0.1), 3: (4.0, 0.1)}), "schema": A.SCHEMA}
     c = A.compare(cur, prev, version_id=1, version_n=1, run_id=1, created_at=None)
-    assert c["delta"]["distrust_pct"] == -1.0 and c["delta"]["mean_distrust"] == -0.5
+    seg = {s["key"]: s["delta"] for s in c["segments"]}
+    assert seg["a"]["mean_score"] == -2.5 and seg["a"]["doubt_pct"] == -1.0 and seg["a"]["trust_pct"] == 1.0
+    assert seg["b"]["mean_score"] == 0.5
+    assert c["delta"]["mean_score"] == -1.0
+    assert A.compare(cur, {**prev, "schema": None}, version_id=1, version_n=1, run_id=1, created_at=None) is None
+
+
+# ------------------------------------------------------------------ audiences.json
+GROUPS = {"groups": [
+    {"key": "students", "label": "Blind students", "description": "College student who is blind", "share": 3,
+     "age_range": [18, 26], "occupations": ["college student"],
+     "traits": {"needs": "audio textbooks", "trust_triggers": "friends", "doubt_triggers": "100% claims",
+                "language": "screen reader"}},
+    {"key": "elders", "label": "Older readers", "description": "Over 55 with low vision", "share": 1,
+     "traits": {"needs": "simple steps", "trust_triggers": "family", "doubt_triggers": "jargon", "language": "Marathi"}},
+]}
+
+
+def test_allocate_by_share() -> None:
+    assert A.allocate([3, 1], 240) == [180, 60]
+    assert sum(A.allocate([1, 1, 1], 100)) == 100
+    assert A.allocate([100, 0.001], 10)[1] >= 1  # every group gets a reader
+
+
+def test_audiences_json_builds_groups_with_nemotron_variety(tmp_path) -> None:  # noqa: ANN001
+    f = tmp_path / "audiences.json"
+    f.write_text(json.dumps(GROUPS), encoding="utf-8")
+    groups = A.load_groups(f)
+    assert [g["key"] for g in groups] == ["students", "elders"]
+    rs = A.build_readers(groups, A.load_personas(), 40)
+    assert len(rs) == 40 and sum(r["segment"] == "students" for r in rs) == 30
+    st = [r for r in rs if r["segment"] == "students"]
+    assert all(18 <= r["age"] <= 26 for r in st) and all(r["occupation"] == "college student" for r in st)
+    assert len({r["district"] for r in st}) > 5  # demographic variety from the personas
+    assert [r["idx"] for r in rs] == list(range(40)) and len({r["id"] for r in rs}) == 40
+    assert rs == A.build_readers(groups, A.load_personas(), 40)  # deterministic
+    prof = A.reader_profile(st[0])
+    assert prof.startswith(f"{st[0]['age']}-year-old") and "College student who is blind" in prof and "100% claims" in prof
+    out = A.aggregate(rs, {r["idx"]: (2.0, 0.1) for r in rs})
+    assert [s["label"] for s in out["segments"]] == ["Blind students", "Older readers"]
+
+
+def test_audiences_json_missing_or_bad_falls_back(tmp_path) -> None:  # noqa: ANN001
+    assert A.load_groups(tmp_path / "audiences.json") is None
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    assert A.load_groups(bad) is None
+    dup = tmp_path / "dup.json"
+    dup.write_text(json.dumps({"groups": [GROUPS["groups"][0], GROUPS["groups"][0]]}), encoding="utf-8")
+    assert A.load_groups(dup) is None
+
+
+def test_seed_dir_audiences_json_is_used_and_not_inherited(tmp_path, monkeypatch) -> None:  # noqa: ANN001
+    from app.config import get_settings
+
+    (tmp_path / "audiences.json").write_text(json.dumps(GROUPS), encoding="utf-8")
+    monkeypatch.setattr(get_settings(), "seed_dir", str(tmp_path))
+    assert A.readers_source() == "brand" and len(A.load_readers()) == 240
+    assert {r["segment"] for r in A.load_readers()} == {"students", "elders"}
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setattr(get_settings(), "seed_dir", str(other))  # no audiences.json there: the default groups
+    assert A.readers_source() == "default"
 
 
 # ------------------------------------------------------------------ API
@@ -185,7 +288,10 @@ def test_full_run_masks_pii_logs_calls_and_labels(client: TestClient, monkeypatc
     assert out["label"] == "Simulated audience, directional signal, not a survey"
     assert out["attribution"] == "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)"
     assert len(out["personas"]) == 240 and len(out["segments"]) == 6
-    assert out["overall"]["distrust_pct"] == 1.0
+    assert out["audience_source"] == "default"
+    assert out["overall"]["doubt_pct"] == 1.0 and out["overall"]["mean_score"] > 3.5
+    old = next(s for s in out["segments"] if s["key"] == "41-60")
+    assert old["vs_overall"] > 0.5  # this group reacts worse in the fake, and the numbers show it
     assert all(len(s["worst"]) == 3 for s in out["segments"])
     assert out["culprit_paragraph"]["index"] == 0 and out["culprit_paragraph"]["certain"]
     assert out["progress"] == {"done": 240, "total": 240}
@@ -212,7 +318,8 @@ def test_previous_version_delta_and_compare_to(client: TestClient, monkeypatch) 
     out = _wait(client, v2id)
     cmp = out["compare_to_previous_version"]
     assert cmp["version_id"] == v1 and cmp["version_n"] == 1
-    assert cmp["delta"]["distrust_pct"] == -1.0 and cmp["delta"]["mean_distrust"] < -0.5
+    assert cmp["delta"]["doubt_pct"] == -1.0 and cmp["delta"]["mean_score"] < -1.5
+    assert all(sd["delta"]["mean_score"] < 0 for sd in cmp["segments"])
     assert len(cmp["segments"]) == 6 and cmp["culprit_paragraph"]["index"] == 0
     assert out["culprit_paragraph"] is None  # any_distrust 0.1 -> no paragraph singled out
     # explicit compare with any version (e.g. a separately created clean post)
@@ -220,7 +327,7 @@ def test_previous_version_delta_and_compare_to(client: TestClient, monkeypatch) 
     client.post(f"/api/versions/{other}/audience")
     _wait(client, other)
     out2 = client.get(f"/api/versions/{v1}/audience?compare_to={other}").json()
-    assert out2["compare_to_previous_version"]["delta"]["distrust_pct"] == 1.0
+    assert out2["compare_to_previous_version"]["delta"]["doubt_pct"] == 1.0
 
 
 def test_partial_failure_is_reported_and_total_failure_is_an_error(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
@@ -336,3 +443,15 @@ def test_image_post_runs_with_image_state_and_no_culprit(client: TestClient, mon
     state, qs = seen[0]
     assert "9876543210" not in state["caption"]  # PII masked before the external call
     assert "culprit" not in qs and "`image`" in next(iter(qs.values())).instructions
+
+
+def test_old_shape_run_asks_for_a_rerun(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+    install_audience(monkeypatch, AudienceJev())
+    vid = _item(client, DEMO_TEXT)
+    with Session(get_engine()) as s:  # a run saved by the old distrust/unsure model
+        s.add(AudienceRun(version_id=vid, status="done", results={"overall": {"distrust_pct": 1.0}, "segments": []}))
+        s.commit()
+    out = client.get(f"/api/versions/{vid}/audience").json()
+    assert out["status"] == "none" and "Run it again" in out["message"]
+    client.post(f"/api/versions/{vid}/audience")
+    assert _wait(client, vid)["status"] == "done"

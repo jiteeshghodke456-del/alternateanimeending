@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     image_max_side: int = 1024  # images are downscaled to this before Jev (and colour work)
     sift_max_side: int = 640  # logo matching: largest piece one SIFT pass sees (~225 bytes/pixel); bigger images are tiled
     jev_concurrency: int = 8  # Jev calls in flight per process
+    audience_readers: int = 240  # simulated readers per Audience Preview run (2 judgments each)
 
     @property
     def jev_configured(self) -> bool:
