@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Local data (DB, uploads)
+*.db
+*.db-shm
+*.db-wal
+/data/
+uploads/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Eval run outputs other than the committed latest.json
+backend/app/eval/results/*
+!backend/app/eval/results/latest.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
