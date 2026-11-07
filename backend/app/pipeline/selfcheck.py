@@ -19,6 +19,7 @@ from typing import Optional
 
 from app.pipeline import claims as C
 from app.pipeline import jev
+from app.pipeline import lang as L
 from app.pipeline import questions as Q
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, RuleSpec, UnitIn
@@ -46,6 +47,9 @@ SUPERLATIVES = [
     r"\bmost (loved|popular|trusted|awarded|famous|preferred)\b", r"\bbest[- ]selling\b", r"\bunbeatable\b",
     r"\bunmatched\b", r"\bunrivall?ed\b", r"\bultimate\b", r"\bworld[- ]class\b", r"\blike no other\b",
     r"\bsecond to none\b", r"\bever (taste|tasted|had|try|tried)\b",
+    # Hindi / Marathi / Hinglish (no \b: Python's \b breaks at Devanagari vowel signs)
+    r"नंबर\s?(?:1|१)(?![\d०-९])", r"नंबर\s?वन", r"नं\.?\s?(?:1|१)(?![\d०-९])", r"सर्वश्रेष्ठ", r"सर्वोत्तम", r"सर्वोत्कृष्ट", r"बेस्ट", r"बेहतरीन",
+    r"सबसे\s+(?:अच्छ|बढ़िया|बढ़िया|लोकप्रिय|पसंदीदा)", r"सर्वात\s+(?:चांगल|उत्तम|लोकप्रिय|आवडत)", r"\bsabse\s+(?:best|accha|achha|acha|badhiya)\b",
 ]
 
 
@@ -67,7 +71,8 @@ def superlatives_in(text: str, ctx: Optional[CheckContext] = None) -> list[str]:
     return found
 
 
-_SENT_END = ".!?…\"”')"
+_TERMINAL = ".!?…।॥"  # includes the Devanagari danda and double danda
+_SENT_END = _TERMINAL + "\"”')"
 _DOUBLED = re.compile(r"\b(\w+)\s+\1\b", re.I)
 
 
@@ -78,9 +83,9 @@ def well_formed(text: str, start: int, end: int, fix: str) -> list[str]:
     reasons: list[str] = []
     if not f:
         return ["the fix is empty"]
-    if region.rstrip() and region.rstrip()[-1] in _SENT_END[:4] and f[-1] not in _SENT_END:
+    if region.rstrip() and region.rstrip()[-1] in _TERMINAL and f[-1] not in _SENT_END:
         reasons.append("the fix doesn't end the sentence with punctuation")
-    starts_sentence = not text[:start].strip() or text[:start].rstrip()[-1] in ".!?…\n"
+    starts_sentence = not text[:start].strip() or text[:start].rstrip()[-1] in _TERMINAL + "\n"
     if starts_sentence and region[:1].isupper() and f[:1].isalpha() and f[:1].islower():
         reasons.append("the fix doesn't start like a sentence")
     if len(f) > max(2 * len(region), len(region) + 80):
@@ -140,6 +145,11 @@ async def verify_fix(
     rules = [r for r in [rule, *(extra_rules or [])] if r is not None]
     rules = [r for i, r in enumerate(rules) if r.code not in {x.code for x in rules[:i]}]
     if not deterministic:
+        # A fix stays in the language and script of the text it replaces (Marathi stays Marathi in Devanagari,
+        # Hinglish stays Hinglish). Code check, before any model is asked.
+        wrong = L.fix_language_problem(original[start:end], fix)
+        if wrong:
+            return SelfCheckResult(False, [wrong], fixed)
         sup = superlatives_in(fix, ctx)
         if sup:
             return SelfCheckResult(False, [f"the fix uses an unsupported superlative (“{sup[0]}”)"], fixed)

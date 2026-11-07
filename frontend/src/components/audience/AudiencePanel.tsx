@@ -308,6 +308,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
             {data.cost_usd != null && ` · $${data.cost_usd.toFixed(4)}`}
           </p>
         )}
+        {done && data?.language_note && <p className="mt-2 text-caption text-muted-foreground">{data.language_note}</p>}
         {data?.warnings?.map((w) => <p key={w} className="mt-2 text-caption text-human-text">{w}</p>)}
       </section>
 

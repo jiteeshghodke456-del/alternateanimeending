@@ -24,6 +24,7 @@ from typing import Any, Optional
 from pydantic import BaseModel, ValidationError, field_validator
 
 from app.config import get_settings
+from app.pipeline import lang as L
 from app.pipeline.context import RuleSpec
 from app.pipeline.jev import CallLog, CallRecord
 
@@ -42,7 +43,9 @@ SYSTEM_PROMPT = (
     "Don't replace one unsupported claim with another (best, favourite, leading, top, most loved, number one). "
     "If you can't keep the claim honestly, rewrite it around a feature the text already mentions. "
     "Never add facts, numbers, prices, dates, offers or awards that are not in the text or in the approved facts you are given. "
-    "Use an approved fact only if it is about the same thing as the excerpt; otherwise remove the claim or the expired offer."
+    "Use an approved fact only if it is about the same thing as the excerpt; otherwise remove the claim or the expired offer. "
+    "Write explanations in English. Write a fix in the same language and script as the excerpt: Hindi or Marathi in "
+    "Devanagari stays in Devanagari, Hinglish stays Hinglish in Latin letters, English stays English."
 )
 
 
@@ -116,6 +119,9 @@ def build_messages(req: ExplainRequest, feedback: Optional[str] = None, previous
     if req.facts:
         lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
     lines.append(f"The paragraph:\n<content>{req.unit_text}</content>")
+    lang_line = L.prompt_language_line(req.quote if not req.whole_unit and len(req.quote.split()) >= 3 else req.unit_text)
+    if lang_line:
+        lines.append(lang_line)
     if req.whole_unit:
         lines.append("The excerpt to replace is the whole paragraph.")
     else:
@@ -189,6 +195,9 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
         lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
     lines.append(f"The whole post, for context:\n<content>{req.unit_text}</content>")
     lines.append(f"The excerpt to rewrite (whole sentences):\n<content>{req.region_text}</content>")
+    lang_line = L.prompt_language_line(req.region_text)
+    if lang_line:
+        lines.append(lang_line)
     if req.required:
         lines.append("Keep these approved words exactly as written: " + ", ".join(f"\"{w}\"" for w in req.required))
     keys = ", ".join(f"\"{it.key}\": string" for it in req.items)

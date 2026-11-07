@@ -1,0 +1,853 @@
+{
+ "note": "Live run 7 Nov 2026 (jev-latest + deepseek-chat, detection + explain + self-check) of scripts/indic_eval.py on tests/fixtures/indic_eval.jsonl. before = master ae07a11, after = feat-lang. Tier 0 only = --no-jev.",
+ "live": {
+  "before": {
+   "items": 23,
+   "labels": 18,
+   "labels_found": 11,
+   "false_findings": 13,
+   "readability_false": 1,
+   "tier0_hits_on_labels": 7,
+   "claims_as_expected": 11,
+   "claims_expected_items": 13,
+   "fixes": 18,
+   "fixes_same_script": 18,
+   "fixes_verified": 17,
+   "cost_usd": 0.0102,
+   "jev": true
+  },
+  "after": {
+   "items": 23,
+   "labels": 18,
+   "labels_found": 18,
+   "false_findings": 6,
+   "readability_false": 0,
+   "tier0_hits_on_labels": 11,
+   "claims_as_expected": 13,
+   "claims_expected_items": 13,
+   "fixes": 23,
+   "fixes_same_script": 23,
+   "fixes_verified": 22,
+   "cost_usd": 0.01052,
+   "jev": true
+  }
+ },
+ "tier0_only": {
+  "before": {
+   "items": 23,
+   "labels": 18,
+   "labels_found": 10,
+   "false_findings": 6,
+   "readability_false": 1,
+   "tier0_hits_on_labels": 7,
+   "claims_as_expected": 10,
+   "claims_expected_items": 13,
+   "fixes": 2,
+   "fixes_same_script": 2,
+   "fixes_verified": 0,
+   "cost_usd": 0,
+   "jev": false
+  },
+  "after": {
+   "items": 23,
+   "labels": 18,
+   "labels_found": 18,
+   "false_findings": 3,
+   "readability_false": 0,
+   "tier0_hits_on_labels": 11,
+   "claims_as_expected": 11,
+   "claims_expected_items": 13,
+   "fixes": 2,
+   "fixes_same_script": 2,
+   "fixes_verified": 0,
+   "cost_usd": 0,
+   "jev": false
+  }
+ },
+ "items": {
+  "IN-01": {
+   "before": {
+    "labels_found": "0/1",
+    "false_findings": [
+     "R-CLAIM-02:भारत की नंबर 1 फ़िल्टर कॉफ़ी आ"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "हमारी फ़िल्टर कॉफ़ी आ गई है। हमारे किसी भी कैफ़े में आइए।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "भारत की फ़िल्टर कॉफ़ी आ गई है।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-02": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "पुणे में Saffron & Steam की कॉफ़ी हर सुबह ताज़ा बनाई जाती है।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "पुणे में Saffron & Steam की कॉफ़ी हर सुबह ताज़ा बनाई जाती है।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-03": {
+   "before": {
+    "labels_found": "2/2",
+    "false_findings": [],
+    "claims": [],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "2/2",
+    "false_findings": [],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "आज ही लीजिए!",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "आज ही लीजिए!",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-04": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "अब पूरे भारत में हमारे कैफ़े हैं। अपने नज़दीकी कैफ़े में आइए।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "हमारे कैफ़े पूरे भारत में हैं।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-05": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-21"
+     ]
+    ],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-21"
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-06": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [
+     "R-ACC-02:हमारा Saffron Signature Roast "
+    ],
+    "claims": [],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-07": {
+   "before": {
+    "labels_found": "0/1",
+    "false_findings": [
+     "R-CLAIM-02:हमारी गारंटी वाली ताज़ा बीन्स "
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "हमारी ताज़ा बीन्स पुणे में छोटे बैच में रोस्ट होती हैं।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "हमारी ताज़ा बीन्स पुणे में छोटे बैच में रोस्ट होती हैं।",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-08": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-24"
+     ]
+    ],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-24"
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-09": {
+   "before": {
+    "labels_found": "0/1",
+    "false_findings": [
+     "R-CLAIM-02:भारतातील नंबर 1 फिल्टर कॉफी आल"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "भारतातील फिल्टर कॉफी आली आहे.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "भारतातील फिल्टर कॉफी आली आहे.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-10": {
+   "before": {
+    "labels_found": "2/2",
+    "false_findings": [
+     "R-TONE-02:फक्त आज!!! कोणत्याही कॅफेमधून "
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "2/2",
+    "false_findings": [
+     "R-TONE-02:फक्त आज!!! कोणत्याही कॅफेमधून "
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "कोणत्याही कॅफेमधून Saffron Signature Roast ची एक बॅग घ्या.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-11": {
+   "before": {
+    "labels_found": "0/1",
+    "false_findings": [],
+    "claims": [],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "आमचा Saffron Signature Roast म्हणजे तुमची सकाळ सुधारण्याचा एक चांगला मार्ग आहे.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-12": {
+   "before": {
+    "labels_found": "0/1",
+    "false_findings": [
+     "R-CLAIM-02:आमची 100% सेंद्रिय कॉफी थेट आम"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "आमची सेंद्रिय कॉफी थेट आमच्या ओळखीच्या मळ्यांमधून येते.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [
+     "R-CLAIM-02:आमची 100% सेंद्रिय कॉफी थेट आम"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ],
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "आमची कॉफी थेट आमच्या ओळखीच्या मळ्यांमधून येते.",
+      "script": "DEVANAGARI",
+      "verified": true
+     },
+     {
+      "fix": "आमची कॉफी थेट आमच्या ओळखीच्या मळ्यांमधून येते.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-13": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [
+     "R-CLAIM-02:आम्ही पुण्यात दर मंगळवारी आणि "
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "आम्ही पुण्यात दर मंगळवारी आणि शुक्रवारी छोट्या बॅचमध्ये कॉफी भाजतो.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "numbers",
+      null
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-14": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [
+     "R-CLAIM-02:आमचे १२ कॅफे पुणे, मुंबई आणि ब"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "आमचे कॅफे पुणे, मुंबई आणि बेंगळुरूमध्ये आहेत.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-04"
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-15": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "इन्स्टाग्रामवर आमचे अनेक फॉलोअर्स झाले आहेत.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "no_facts",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "इन्स्टाग्रामवर आमचे फॉलोअर्स वाढले आहेत.",
+      "script": "DEVANAGARI",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-16": {
+   "before": {
+    "labels_found": "0/2",
+    "false_findings": [
+     "R-CLAIM-02:Jaldi karo, hamara Monsoon Mal",
+     "R-TONE-02:Jaldi karo, hamara Monsoon Mal"
+    ],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "2/2",
+    "false_findings": [
+     "R-TONE-02:Jaldi karo, hamara Monsoon Mal"
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "Hamara Monsoon Malabar almost khatam hai, toh agar pasand hai to abhi try kar lijiye.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "Hamara Monsoon Malabar almost khatam hai, toh agar pasand hai to abhi try kar lijiye.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "Hamara Monsoon Malabar almost khatam hai, toh agar pasand hai to abhi try kar lijiye.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-17": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [
+     "R-MSG-02:Hamare Pune wale cafe mein aaj"
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "Hamare Pune wale cafe mein aaj subah se fresh Saffron Signature Roast mil raha hai, toh apne dosto ke saath aao, hum aapka intezaar kar rahe hain.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "Hamare Pune wale cafe mein aaj subah se fresh Saffron Signature Roast mil raha hai. Apne dosto ke saath aao aur ek garam cup ka maza lo. Hum aapka intezaar kar rahe hain.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [
+     "R-MSG-02:Hamare Pune wale cafe mein aaj"
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "Hamare Pune wale cafe mein aaj subah se fresh Saffron Signature Roast mil raha hai, toh apne dosto ke saath aao, hum aapka intezaar kar rahe hain.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "Hamare Pune wale cafe mein aaj subah se fresh Saffron Signature Roast mil raha hai. Toh apne dosto ke saath aao aur ek garam cup ka maza lo, hum aapka intezaar kar rahe hain.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "IN-18": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-19": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-21"
+     ]
+    ],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [
+     [
+      "supported",
+      "jev",
+      "F-21"
+     ]
+    ],
+    "fixes": []
+   }
+  },
+  "IN-20": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [],
+    "fixes": []
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [],
+    "claims": [],
+    "fixes": []
+   }
+  },
+  "EN-01": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "Our filter coffee is here.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [],
+    "claims": [
+     [
+      "unsupported",
+      "jev",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "Our filter coffee is here.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "EN-02": {
+   "before": {
+    "labels_found": "1/1",
+    "false_findings": [
+     "R-TONE-01:Our extraction methodology emp"
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "We take real care with how we brew, so every single-estate coffee tastes the way it should.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "We take real care with how we brew, so every single-estate coffee tastes the way it should.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "1/1",
+    "false_findings": [
+     "R-TONE-01:Our extraction methodology emp"
+    ],
+    "claims": [],
+    "fixes": [
+     {
+      "fix": "We take real care with how we brew, so every single-estate coffee tastes the way it should.",
+      "script": "LATIN",
+      "verified": true
+     },
+     {
+      "fix": "We take real care with how we brew, so every single-estate coffee tastes the way it should.",
+      "script": "LATIN",
+      "verified": true
+     }
+    ]
+   }
+  },
+  "EN-03": {
+   "before": {
+    "labels_found": "0/0",
+    "false_findings": [
+     "R-MSG-02:Visit one this weekend and say"
+    ],
+    "claims": [
+     [
+      "supported",
+      "numbers",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "Visit one this weekend.",
+      "script": "LATIN",
+      "verified": false
+     }
+    ]
+   },
+   "after": {
+    "labels_found": "0/0",
+    "false_findings": [
+     "R-MSG-02:Visit one this weekend and say"
+    ],
+    "claims": [
+     [
+      "supported",
+      "numbers",
+      null
+     ]
+    ],
+    "fixes": [
+     {
+      "fix": "Visit one this weekend.",
+      "script": "LATIN",
+      "verified": false
+     }
+    ]
+   }
+  }
+ }
+}

@@ -659,6 +659,7 @@ class AudienceOut(_Out):
     attribution: str = AUDIENCE_ATTRIBUTION
     message: Optional[str] = None  # human message for error / unavailable
     audience_source: Optional[Literal["brand", "default"]] = None  # brand audiences.json, or the 6 default groups
+    language_note: Optional[str] = None  # post language + share of readers with that home language (non-English posts)
     progress: Optional[AudienceProgress] = None
     overall: Optional[AudienceTotals] = None
     segments: list[AudienceSegment] = Field(default_factory=list)

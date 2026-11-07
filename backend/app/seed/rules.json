@@ -200,7 +200,17 @@
         "guaranteed",
         "miracle",
         "unbeatable",
-        "bargain"
+        "bargain",
+        "सस्ता",
+        "सस्ती",
+        "सस्ते",
+        "स्वस्त",
+        "गारंटी",
+        "गॅरंटी",
+        "चमत्कार",
+        "चमत्कारी",
+        "sasta",
+        "sasti"
       ],
       "case_insensitive": true,
       "whole_word": true
@@ -304,7 +314,17 @@
         "fair trade",
         "sustainable",
         "carbon neutral",
-        "eco-friendly"
+        "eco-friendly",
+        "ऑर्गेनिक",
+        "ऑरगॅनिक",
+        "ऑर्गॅनिक",
+        "जैविक",
+        "सेंद्रिय",
+        "टिकाऊ",
+        "शाश्वत",
+        "इको-फ्रेंडली",
+        "फेयरट्रेड",
+        "फेअरट्रेड"
       ],
       "needs_supporting_fact": true
     },
@@ -334,7 +354,20 @@
         "\\bdon'?t miss out\\b",
         "\\bnow or never\\b",
         "\\bwhile (stocks|stock|supplies) last\\b",
-        "!{2,}"
+        "!{2,}",
+        "\\b(?:सिर्फ़?|केवल|फक्त)\\s+आज\\b",
+        "\\bजल्दी\\s+(?:करें|करो|कीजिए)\\b",
+        "\\bघाई\\s+करा\\b",
+        "\\bआखिरी\\s+मौका\\b",
+        "\\bआख़िरी\\s+मौक़ा\\b",
+        "\\bशेवटची\\s+संधी\\b",
+        "\\bमौका\\s+न\\s+(?:चूकें|छोड़ें)\\b",
+        "\\bसंधी\\s+सोडू\\s+नका\\b",
+        "\\bस्टॉक\\s+(?:रहने\\s+तक|संपेपर्यंत)\\b",
+        "\\bsirf\\s+aaj\\b",
+        "\\bjaldi\\s+(?:karo|karein|kijiye)\\b",
+        "\\bphir\\s+nahi(?:n)?\\s+milega\\b",
+        "\\blast\\s+mauka\\b"
       ],
       "case_insensitive": true
     },
@@ -366,9 +399,17 @@
         "\\buse code\\b",
         "\\bfree shipping\\b",
         "\\bcashback\\b",
-        "\\bbuy \\d"
+        "\\bbuy \\d",
+        "\\bछूट\\b",
+        "\\bसवलत",
+        "\\bऑफर",
+        "\\bडिस्काउंट",
+        "\\bसेल\\b",
+        "\\bकैशबैक",
+        "\\bकॅशबॅक",
+        "\\b(?:मुफ़?्त|मोफत|फ्री)\\s+(?:डिलीवरी|डिलिव्हरी|शिपिंग)\\b"
       ],
-      "end_date_pattern": "\\b(till|until|through|ends?|ending|valid (till|until|through|up to))\\b[^.\\n]{0,20}\\b(\\d{1,2}(st|nd|rd|th)?\\s+(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)|(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)\\s+\\d{1,2}|today|tonight|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\\b",
+      "end_date_pattern": "\\b(till|until|through|ends?|ending|valid (till|until|through|up to))\\b[^.\\n]{0,20}\\b(\\d{1,2}(st|nd|rd|th)?\\s+(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)|(jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|jun(e)?|jul(y)?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)\\s+\\d{1,2}|today|tonight|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\\b|[\\d०-९]{1,2}\\s+\\S+\\s*(?:तक|पर्यंत)\\b|\\S+पर्यंत\\b",
       "case_insensitive": true
     },
     "examples_violating": [
@@ -403,7 +444,14 @@
         "\\bgood for your (heart|health|liver)\\b",
         "\\bboosts? (metabolism|health)\\b",
         "\\breduces? (anxiety|stress|risk)\\b",
-        "\\bhealthy\\b"
+        "\\bhealthy\\b",
+        "\\bइम्युनिटी\\b",
+        "\\bइम्यूनिटी\\b",
+        "\\bरोगप्रतिकारक",
+        "\\bरोग\\s+प्रतिरोधक",
+        "\\bवजन\\s+(?:घटा|कम\\s+कर|कमी\\s+कर)",
+        "\\bइलाज\\b",
+        "\\bडिटॉक्स\\b"
       ],
       "case_insensitive": true
     },
@@ -430,7 +478,14 @@
         "\\bcontest\\b",
         "\\blucky draw\\b",
         "\\bwin a\\b",
-        "\\bwin free\\b"
+        "\\bwin free\\b",
+        "\\bगिवअवे\\b",
+        "\\bगिव्हअवे\\b",
+        "\\bप्रतियोगिता\\b",
+        "\\bस्पर्धा\\b",
+        "\\bलकी\\s+ड्रॉ\\b",
+        "\\bजीतें\\b",
+        "\\bजिंका\\b"
       ],
       "required_text": "T&C apply",
       "case_insensitive": true
@@ -453,11 +508,15 @@
     "page": 6,
     "check_method": "claim",
     "params": {
-      "price_pattern": "(?:Rs\\.?|INR|₹)\\s?[\\d,]+",
+      "price_pattern": "(?:Rs\\.?|INR|₹)\\s?[\\d,]+|रु\\.?\\s?[\\d,]+|[\\d,]+\\s?(?:रुपये|रुपए)",
       "required_text_any": [
         "incl. taxes",
         "inclusive of taxes",
-        "incl. GST"
+        "incl. GST",
+        "करों सहित",
+        "कर सहित",
+        "करांसह",
+        "टैक्स सहित"
       ],
       "needs_supporting_fact": true
     },
