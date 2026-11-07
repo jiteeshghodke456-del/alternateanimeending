@@ -33,3 +33,17 @@ Agents record non-obvious decisions here. Anything marked **Second opinion wante
 - **Contract changes (schemas.py + api.ts):** `ResubmitOut` gains `diff[{op,text}]`, `applied[]`, `skipped[{finding_id,reason}]`; `AIUsageOut` gains `summary` (groups are now provider + purpose, `model` = distinct models joined); `CountBucket.label` (rule statement on `top_rules`); `DismissalRate.statement`; `OverrideIn` min length is checked in the handler (10 chars) for a readable message.
 - **Insights** count findings across all versions (a v2 re-check adds its own findings); fix-accept rate = `accepted / findings that had a fix`.
 - **Seed:** seeded items now carry an audit trail matching their state (created, submitted, changes_requested/approved) and a reviewer comment on changes-requested items. Seeded `draft` items are `not_run`: the first check is triggered by `POST /items/{id}/resubmit` (creates v2).
+
+## Frontend agent
+- **Item list in the findings column** uses Magic UI's `AnimatedListItem` inside `AnimatePresence` rather than the packaged `AnimatedList`, which reveals children on a timer (1 s each) and reverses order; that is wrong for replayed and live findings that must appear immediately and keep severity order.
+- **Rule scan panel** shows rules that were hit (findings incl. pass-band, from `GET /versions/{id}/findings?include_pass=true` and live events) plus "N other rules found nothing". The API does not expose per-rule probabilities for rules that did not fire, so we do not draw bars for them.
+- **Landing** opens a quiet demo-mode preview session as the creator so the example card can quote the real `R-CLAIM-01` rule (all `/api/*` except `/me` and `/health` need a session). "Try the demo" then logs in as Rohan and `/content/new?demo=1` loads `GET /api/items?key=demo_flawed_post` + its version text itself, so a page reload keeps the prefill.
+- `frontend/src/lib/mock.ts` and the dev-only gallery page were removed; every page reads the real API.
+
+### Requests (backend / api.ts)
+- **Public rule preview.** Allow `GET /api/rules` (or a tiny `GET /api/brand/preview`) without a session in demo mode, so the landing page does not need a throwaway login.
+- **Eval metrics shape.** `EvalLatestOut.metrics` is `Record<string, unknown>`. The page reads, tolerantly: `precision`, `recall`, `f1`, `per_category` (object or array of `{category, precision, recall, f1}`), `median_latency_ms`, `p95_latency_ms`, `cost_per_item_usd`, `claim_status_accuracy`, `calibration` (array of `{lo, hi, actual, n}` or `{bin, actual}`). Please keep to these names (0..1 or 0..100 both work) and add a typed interface to api.ts. `misses` is rendered as a table of its first six keys.
+- **`EvalLatestOut.available`** is used for the "not run" state (the brief said `not_run`; the contract has `available: false`).
+- **Logo** is served by `/api/assets/{id}` (listed in `BrandOut.logos[].url`), which the Brand Kit uses. No change needed.
+- **Image findings have no region.** Visual/logo findings carry no box, so the item page shows the image with the brand palette strip and lists findings beside it; an overlay needs `box` (fractions) on `FindingOut`.
+- **Seeded `not_run` items** have no check until someone resubmits; the item page says so and points at "Resubmit".
