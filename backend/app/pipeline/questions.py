@@ -55,7 +55,8 @@ def rule_question(rule: RuleSpec, field: str = "text") -> Noul:
     true = f"`{field}` breaks the rule, like these examples: {bad}" if bad else f"`{field}` breaks the rule."
     false = (f"`{field}` follows the rule, like these on-brand examples: {ok}" if ok
              else f"Nothing in `{field}` goes against the rule.")
-    return Noul(instructions=f"Does `{field}` break this brand rule: {rule.statement}", criteria={"true": true, "false": false})
+    kind = "advertising rule" if (rule.params or {}).get("citation") else "brand rule"  # rule packs cite a regulation
+    return Noul(instructions=f"Does `{field}` break this {kind}: {rule.statement}", criteria={"true": true, "false": false})
 
 
 # Image rules whose statement is about colour values, logo authenticity or font files are judged in code

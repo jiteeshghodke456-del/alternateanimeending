@@ -673,6 +673,7 @@ def run_tier0_text(text: str, ctx: CheckContext, state: Optional[PostState] = No
             hits += check_rule_on_text(rule, text, ctx, state)
         elif is_never_say(rule):
             hits += check_banned(rule, text)
+    hits = drop_linked_pack_hits(text, hits, rules)
     hits = merge_hits(hits)
     term_hits = check_terms(text, ctx.terms, rules)
     hits += [h for h in term_hits if not any(_overlaps(h, o) for o in hits)]
@@ -682,6 +683,25 @@ def run_tier0_text(text: str, ctx: CheckContext, state: Optional[PostState] = No
         if h.span_start is not None and h.span_end is not None:
             h.quote = text[h.span_start:h.span_end]
     return sorted(hits, key=lambda h: (h.span_start if h.span_start is not None else -1, h.rule_code or ""))
+
+
+def drop_linked_pack_hits(text: str, hits: list[Tier0Hit], rules: list[RuleSpec]) -> list[Tier0Hit]:
+    """Rule packs (app/packs.py): a pack rule linked to a brand rule (params.linked_rules) stays quiet in a
+    sentence where that brand rule already fired; the brand rule's finding shows the regulation instead."""
+    linked = {r.code: set((r.params or {}).get("linked_rules") or []) for r in rules
+              if (r.params or {}).get("pack") and (r.params or {}).get("linked_rules")}
+    if not linked:
+        return hits
+    fired = {(h.rule_code, sentence_at(text, h.span_start)[0]) for h in hits
+             if h.rule_code and h.rule_code not in linked and h.span_start is not None}
+    out = []
+    for h in hits:
+        if h.rule_code in linked and h.span_start is not None:
+            sent = sentence_at(text, h.span_start)[0]
+            if any((code, sent) in fired for code in linked[h.rule_code]):
+                continue
+        out.append(h)
+    return out
 
 
 def run_tier0_image(unit: UnitIn, ctx: CheckContext) -> list[Tier0Hit]:

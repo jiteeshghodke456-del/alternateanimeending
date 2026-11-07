@@ -73,6 +73,8 @@ class Rule(SQLModel, table=True):
     enabled: bool = True
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+    # Rule packs (app/packs.py): the pack this rule came from, e.g. "india_regulatory"; None = the brand's own rule.
+    pack_id: Optional[str] = Field(default=None, index=True)
 
 
 class Term(SQLModel, table=True):

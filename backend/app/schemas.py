@@ -197,6 +197,7 @@ class RuleOut(_Out):
     examples_ok: list[str]
     enabled: bool
     updated_at: UtcDatetime
+    pack_id: Optional[str] = None  # rule packs: set when the rule came from a pack (app/packs.py)
 
 
 class RuleCreate(BaseModel):
@@ -408,6 +409,9 @@ class RuleRef(_Out):
     statement: str
     source_quote: str
     page: Optional[int]
+    # ---- rule packs (app/packs.py): set when the rule is a regulation from a pack
+    pack_id: Optional[str] = None
+    citation: Optional["CitationOut"] = None
 
 
 class FactRef(_Out):
@@ -461,6 +465,9 @@ class FindingOut(_Out):
     hit_start: Optional[int] = None
     hit_end: Optional[int] = None
     fix_group: Optional[str] = None
+    # Rule packs: regulations that back the brand rule this finding cites (the pack rule is linked to it
+    # instead of flagging the same words twice). Empty for pack findings: their own `rule.citation` says it.
+    regulations: list[RuleRef] = Field(default_factory=list)
 
 
 class FindingEditIn(BaseModel):
@@ -724,3 +731,77 @@ class EvalLatestOut(_Out):
 class EvalRunOut(_Out):
     started: bool
     message: str
+
+
+# ---------------------------------------------------------------- rule packs (app/packs.py)
+class CitationAlso(_Out):
+    document: str
+    clause: str
+    url: str
+
+
+class CitationOut(_Out):
+    source_id: str
+    document: str  # full title of the source document
+    short: str
+    clause: str  # e.g. "Annexure 1 (1): False Urgency"
+    quote: str  # a short phrase from the source
+    url: str
+    retrieved: str  # ISO date the source was read
+    status: str = ""
+    also: list[CitationAlso] = Field(default_factory=list)
+
+
+class PackSourceOut(_Out):
+    id: str
+    title: str
+    short: str
+    issuer: str
+    year: int
+    status: str
+    url: str
+    retrieved: str
+
+
+class PackRuleOut(_Out):
+    code: str
+    category: str
+    severity: Severity
+    check_method: CheckMethod
+    statement: str
+    clause: str
+    source_short: str
+    url: str
+
+
+class PackOut(_Out):
+    id: str
+    name: str
+    description: str
+    version: int
+    retrieved: str
+    rule_count: int
+    sources: list[PackSourceOut]
+    rules: list[PackRuleOut]
+    applied: bool  # this brand has the pack's rules
+    applied_count: int
+    applied_version: Optional[int] = None
+    linked: dict[str, list[str]] = Field(default_factory=dict)  # pack rule code -> brand rule codes it backs
+
+
+class PackApplyOut(_Out):
+    pack_id: str
+    added: int
+    updated: int
+    unchanged: int
+    skipped: list[str]  # codes already used by a brand rule of its own
+    linked: dict[str, list[str]]
+
+
+class PackRemoveOut(_Out):
+    pack_id: str
+    removed: int
+
+
+RuleRef.model_rebuild()
+FindingOut.model_rebuild()
