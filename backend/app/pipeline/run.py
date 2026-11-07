@@ -328,7 +328,6 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             old = select(Finding.id).where(Finding.version_id == v.id)
             s.execute(delete(Override).where(Override.finding_id.in_(old)))  # type: ignore[attr-defined]
             s.execute(delete(Finding).where(Finding.version_id == v.id))  # a re-run replaces earlier findings
-            s.execute(delete(ClaimRecord).where(ClaimRecord.version_id == v.id))  # ...and its claims ledger rows
             v.check_status = "running"
             v.stats = {"units_total": units_total, "units_done": 0, "judgments": 0, "elapsed_ms": 0, "cost_usd": 0.0}
             audit(s, "check_started", item_id=item.id, version_id=v.id,
@@ -366,6 +365,9 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             v = s.get(Version, version_id)
             item = s.get(ContentItem, v.item_id)
             v.stats = _stats(res, calls, ctx, rows, elapsed)
+            # Claims ledger: replaced only now, so the ledger and fact impact never show a gap while a re-check
+            # runs (a failed check keeps the previous rows).
+            s.execute(delete(ClaimRecord).where(ClaimRecord.version_id == v.id))
             for rec in claim_records(v.id, item.id, res):
                 s.add(rec)
             v.check_status = "done"

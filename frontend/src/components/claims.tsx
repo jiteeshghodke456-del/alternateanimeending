@@ -110,11 +110,24 @@ export function FactImpactDialog({ factId, open, onOpenChange, onDone }: {
               <p className="mt-0.5 text-caption text-muted-foreground">{d.fact.source || "No source"}{d.fact.value ? ` · ${d.fact.value}` : ""}</p>
               <p className={cn("mt-3 text-footnote", d.reason === "expired" || d.reason === "changed" ? "text-flag-text" : "text-muted-foreground")} role="status">{REASON[d.reason](d.fact)}</p>
             </div>
+            {result && (
+              <div className="rounded-2xl border border-border bg-background/60 p-4" role="status" data-testid="impact-results">
+                <p className="text-footnote font-medium">Sent back: {result.moved} moved to “Changes requested”, {result.rechecked} re-check{result.rechecked === 1 ? "" : "s"} started.</p>
+                <ul className="mt-2 space-y-1 text-footnote">
+                  {result.results.map((r) => (
+                    <li key={r.item_id} className="flex flex-wrap gap-x-2">
+                      <Link to={`/items/${r.item_id}`} onClick={() => onOpenChange(false)} className="font-medium text-[var(--accent-text)] underline-offset-2 hover:underline">{r.title}</Link>
+                      <span className="text-muted-foreground">{r.skipped_reason && r.from_state === r.to_state && !r.rechecked ? r.skipped_reason
+                        : `${STATE_LABEL[r.from_state]} → ${STATE_LABEL[r.to_state]}${r.rechecked ? " · re-check started" : ""}`}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className="text-footnote font-medium" data-testid="impact-counts">{d.items.length === 0 ? "No content relies on this fact." : `${d.approved} approved · ${d.in_progress} in progress`}</p>
             {d.items.length > 0 && (
               <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-background/60" data-testid="impact-items">
                 {d.items.map((it) => {
-                  const res = result?.results.find((r) => r.item_id === it.item_id);
                   return (
                     <li key={it.item_id} className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-2">
@@ -131,8 +144,7 @@ export function FactImpactDialog({ factId, open, onOpenChange, onDone }: {
                         ))}
                       </ul>
                       <p className="mt-1.5 text-caption text-muted-foreground">
-                        {res ? (res.skipped_reason ? res.skipped_reason : `${STATE_LABEL[res.from_state]} → ${STATE_LABEL[res.to_state]}${res.rechecked ? " · re-check started" : ""}`)
-                          : <><span className="font-medium text-foreground">{ACTION_LABEL[it.action]}:</span> {it.action_reason}</>}
+                        <span className="font-medium text-foreground">{ACTION_LABEL[it.action]}:</span> {it.action_reason}
                       </p>
                     </li>
                   );
