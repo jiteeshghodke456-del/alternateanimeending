@@ -214,3 +214,39 @@ Off switch: `FEATURE_PDF_IMPORT=0` makes all three endpoints return **501** `{"d
 - `POST /brand/import-pdf/{import_id}/confirm` `{selected: ["P-01", …], edits?: {"P-03": {statement?, category?, severity?, check_method?}}, enable?: false}` → `{import_id, created: RuleOut[]}`. It creates rules `R-IMP-NN` (numbered after any existing R-IMP codes) with `params.imported_from = import_id`, and writes an `AuditEvent` `rules_imported` with `{import_id, filename, codes, unverified_quotes, edited, enabled}`. Errors: 409 not ready / failed / already confirmed, 422 unknown proposal id or empty `selected`.
 - Old `POST /brand/import-pdf/confirm` was removed (it was a 501 stub); the old api.ts types and functions are marked `@deprecated`.
 
+
+## Memory budget on Render free tier (7 Nov)
+**Problem.** Render killed the container (`oomKilled memoryLimit 512Mi`) 30–60 s after each deploy, which gave a 502 and wiped the demo data.
+
+**Measured locally** (app started the way the container starts it, fresh DB, RSS sampled every 200 ms, glibc malloc defaults as on Render):
+
+| scenario | before | after |
+|---|---|---|
+| boot (idle) | 121 MiB | 112 MiB |
+| startup demo pre-run (8 seeded items) | 385–461 MiB | 264 MiB |
+| golden path (19/19, includes audience, logo, PDF import) | 495 MiB | 201 MiB |
+| stress: 3 image checks + 1 audience run + 1 PDF import, all at once | **668 MiB** | 258 MiB |
+
+**What drove it: OpenCV SIFT.** SIFT doubles the image before building its pyramid, so one pass needs ~225 bytes per pixel. On a 1080 px ad that is **+265 MiB** for a moment (+146 MiB for the 800 px approved logo). Two image checks at once go over 512 MiB. glibc then keeps the freed heap, so RSS ratchets up and never comes back down. The other costs are small. Imports: app ~115 MiB, cv2 +26 MiB, pdfplumber +10 MiB. Palette k-means on a 128 px thumbnail: +17 MiB. Jev image prep: ~0. pdfplumber on the 10-page guideline: 35 MiB of Python objects, 14 MiB once pages are closed. (textstat would add +150 MiB through nltk, but the app never imports it; Flesch-Kincaid uses pyphen.)
+
+**Changes**
+- `logo.py`: the scene keeps full resolution (up to 1600 px). It is cut into overlapping tiles of at most `SIFT_MAX_SIDE` (640 px core + 64 px context), and each keypoint is kept only from the tile whose core contains it. The approved logo is *downscaled* to 640 px instead of tiled, because a tiny copy of the logo needs the whole logo's coarse keypoints. Downscaling the scene was tried first and rejected: at 800 or 640 px, the 60 px small-logo test lost all its inliers. With tiles, every logo test passes. On the seed ads, inliers go from 298 to 285 (genuine), and the verdicts and bands are unchanged. Peak per pass: +112 MiB on the first pass (with the logo), then +58 MiB.
+- `limits.SIFT_LOCK`: one SIFT pass at a time per process. `cv2.setNumThreads(1)`, because OpenCV sizes its pool from the host's CPUs. `malloc_trim(0)` after every SIFT pass and every heavy job.
+- `limits.check_slot()`: at most `MAX_CONCURRENT_CHECKS` heavy jobs run at once; the rest queue. Heavy jobs are checks, audience runs, PDF import (both the pdfplumber extraction and the LLM proposals) and the startup pre-run's checks. A queued check stays `queued` (the UI shows "checking").
+- Startup pre-run: it was already one item at a time and only picked `not_run` versions (so it does nothing if the data exists). It now waits `PRERUN_DELAY_S` first, so `/api/health` and the first page load come before any heavy work. A demo reset re-runs it without the delay.
+- pdfplumber: each page is closed after use (`units.split_pdf`, `pdf_import.extract_pages`). The 20-page cap was already in place.
+- Dockerfile: `MALLOC_ARENA_MAX=2`, `OPENBLAS_NUM_THREADS=1`, `OMP_NUM_THREADS=1`, `--workers 1`, plus the knobs below with their defaults.
+- Not changed, on purpose: Jev images stay PNG. JPEG would save no memory that matters (a 1024 px PNG is ~1.5 MB per call), and it would change the pixels Jev judges. `PYTHONMALLOC=malloc` was not needed. There is no uvicorn `--limit-concurrency`, because SSE streams are long-lived connections, so a low limit would 503 judges' browsers.
+
+**Env knobs** (in `.env.example`; tune them on Render without a code change):
+| name | default | Render | what |
+|---|---|---|---|
+| `MAX_CONCURRENT_CHECKS` | 2 | 2 | checks + audience runs + PDF imports at once |
+| `PRERUN_DELAY_S` | 15 | 15 | startup pre-run waits this long |
+| `IMAGE_MAX_SIDE` | 1024 | 1024 | long side of images sent to Jev |
+| `SIFT_MAX_SIDE` | 640 | 640 (512 if still tight) | largest piece one SIFT pass sees |
+| `JEV_CONCURRENCY` | 8 | 8 (4 if tight) | Jev calls in flight |
+
+**Quality.** `pytest -q` is green, with 9 new tests in `tests/test_memory_limits.py`. The golden path passes 19/19. The findings (rule/fact code + band) of all 8 seeded items, including the Monsoon demo post (15 findings), are identical before and after. The stress run's three image checks gave the same bands and logo verdicts as before. The measurement runs cost ~$0.09 of live calls in total.
+
+**Caveats.** These numbers come from Python 3.13 in a sandbox, not from the python:3.12-slim image, and Docker wasn't available. Render may add ~10–20 MiB of overhead. Watch the Render metrics after the next deploy.
