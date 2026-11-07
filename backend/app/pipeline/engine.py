@@ -120,6 +120,7 @@ class _Run:
         self.res = EngineResult(units_total=len(self.units), jev_used=use_jev, llm_used=use_llm)
         self.rules = ctx.enabled_rules()
         self.masks: dict[int, dict[str, str]] = {}
+        self.context_post: str = ctx.post_text
 
     # ---------------------------------------------------------------- helpers
     def rule(self, code: Optional[str]) -> Optional[RuleSpec]:
@@ -503,7 +504,7 @@ class _Run:
         req = X.RegionRequest(
             items=[X.RegionItem(str(i + 1), self.rule(d.rule_code), d.category, d.problem or d.detail,
                                 mask_pii_map(d.quote)[0]) for i, d in enumerate(members)],
-            unit_text=mask_pii_map(self.ctx.post_text or u.text)[0], region_text=mask_pii_map(base)[0], channel=self.ctx.channel,
+            unit_text=mask_pii_map(self.context_post or u.text)[0], region_text=mask_pii_map(base)[0], channel=self.ctx.channel,
             required=required, facts=notes)
         out = await X.explain_region(req, calls=self.calls, unit_id=u.id)
         for i, d in enumerate(members):
@@ -562,6 +563,7 @@ class _Run:
     async def run(self) -> EngineResult:
         t0 = time.perf_counter()
         tier0 = run_tier0_units(self.units, self.ctx)
+        self.context_post = renamed_post(self.ctx.post_text, self.units, tier0)
         await self.on_progress("tier0", self.res)
         await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task())
         self.res.elapsed_ms = int((time.perf_counter() - t0) * 1000)
@@ -589,6 +591,27 @@ def edit_regions(spans: list[tuple[int, int]], text: Optional[str] = None) -> li
         else:
             out.append(((s, e), [i]))
     return out
+
+
+def renamed_post(post: str, units: list[UnitIn], tier0: dict[int, list[Tier0Hit]]) -> str:
+    """The post with every word-list rename applied ("Steam Classic" -> "Saffron Signature Roast"), used as the
+    LLM's context so a region rewrite doesn't copy an old name from a sentence it isn't rewriting."""
+    if not post:
+        return post
+    edits: list[tuple[int, int, str]] = []
+    for u in units:
+        if u.char_start is None or u.text != post[u.char_start:u.char_start + len(u.text)]:
+            continue
+        for h in tier0.get(u.idx, []):
+            if h.fix and h.span_start is not None and h.span_end is not None and any(ch.isalpha() for ch in h.fix):
+                edits.append((u.char_start + h.span_start, u.char_start + h.span_end, h.fix))
+    out, pos = "", 0
+    for s, e, fix in sorted(edits):
+        if s < pos:
+            continue
+        out += post[pos:s] + fix
+        pos = e
+    return out + post[pos:]
 
 
 def only_unavailable(reasons: list[str]) -> bool:

@@ -145,3 +145,14 @@ def test_region_fix_that_brings_back_an_old_name_is_rejected(monkeypatch) -> Non
     res = check(DEMO_TEXT, monkeypatch, llm)
     [d] = {d.fix_group: d for d in res.findings if d.quote.startswith("Flat 20%")}.values()
     assert d.fix == "Grab a fresh bag of Saffron Signature Roast online." and d.fix_verified
+
+
+def test_llm_context_has_renames_applied(monkeypatch) -> None:  # noqa: ANN001
+    llm = demo_llm()
+    check(DEMO_TEXT, monkeypatch, llm)
+    install(monkeypatch, demo_jev(), llm)
+    from app.pipeline.tier0 import run_tier0_units
+
+    units = text_units(DEMO_TEXT)
+    post = E.renamed_post(DEMO_TEXT, units, run_tier0_units(units, seed_ctx(DEMO_TEXT)))
+    assert "Steam Classic" not in post and post.startswith("Saffron Signature Roast is India's #1 coffee")
