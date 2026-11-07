@@ -1,5 +1,6 @@
-import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
-import { BarChart3, ClipboardCheck, FileText, LayoutDashboard, Palette, type LucideIcon } from "lucide-react";
+import { Suspense } from "react";
+import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { ArrowRight, BarChart3, ClipboardCheck, FileText, LayoutDashboard, Palette, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
@@ -9,6 +10,8 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { HealthBanner } from "@/components/HealthBanner";
+import { AccountMenu, workspaceLabel } from "@/components/AccountMenu";
+import { BrandMark } from "@/components/BrandMark";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROLE_LABELS } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
@@ -37,8 +40,8 @@ function RoleSwitcher() {
       <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full [&>span]:!flex [&>span]:!items-center border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 backdrop-blur-xl sm:min-w-[190px]">
         {user ? (
           <span className="flex min-w-0 items-center gap-2">
-            <UserAvatar id={user.id} name={user.name} className="size-7 text-footnote" />
-            <span className="truncate text-footnote font-medium"><SelectValue>{user.name} <span className="font-normal text-muted-foreground">· {ROLE_LABELS[user.role]}</span></SelectValue></span>
+            <UserAvatar id={user.id} name={user.name} role={user.role} className="size-7 text-footnote" />
+            <span className="truncate text-footnote font-medium"><SelectValue>{user.name} <span className="hidden font-normal text-muted-foreground sm:inline">· {ROLE_LABELS[user.role]}</span></SelectValue></span>
           </span>
         ) : (
           <SelectValue placeholder="Choose a role" />
@@ -48,7 +51,7 @@ function RoleSwitcher() {
         {users.map((u) => (
           <SelectItem key={u.id} value={u.id} className="rounded-xl py-2">
             <span className="flex items-center gap-2">
-              <UserAvatar id={u.id} name={u.name} className="size-6 text-caption" />
+              <UserAvatar id={u.id} name={u.name} role={u.role} className="size-6 text-caption" />
               {u.name} <span className="text-muted-foreground">· {ROLE_LABELS[u.role]}</span>
             </span>
           </SelectItem>
@@ -59,23 +62,49 @@ function RoleSwitcher() {
 }
 
 function TopBar() {
-  const { user, backendOnline } = useSession();
+  const { user, backendOnline, brand } = useSession();
   return (
     <header className="sticky top-0 z-30 px-4 pt-3 md:px-8 md:pt-4">
-      <div className="glass-strong mx-auto flex max-w-[1200px] items-center justify-between gap-3 !rounded-full px-3 py-2 md:px-4">
-        <div className="flex items-center gap-3 md:hidden"><Logo /></div>
+      <div className="glass-strong mx-auto flex max-w-[1200px] items-center justify-between gap-2 !rounded-full px-2 py-2 sm:gap-3 md:px-4">
+        <Link to="/dashboard" className="flex min-w-0 items-center gap-2 rounded-full md:hidden" aria-label={`${brand?.name ?? "Brand Gate"}, dashboard`}>
+          <Logo showWord={false} />
+          {brand?.name && <span className="truncate text-footnote font-semibold">{brand.name}</span>}
+        </Link>
         <div className="hidden min-w-0 md:block">
           <p className="truncate text-footnote text-muted-foreground">
+            {brand?.name && <><span className="font-semibold text-foreground">{brand.name}</span><span aria-hidden className="mx-2 text-border">|</span></>}
             {user ? <>Signed in as <span className="font-medium text-foreground">{user.name}</span>, {ROLE_LABELS[user.role]}</> : "Not signed in"}
             {backendOnline === false && <span className="ml-2 rounded-full bg-human/15 px-2 py-0.5 text-caption text-human-text">Can't reach the server</span>}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <RoleSwitcher />
+          <AccountMenu />
           <ThemeToggle />
         </div>
       </div>
     </header>
+  );
+}
+
+function BrandCard() {
+  const { brand, workspaceKind, user } = useSession();
+  if (!brand) return <div className="mt-auto"><Skeleton className="h-16 rounded-2xl" /></div>;
+  return (
+    <div className="mt-auto rounded-2xl bg-foreground/5 p-3">
+      <div className="flex items-center gap-2.5">
+        <BrandMark brand={brand} />
+        <div className="min-w-0">
+          <p className="truncate text-footnote font-semibold" title={brand.name}>{brand.name}</p>
+          <p className="text-caption text-muted-foreground">{brand.demo ? "Demo brand · sample data" : workspaceLabel(workspaceKind)}</p>
+        </div>
+      </div>
+      {brand.is_blank_setup && user?.role === "admin" && (
+        <Link to="/setup" className="mt-2.5 flex items-center justify-between rounded-xl bg-[var(--accent-fill)] px-3 py-2 text-caption font-semibold text-white transition-colors hover:bg-[var(--accent-fill-hover)]">
+          Finish setup <ArrowRight className="size-3.5" strokeWidth={2} aria-hidden />
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -91,7 +120,7 @@ function Sidebar() {
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-body font-medium transition-colors",
-                isActive ? "bg-[#0A84FF] text-white shadow-[0_6px_18px_rgba(10,132,255,0.35)]" : "text-foreground/80 hover:bg-foreground/6",
+                isActive ? "bg-[var(--accent-fill)] text-white shadow-[0_6px_18px_rgba(10,132,255,0.35)]" : "text-foreground/80 hover:bg-foreground/6",
               )
             }
           >
@@ -99,10 +128,7 @@ function Sidebar() {
             {label}
           </NavLink>
         ))}
-        <div className="mt-auto rounded-2xl bg-foreground/5 p-3">
-          <p className="text-caption font-medium">Fictional demo brand</p>
-          <p className="text-caption text-muted-foreground">Saffron &amp; Steam Coffee Co.</p>
-        </div>
+        <BrandCard />
       </nav>
     </aside>
   );
@@ -119,7 +145,7 @@ function BottomTabs() {
             className={({ isActive }) =>
               cn(
                 "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium leading-tight",
-                isActive ? "bg-[#0A84FF] text-white" : "text-muted-foreground",
+                isActive ? "bg-[var(--accent-fill)] text-white" : "text-muted-foreground",
               )
             }
           >
@@ -132,6 +158,10 @@ function BottomTabs() {
   );
 }
 
+function PageSkeleton() {
+  return <div className="space-y-4" aria-busy="true" aria-label="Loading"><Skeleton className="h-10 w-64" /><Skeleton className="h-40" /></div>;
+}
+
 export function AppShell() {
   const { pathname } = useLocation();
   const { user, ready } = useSession();
@@ -139,18 +169,20 @@ export function AppShell() {
   return (
     <div className="min-h-dvh">
       <MeshBackground />
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[#0A84FF] focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-[var(--accent-fill)] focus:px-4 focus:py-2 focus:text-white">Skip to content</a>
       <Sidebar />
       <div className="md:pl-[248px]">
         <TopBar />
         <main id="main" className="mx-auto max-w-[1200px] px-4 pb-32 pt-6 md:px-8 md:pb-16 md:pt-8">
           <HealthBanner />
           {!ready ? (
-            <div className="space-y-4"><Skeleton className="h-10 w-64" /><Skeleton className="h-40" /></div>
+            <PageSkeleton />
           ) : (
-            <BlurFade key={`${pathname}:${user?.id}`} duration={0.3} offset={8}>
-              <Outlet />
-            </BlurFade>
+            <Suspense fallback={<PageSkeleton />}>
+              <BlurFade key={`${pathname}:${user?.id}`} duration={0.3} offset={8}>
+                <Outlet />
+              </BlurFade>
+            </Suspense>
           )}
         </main>
       </div>
