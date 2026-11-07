@@ -1,29 +1,28 @@
-import { Link } from "react-router-dom";
 import { ClipboardCheck } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
-import { StateBadge } from "@/components/StateBadge";
-import { MOCK_ITEMS } from "@/lib/mock";
+import { ErrorState } from "@/components/ErrorState";
+import { ItemList, ListSkeleton } from "@/components/ItemList";
+import { api } from "@/lib/api";
+import { useAsync } from "@/lib/hooks";
+import { useSession } from "@/lib/session";
 
 export default function Review() {
-  const queue = MOCK_ITEMS.filter((i) => i.state === "in_review");
+  const { user } = useSession();
+  const q = useAsync(() => api.items({ state: "in_review" }), []);
+  const canReview = user?.role === "reviewer" || user?.role === "approver";
   return (
     <>
-      <PageHeader title="Review queue" subtitle="Items waiting for a reviewer or approver. Sample data until the workflow is connected." />
-      {queue.length === 0 ? (
-        <EmptyState icon={ClipboardCheck} title="All caught up" description="Nothing is waiting for review right now." />
-      ) : (
-        <ul className="glass-strong divide-y divide-border overflow-hidden">
-          {queue.map((it) => (
-            <li key={it.id}>
-              <Link to={`/items/${it.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-foreground/4">
-                <div className="min-w-0 flex-1"><p className="truncate text-body font-medium">{it.title}</p><p className="text-caption text-muted-foreground">{it.channel} · by {it.creator} · {it.updated}</p></div>
-                <StateBadge state={it.state} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+      <PageHeader title="Review queue" subtitle="Items waiting for a reviewer or approver." />
+      {!canReview && (
+        <p className="mb-4 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">
+          You're signed in as {user?.name}. Only reviewers and approvers can act on these items. Switch to Meera or Kabir from the top bar to review.
+        </p>
       )}
+      {q.error ? <ErrorState message={q.error.message} onRetry={q.reload} />
+        : q.loading && !q.data ? <ListSkeleton />
+        : (q.data ?? []).length === 0 ? <EmptyState icon={ClipboardCheck} title="All caught up" description="Nothing is waiting for review right now." />
+        : <ItemList items={q.data!} />}
     </>
   );
 }
