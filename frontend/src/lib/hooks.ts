@@ -52,6 +52,11 @@ export function reportError(e: unknown, fallback?: string): void {
     toast.info("This part is still coming online on this server. Please try again in a moment.");
     return;
   }
+  if (err.waking) {
+    // starting or waking up after a deploy / idle sleep: not an error, the app waits and retries
+    toast.info("The server is starting up. Give it a moment and try again.", { id: "server-waking" });
+    return;
+  }
   toast.error(err.message || fallback || "Something went wrong. Please try again.");
 }
 

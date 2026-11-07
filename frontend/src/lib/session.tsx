@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { api, ApiError, serverFeatures, setToken, WORKSPACE_RESET_EVENT, type BrandOut, type ServerFeatures, type HealthOut, type Role, type UserOut, type WorkspaceKind, type WorkspaceOut } from "./api";
+import { api, ApiError, serverFeatures, setToken, SERVER_WAKING_EVENT, WORKSPACE_RESET_EVENT, type BrandOut, type ServerFeatures, type HealthOut, type Role, type UserOut, type WorkspaceKind, type WorkspaceOut } from "./api";
 
 interface SessionValue {
   user: UserOut | null;
@@ -18,6 +18,8 @@ interface SessionValue {
   workspaceKind: WorkspaceKind | null;
   /** Newer endpoints this server has (null until known). */
   features: ServerFeatures | null;
+  /** Non-null while the server is starting or waking up (deploy, free-tier sleep): the UI waits calmly. */
+  starting: { stage: string | null; since: number } | null;
   login: (userId: string) => Promise<UserOut>;
   logout: () => Promise<void>;
   refreshBrand: () => Promise<void>;
@@ -39,23 +41,70 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [workspace, setWorkspace] = useState<WorkspaceOut | null>(null);
   const [features, setFeatures] = useState<ServerFeatures | null>(null);
 
+  const [starting, setStarting] = useState<{ stage: string | null; since: number } | null>(null);
+  const polling = useRef(false);
+
+  const loadMe = useCallback(async (): Promise<boolean> => {
+    try {
+      const me = await api.me();
+      setOnline(true);
+      setUser(me.user);
+      setUsers(me.users);
+      setDemoMode(me.demo_mode);
+      setReady(true);
+      return true;
+    } catch (e) {
+      if (e instanceof ApiError && e.waking) return false; // starting up: waitForServer() takes over
+      setOnline(false);
+      setReady(true);
+      return true;
+    }
+  }, []);
+
+  // The server is starting (our 503 + X-BG-Starting) or waking (host 502/503, no connection): poll
+  // /api/health every 1.5 s, then load normally. Never an error screen or a red toast for this.
+  const waitForServer = useCallback(() => {
+    if (polling.current) return;
+    polling.current = true;
+    setStarting((s) => s ?? { stage: null, since: Date.now() });
+    const tick = async () => {
+      try {
+        const h = await api.health();
+        setHealth(h);
+        if (h.ready === false) {
+          setStarting((s) => ({ stage: h.stage ?? null, since: s?.since ?? Date.now() }));
+        } else if (await loadMe()) {
+          polling.current = false;
+          setStarting(null);
+          return;
+        }
+      } catch { /* still waking */ }
+      window.setTimeout(() => void tick(), 1500);
+    };
+    window.setTimeout(() => void tick(), 1500);
+  }, [loadMe]);
+
   useEffect(() => {
     let alive = true;
-    api.health().then((h) => alive && setHealth(h), () => undefined);
+    // health and /me in parallel: no extra round trip on a warm server
+    api.health().then((h) => {
+      if (!alive) return;
+      setHealth(h);
+      if (h.ready === false) waitForServer();
+    }, () => undefined);
+    void loadMe().then((done) => { if (alive && !done) waitForServer(); });
+    const onWaking = () => waitForServer();
+    window.addEventListener(SERVER_WAKING_EVENT, onWaking);
+    return () => { alive = false; window.removeEventListener(SERVER_WAKING_EVENT, onWaking); };
+  }, [loadMe, waitForServer]);
+
+  // Feature detection never blocks first paint: it runs once the server is up.
+  useEffect(() => {
+    if (starting || !ready) return;
+    let alive = true;
     void serverFeatures().then((f) => alive && setFeatures(f));
-    api.me().then(
-      (me) => {
-        if (!alive) return;
-        setOnline(true);
-        setUser(me.user);
-        setUsers(me.users);
-        setDemoMode(me.demo_mode);
-        setReady(true);
-      },
-      () => { if (alive) { setOnline(false); setReady(true); } },
-    );
     return () => { alive = false; };
-  }, []);
+  }, [starting, ready]);
 
   const refreshBrand = useCallback(async () => {
     const f = await serverFeatures();
@@ -119,8 +168,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const workspaceKind: WorkspaceKind | null = workspace?.kind ?? (brand ? (brand.demo ? "demo" : "blank") : null);
 
   const value = useMemo(
-    () => ({ user, users, demoMode, health, ready, backendOnline, brand, workspace, workspaceKind, features, login, logout, refreshBrand, startWorkspace, is }),
-    [user, users, demoMode, health, ready, backendOnline, brand, workspace, workspaceKind, features, login, logout, refreshBrand, startWorkspace, is],
+    () => ({ user, users, demoMode, health, ready, backendOnline, brand, workspace, workspaceKind, features, starting, login, logout, refreshBrand, startWorkspace, is }),
+    [user, users, demoMode, health, ready, backendOnline, brand, workspace, workspaceKind, features, starting, login, logout, refreshBrand, startWorkspace, is],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

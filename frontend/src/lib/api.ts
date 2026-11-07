@@ -59,6 +59,9 @@ export interface HealthOut {
   jev_configured: boolean;
   llm_configured: boolean;
   demo_mode: boolean;
+  /** false while the server builds the demo after a deploy or wake (other calls answer 503). Older servers omit it. */
+  ready?: boolean;
+  stage?: string | null;
 }
 
 export interface UserOut { id: string; name: string; role: Role }
@@ -585,7 +588,17 @@ export class ApiError extends Error {
   get notImplemented(): boolean { return this.status === 501; }
   /** 404/405 on an endpoint this server doesn't have yet (older backend). */
   get missing(): boolean { return this.status === 404 || this.status === 405; }
+  /** The server is starting or waking up (our startup 503, a host's 502/503/504 page, or no connection). */
+  get waking(): boolean {
+    if (this.status === 0 || this.status === 502 || this.status === 504) return true;
+    if (this.status !== 503) return false;
+    const d = this.detail;
+    return !(d && typeof d === "object" && "detail" in d) || (d as { starting?: boolean }).starting === true;
+  }
 }
+
+/** Window event fired when a request finds the server starting or waking (SessionProvider waits for it). */
+export const SERVER_WAKING_EVENT = "bg:server-waking";
 
 const BASE = "/api";
 const TOKEN_KEY = "bg-token";
@@ -686,6 +699,7 @@ export async function request<T>(
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
+    try { window.dispatchEvent(new Event(SERVER_WAKING_EVENT)); } catch { /* no window */ }
     throw new ApiError(0, "Can't reach the server. Check your connection and try again.", e);
   }
   // A response that had to create a workspace hands back its token; keep it for cookie-less browsers.
@@ -698,7 +712,13 @@ export async function request<T>(
   if (text) {
     try { data = JSON.parse(text); } catch { data = text; }
   }
-  if (!res.ok) throw new ApiError(res.status, humanMessage(res.status, data), data);
+  if (!res.ok) {
+    const err = new ApiError(res.status, humanMessage(res.status, data), data);
+    if (err.waking) {
+      try { window.dispatchEvent(new Event(SERVER_WAKING_EVENT)); } catch { /* no window */ }
+    }
+    throw err;
+  }
   return data as T;
 }
 
@@ -834,17 +854,23 @@ const ALL_ON: ServerFeatures = { workspaces: true, brandEdit: true, palette: tru
 let featuresP: Promise<ServerFeatures> | null = null;
 
 /**
- * Which newer endpoints this server has, read once from its OpenAPI document, so the UI never
- * calls a missing route (a 404 would also show up as a console error). If the document can't be
- * read we assume everything is there and each call still handles 404 itself.
+ * Which newer endpoints this server has. Read from the tiny GET /api/features (never blocks first
+ * render: callers await it only when they need it); older servers without it fall back to their
+ * OpenAPI document. If neither can be read we assume everything is there and each call still
+ * handles 404 itself.
  */
 export function serverFeatures(): Promise<ServerFeatures> {
   featuresP ??= (async () => {
     try {
-      const res = await fetch(`${BASE}/openapi.json`, { credentials: "include" });
-      if (!res.ok) return ALL_ON;
-      const doc = (await res.json()) as { paths?: Record<string, Record<string, unknown>> };
-      const paths = doc.paths ?? {};
+      const res = await fetch(`${BASE}/features`, { credentials: "include" });
+      if (res.ok) {
+        const f = (await res.json()) as { workspaces: boolean; brand_edit: boolean; palette: boolean; logo: boolean; facts_import: boolean };
+        return { workspaces: f.workspaces, brandEdit: f.brand_edit, palette: f.palette, logo: f.logo, factsImport: f.facts_import };
+      }
+      if (res.status !== 404) { featuresP = null; return ALL_ON; } // starting up: ask again next time
+      const doc = await fetch(`${BASE}/openapi.json`, { credentials: "include" });
+      if (!doc.ok) return ALL_ON;
+      const paths = ((await doc.json()) as { paths?: Record<string, Record<string, unknown>> }).paths ?? {};
       const has = (path: string, method: string) => !!paths[`${BASE}${path}`]?.[method];
       return {
         workspaces: has("/workspaces", "post") && has("/workspace", "get"),
@@ -854,6 +880,7 @@ export function serverFeatures(): Promise<ServerFeatures> {
         factsImport: has("/facts/import", "post"),
       };
     } catch {
+      featuresP = null;
       return ALL_ON;
     }
   })();

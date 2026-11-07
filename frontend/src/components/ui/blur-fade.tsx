@@ -5,6 +5,7 @@ import {
   AnimatePresence,
   motion,
   useInView,
+  useReducedMotion,
   type MotionProps,
   type UseInViewOptions,
   type Variants,
@@ -45,6 +46,7 @@ export function BlurFade({
   ...props
 }: BlurFadeProps) {
   const ref = useRef(null)
+  const reduce = useReducedMotion()
   const inViewResult = useInView(ref, { once: true, margin: inViewMargin })
   const isInView = !inView || inViewResult
   const defaultVariants: Variants = {
@@ -70,6 +72,15 @@ export function BlurFade({
     visibleFilter != null &&
     hiddenFilter !== visibleFilter
 
+  // Brand Gate: content appears together and quickly (<= 200 ms, at most a 60 ms stagger), and not at
+  // all with reduced motion. Long staggered entrances made the first paint feel like it was loading.
+  if (reduce) {
+    const { style } = props as { style?: React.CSSProperties }
+    return <div ref={ref} className={className} style={style as React.CSSProperties}>{children}</div>
+  }
+  const quick = Math.min(duration, 0.2)
+  const stagger = Math.min(delay, 0.06)
+
   return (
     <AnimatePresence>
       <motion.div
@@ -79,10 +90,10 @@ export function BlurFade({
         exit="hidden"
         variants={combinedVariants}
         transition={{
-          delay: 0.04 + delay,
-          duration,
+          delay: stagger,
+          duration: quick,
           ease: "easeOut",
-          ...(shouldTransitionFilter ? { filter: { duration } } : {}),
+          ...(shouldTransitionFilter ? { filter: { duration: quick } } : {}),
         }}
         className={className}
         {...props}

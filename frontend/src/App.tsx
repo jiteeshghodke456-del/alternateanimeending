@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/lib/theme";
 import { SessionProvider } from "@/lib/session";
 import Landing from "@/pages/Landing";
+import { StartingScreen } from "@/components/StartingScreen";
 
 // The app shell (sidebar, menus, dialogs) loads after the landing page.
 const AppShell = lazy(() => import("@/components/AppShell").then((m) => ({ default: m.AppShell })));
@@ -42,6 +43,7 @@ export default function App() {
               </Routes>
             </Suspense>
           </BrowserRouter>
+          <StartingScreen />
           <Toaster position="top-center" />
         </TooltipProvider>
       </SessionProvider>
