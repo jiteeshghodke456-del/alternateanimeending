@@ -90,3 +90,12 @@ def test_demo_item_key_lookup(client: TestClient) -> None:
 def test_unknown_api_route_is_json_404(client: TestClient) -> None:
     r = client.get("/api/nope")
     assert r.status_code == 404 and "detail" in r.json()
+
+
+def test_reset_admin_only(client: TestClient) -> None:  # keep last: it re-seeds the DB
+    login(client, "creator")
+    assert client.post("/api/demo/reset").status_code == 403
+    login(client, "admin")
+    r = client.post("/api/demo/reset")
+    assert r.status_code == 200 and "Demo reset" in r.json()["message"]
+    assert client.get("/api/me").json()["user"]["role"] == "admin"  # session survives (stable ids)

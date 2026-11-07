@@ -8,7 +8,7 @@ We never mix the two directories, so ids referenced across files stay consistent
 
 Every file is optional except users.json; missing files are skipped. Accepted formats:
 - brand.json      {name, tone_labels[], channel_targets{channel:{max_grade:int}}}
-- users.json      [{id, name, role}]                  (id coerced to str)
+- users.json      [{id, name, role}]   (numeric ids -> lowercase name slug, e.g. "asha"; string ids kept)
 - rules.json      [{code|id, category, severity, statement, source_quote, page, check_method,
                     params{}, examples_violating[], examples_ok[], enabled?}]
 - terms.json      [{kind: banned|preferred|capitalise, value, replacement}]
@@ -27,6 +27,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+import re
 import shutil
 from datetime import date
 from pathlib import Path
@@ -119,6 +120,10 @@ def _int(v: Any) -> Optional[int]:
         return None
 
 
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
+
+
 def db_is_empty(session: Session) -> bool:
     return session.exec(select(User)).first() is None
 
@@ -131,17 +136,25 @@ def load_seed(session: Session) -> str:
     d = seed_dir()
     log.info("seed: loading from %s", d)
 
-    # users
+    # users. Numeric seed ids become name slugs ("Asha" -> "asha") so ids are stable and readable
+    # (the frontend and logs use them); seed_ids maps the original id -> user for items.json.
     users: dict[str, User] = {}
+    seed_ids: dict[str, User] = {}
     for u in _list(_json("users.json", [])):
         role = str(u.get("role", "")).strip().lower()
         role = _ROLE_ALIASES.get(role, role)
         if role not in ROLES:
             log.warning("seed: user %r has unknown role %r; skipped", u.get("id"), u.get("role"))
             continue
-        user = User(id=str(u["id"]), name=str(u.get("name") or u["id"]), role=role)
+        raw_id = str(u.get("id") or u.get("name") or "").strip()
+        name = str(u.get("name") or raw_id)
+        uid = _slug(name) if (not raw_id or raw_id.isdigit()) else raw_id
+        if not uid or uid in users:
+            uid = f"{uid or 'user'}-{len(users) + 1}"
+        user = User(id=uid, name=name, role=role)
         session.add(user)
-        users[user.id] = user
+        users[uid] = user
+        seed_ids[raw_id] = user
 
     # brand
     b = _json("brand.json", {}) or {}
@@ -222,7 +235,7 @@ def load_seed(session: Session) -> str:
     content_dir = d / "content"
     for it in _list(_json("content/items.json", [])):
         creator_key = str(it.get("creator") or "")
-        creator = users.get(creator_key) or by_name.get(creator_key.lower())
+        creator = users.get(creator_key) or seed_ids.get(creator_key) or by_name.get(creator_key.lower())
         if creator is None:
             creator = next((u for u in users.values() if u.role == "creator"), None)
         if creator is None:
