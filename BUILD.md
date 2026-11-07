@@ -271,6 +271,28 @@ GET  /insights                         GET /eval/latest       POST /eval/run (ad
 GET  /health                           # shows jev_configured, llm_configured
 ```
 
+**Workspaces and brand setup (added 7 Nov; DECISIONS.md "Workspaces").** Every visitor has their own
+workspace (own SQLite file + uploads), picked by the signed `bg_ws` cookie. A request without a valid
+cookie gets a fresh copy of the demo workspace (the cookie is set on that response), so old links work.
+```
+POST  /workspaces {kind: "demo"|"blank"} → 201 {id, kind, brand:{name}, created_at}; sets bg_ws, signs out
+GET   /workspace                       → {id, kind, brand:{name}, created_at, expires_at, limits:{max_workspaces, ttl_hours}}
+PATCH /brand {name?, tagline?, description?}         (admin) → BrandOut
+PUT   /brand/palette {colours:[{name, hex:"#RRGGBB"}]} (admin, 1-12 colours, replaces the palette) → BrandOut
+POST  /brand/logo  multipart file (PNG/JPEG ≤ 5 MB)   (admin; stored as an opaque PNG, the approved logo) → BrandOut
+POST  /facts/import multipart file (CSV: statement,value,source,valid_until; ≤ 500 rows) (admin)
+      → {imported, skipped:[{row, reason}]}
+GET   /brand  also returns tagline, description, logo_url|null, counts{rules,facts,terms,items}, is_blank_setup
+GET   /eval/latest  in a blank workspace adds brand_note (the eval always uses the demo brand's test set)
+POST  /demo/reset   resets only the caller's workspace, to its own kind (demo → demo, blank → blank)
+```
+Both workspace responses also carry `token` (the signed cookie value). Where cookies are blocked
+(cross-site iframe), send it as the `X-BG-Workspace` header, or `?ws=` for EventSource and images; a
+response that had to create a workspace returns the new token in the `X-BG-Workspace` header.
+A blank workspace has four users (admin "Admin", writer "Writer" (creator), reviewer "Reviewer",
+approver "Approver") and an empty brand "Your brand". Checks there still run the built-in checks
+(banned words, facts, an uploaded logo) and add the note "Add rules first" while the brand has no rules.
+
 ## 6. Jev question templates
 ```python
 from typesafe_sdk import Noul, Choice, Image
