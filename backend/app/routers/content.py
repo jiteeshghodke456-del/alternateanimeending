@@ -289,7 +289,16 @@ def accept_finding(finding_id: int, session: SessionDep, user: CurrentUser) -> F
         raise HTTPException(status_code=409, detail="This finding isn't tied to a piece of text, so a fix can't be applied automatically. Dismiss it or edit the content.")
     f.status = "accepted"
     f.edited_text = f.dismiss_reason = f.dismiss_note = None
-    return _save_finding(session, f, item, user, "finding_accepted", {"rule_code": f.rule_code})
+    # Edit region: the other open findings that share this fix are handled by it too (applied once on resubmit).
+    siblings = []
+    if f.fix_group:
+        for g in session.exec(select(Finding).where(Finding.version_id == f.version_id, Finding.fix_group == f.fix_group,
+                                                    Finding.id != f.id, Finding.status == "open")).all():
+            g.status = "accepted"
+            session.add(g)
+            siblings.append(g.id)
+    return _save_finding(session, f, item, user, "finding_accepted",
+                         {"rule_code": f.rule_code, **({"region_findings": siblings} if siblings else {})})
 
 
 @router.post("/findings/{finding_id}/edit", response_model=FindingOut)

@@ -168,6 +168,11 @@ class Finding(SQLModel, table=True):
     # corners [[x, y], ...] (TL, TR, BR, BL), so the UI can draw an overlay. Null for text findings.
     box: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     quad: Optional[list[Any]] = Field(default=None, sa_column=Column(JSON))
+    # Edit regions (several findings in one sentence share one fix): span = the region, hit_* = the flagged
+    # words (Version.text offsets), fix_group = shared by every finding of the region.
+    hit_start: Optional[int] = None
+    hit_end: Optional[int] = None
+    fix_group: Optional[str] = None
     created_at: datetime = Field(default_factory=utcnow)
 
 

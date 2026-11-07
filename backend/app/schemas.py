@@ -380,6 +380,12 @@ class FindingOut(_Out):
     # P1 logo fidelity overlay (image findings only): fractions of the image width/height.
     box: Optional[ImageBox] = None
     quad: Optional[list[list[float]]] = None  # [[x, y], ...] TL, TR, BR, BL of the projected approved logo
+    # Edit regions: findings that share a sentence share ONE fix. For them span/quote cover the whole region
+    # (fix replaces exactly span, as before) and hit_start/hit_end are the flagged words, for highlighting.
+    # Same fix_group = same fix; accepting one accepts the group, and resubmit applies it once.
+    hit_start: Optional[int] = None
+    hit_end: Optional[int] = None
+    fix_group: Optional[str] = None
 
 
 class FindingEditIn(BaseModel):

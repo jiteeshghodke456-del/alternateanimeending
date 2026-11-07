@@ -229,7 +229,7 @@ def _finding_row(version_id: int, d: E.FindingDraft) -> Finding:
         fact_code=d.fact_code, tier=d.tier, category=d.category or "", severity=d.severity, band=d.band,
         probability=d.probability, claim_status=d.claim_status, span_start=d.span_start, span_end=d.span_end,
         quote=d.quote or "", explanation=d.explanation, fix=d.fix, fix_verified=d.fix_verified,
-        box=d.box, quad=d.quad,
+        box=d.box, quad=d.quad, hit_start=d.hit_start, hit_end=d.hit_end, fix_group=d.fix_group,
     )
 
 

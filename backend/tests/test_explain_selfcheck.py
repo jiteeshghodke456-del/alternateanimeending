@@ -57,11 +57,13 @@ def _run(text: str, monkeypatch, jev_fake: FakeJev, llm_fake: FakeLLM):  # noqa:
 
 
 def test_selfcheck_rejects_swapped_superlative_and_retries_once(monkeypatch) -> None:  # noqa: ANN001
-    # first fix swaps "#1" for another unsupported superlative; the retry is honest
-    llm = FakeLLM(fix_for=lambda q, attempt: "India's favourite" if attempt == 0 else "a fresh")
+    # first fix swaps "#1" for another unsupported superlative (curly apostrophe); the retry is honest.
+    # LLM fixes rewrite the whole sentence (edit region); the flagged words stay in hit_start/hit_end.
+    llm = FakeLLM(fix_for=lambda q, attempt: "Try India\u2019s favourite coffee today." if attempt == 0 else "Try a fresh coffee today.")
     res = _run("Try India's #1 coffee today.", monkeypatch, FakeJev(), llm)
     [d] = [d for d in res.findings if d.rule_code == "R-CLAIM-01"]
-    assert d.fix == "a fresh" and d.fix_verified is True
+    assert d.fix == "Try a fresh coffee today." and d.fix_verified is True
+    assert d.quote == "Try India's #1 coffee today." and (d.hit_start, d.hit_end) == (12, 14)
     assert [c["retry"] for c in llm.calls if "#1" in c["quote"]] == [False, True]
 
 
@@ -70,11 +72,12 @@ def test_selfcheck_gives_up_after_one_retry(monkeypatch) -> None:  # noqa: ANN00
     res = _run("Try India's #1 coffee today.", monkeypatch, FakeJev(), llm)
     [d] = [d for d in res.findings if d.rule_code == "R-CLAIM-01"]
     assert d.fix_verified is False and d.selfcheck_reasons
+    assert d.fix is None  # rejected twice: "manual fix needed", never an unsafe fix to accept
     assert len([c for c in llm.calls if "#1" in c["quote"]]) == 2
 
 
 def test_selfcheck_meaning_check_fails_fix(monkeypatch) -> None:  # noqa: ANN001
-    llm = FakeLLM(fix_for=lambda q, attempt: "Buy something")
+    llm = FakeLLM(fix_for=lambda q, attempt: "Buy something else today.")
     res = _run("Our cold brew detoxes your body.", monkeypatch, FakeJev(meaning=0.1), llm)
     [d] = [d for d in res.findings if d.rule_code == "R-LEGAL-01"]
     assert d.fix_verified is False and any("message" in r for r in d.selfcheck_reasons)

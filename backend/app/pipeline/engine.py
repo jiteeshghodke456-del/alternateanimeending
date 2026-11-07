@@ -60,6 +60,11 @@ class FindingDraft:
     selfcheck_reasons: list[str] = field(default_factory=list)
     box: Optional[dict] = None  # image region as fractions {top, left, bottom, right} (logo findings)
     quad: Optional[list] = None  # projected logo corners [[x, y] fractions] TL, TR, BR, BL
+    # Edit regions: findings whose fixes would touch the same sentence share ONE fix. Their span/quote
+    # become the whole region (so `fix` still replaces exactly span); hit_* keep the flagged words.
+    hit_start: Optional[int] = None  # Version.text offsets of the flagged words
+    hit_end: Optional[int] = None
+    fix_group: Optional[str] = None  # same value = same region = same fix (applied once)
 
 
 @dataclass
@@ -435,6 +440,107 @@ class _Run:
         self.res.findings.append(d)
         await self.on_finding(d)
 
+    # ---------------------------------------------------------------- edit regions
+    def regionable(self, u: UnitIn, d: FindingDraft) -> bool:
+        return (u.is_text and d.unit_idx == u.idx and d.local_start is not None and d.local_end is not None
+                and d.band != "pass" and d.tier != "logo" and not self.is_vague(self.rule(d.rule_code)))
+
+    def plan_regions(self, u: UnitIn, drafts: list[FindingDraft]) -> list[tuple[Optional[tuple[int, int]], list[FindingDraft]]]:
+        """Group findings into edit regions: each finding's span widened to whole sentences, overlapping
+        regions merged. A region with one finding that has a word-list fix keeps its small span."""
+        if not (self.use_llm and self.explain_findings and u.is_text):
+            return [(None, [d]) for d in drafts]
+        out: list[tuple[Optional[tuple[int, int]], list[FindingDraft]]] = []
+        regs: list[tuple[int, int, FindingDraft]] = []
+        for d in drafts:
+            if self.regionable(u, d):
+                assert d.local_start is not None and d.local_end is not None
+                regs.append((*sentence_span(u.text, d.local_start, d.local_end), d))
+            else:
+                out.append((None, [d]))
+        groups = edit_regions([(s, e) for s, e, _ in regs], u.text)
+        for (gs, ge), idx in groups:
+            members = [regs[i][2] for i in idx]
+            if len(members) == 1 and members[0].det_fix is not None:
+                out.append((None, members))
+            else:
+                out.append(((gs, ge), members))
+        return out
+
+    async def emit_region(self, u: UnitIn, span: tuple[int, int], members: list[FindingDraft]) -> None:
+        for d in await self.finalize_region(u, span, members):
+            self.res.findings.append(d)
+            await self.on_finding(d)
+
+    async def finalize_region(self, u: UnitIn, span: tuple[int, int], members: list[FindingDraft]) -> list[FindingDraft]:
+        """ONE fix for every finding in an edit region: word-list replacements are applied in code first,
+        then one LLM call (listing every rule) rewrites the whole sentence(s), and the result is
+        self-checked against all those rules plus the blocking rules. Rejected twice -> no fix
+        ("manual fix needed"), unless the fix is purely word-list (safe by construction)."""
+        rs, re_ = span
+        members = sorted(members, key=lambda d: (d.local_start or 0, d.local_end or 0, d.rule_code or ""))
+        rules = [r for r in (self.rule(d.rule_code) for d in members) if r is not None]
+        # 1. word-list fixes, in code (earliest wins on overlap, e.g. "!!!" -> "." vs "!")
+        base, pos, required, all_det = "", rs, [], all(d.det_fix is not None for d in members)
+        for d in members:
+            assert d.local_start is not None and d.local_end is not None
+            if d.det_fix is None or d.local_start < pos:
+                continue
+            base += u.text[pos:d.local_start] + d.det_fix
+            pos = d.local_end
+            if any(ch.isalpha() for ch in d.det_fix):
+                required.append(d.det_fix)
+        base += u.text[pos:re_]
+        # 2. one LLM call for the region
+        mapping = self.masks.get(u.idx) or mask_pii_map(u.text)[1]
+        # A claim on an EXPIRED fact (e.g. an ended offer) must be removed: only the expired note is passed,
+        # since its "current" candidates are other facts the LLM would otherwise swap in (another offer, price).
+        removal = any(d.claim_status == "outdated" for d in members)
+        notes: list[str] = []
+        for d in members:
+            ns = [n for n in d.facts_note if "EXPIRED" in n] if d.claim_status == "outdated" else d.facts_note
+            notes += [n for n in ns if n not in notes]
+        req = X.RegionRequest(
+            items=[X.RegionItem(str(i + 1), self.rule(d.rule_code), d.category, d.problem or d.detail,
+                                mask_pii_map(d.quote)[0]) for i, d in enumerate(members)],
+            unit_text=mask_pii_map(self.ctx.post_text or u.text)[0], region_text=mask_pii_map(base)[0], channel=self.ctx.channel,
+            required=required, facts=notes)
+        out = await X.explain_region(req, calls=self.calls, unit_id=u.id)
+        for i, d in enumerate(members):
+            e = (out.explanations.get(str(i + 1)) or out.explanations.get("*")) if out else None
+            d.explanation = e or d.explanation or X.template_explanation(self.rule(d.rule_code), d.detail)
+        fix: Optional[str] = base if all_det else (unmask(out.fix, mapping) if out and out.fix else None)
+        chk: Optional[S.SelfCheckResult] = None
+        if fix is not None:
+            chk = await self.check_region(u, rs, re_, fix, rules, all_det, base, removal)
+        if not all_det and (chk is None or not chk.verified):
+            fb = "; ".join(chk.reasons) if chk else "no fix was returned"
+            out2 = await X.explain_region(req, calls=self.calls, unit_id=u.id, feedback=fb,
+                                          previous_fix=mask_pii_map(fix or "")[0], purpose="explain_retry")
+            if out2 is not None and out2.fix:
+                fix2 = unmask(out2.fix, mapping)
+                chk2 = await self.check_region(u, rs, re_, fix2, rules, False, base, removal)
+                if chk2.verified or chk is None:
+                    fix, chk = fix2, chk2
+        verified = bool(chk and chk.verified)
+        if not verified and not all_det and chk is not None and not only_unavailable(chk.reasons):
+            fix = None  # rejected twice: "manual fix needed" (the UI shows it when fix is null)
+        group = f"u{u.idx}:{rs}-{re_}"
+        for d in members:
+            if u.char_start is not None and d.local_start is not None and d.local_end is not None:
+                d.hit_start, d.hit_end = u.char_start + d.local_start, u.char_start + d.local_end
+                d.span_start, d.span_end = u.char_start + rs, u.char_start + re_
+            d.local_start, d.local_end, d.quote = rs, re_, u.text[rs:re_]
+            d.fix, d.fix_verified, d.fix_group = fix, verified, group
+            d.selfcheck_reasons = chk.reasons if chk else ["no fix was returned"]
+        return members
+
+    async def check_region(self, u: UnitIn, rs: int, re_: int, fix: str, rules: list[RuleSpec], det: bool,
+                           base: str, removal: bool = False) -> S.SelfCheckResult:
+        return await S.verify_fix(u, rs, re_, fix, rules[0] if rules else None, self.ctx, use_jev=self.use_jev,
+                                  calls=self.calls, deterministic=det, extra_rules=rules[1:], region=True,
+                                  meaning_original=u.text[:rs] + base + u.text[re_:], removal_required=removal)
+
     async def unit_task(self, u: UnitIn, hits: list[Tier0Hit]) -> None:
         hits = merge_by_sentence(u.text, hits) if u.is_text else hits
         if u.kind == "image":
@@ -444,7 +550,8 @@ class _Run:
         else:
             drafts = [self.from_tier0(u, h) for h in hits]
         await self.on_progress("explain", self.res)
-        await asyncio.gather(*[self.emit(d) for d in drafts])
+        await asyncio.gather(*[self.emit(g[0]) if span is None else self.emit_region(u, span, g)
+                               for span, g in self.plan_regions(u, drafts)])
         self.res.units_done += 1
         await self.on_progress("selfcheck", self.res)
 
@@ -459,6 +566,34 @@ class _Run:
         await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task())
         self.res.elapsed_ms = int((time.perf_counter() - t0) * 1000)
         return self.res
+
+
+def sentence_span(text: str, start: int, end: int) -> tuple[int, int]:
+    """Widen [start, end) to the whole sentence(s) it touches."""
+    s0 = sentence_at(text, start)[0]
+    e0 = sentence_at(text, max(start, end - 1))[1]
+    return min(s0, start), max(e0, end)
+
+
+def edit_regions(spans: list[tuple[int, int]], text: Optional[str] = None) -> list[tuple[tuple[int, int], list[int]]]:
+    """Merge overlapping spans, and adjacent ones (only spaces between them in `text`, e.g. "Cheap?" and
+    "No way, it is a guaranteed miracle.") -> [((start, end), [indexes into spans])], in text order."""
+    order = sorted(range(len(spans)), key=lambda i: spans[i])
+    out: list[tuple[tuple[int, int], list[int]]] = []
+    for i in order:
+        s, e = spans[i]
+        touching = bool(out) and text is not None and out[-1][0][1] <= s and text[out[-1][0][1]:s].strip(" \t") == ""
+        if out and (s < out[-1][0][1] or touching):
+            (gs, ge), idx = out[-1]
+            out[-1] = ((gs, max(ge, e)), idx + [i])
+        else:
+            out.append(((s, e), [i]))
+    return out
+
+
+def only_unavailable(reasons: list[str]) -> bool:
+    """True when the self-check failed only because Jev could not be reached (an error, not a "no")."""
+    return bool(reasons) and all("couldn't run" in r for r in reasons)
 
 
 def merge_by_sentence(text: str, hits: list[Tier0Hit]) -> list[Tier0Hit]:

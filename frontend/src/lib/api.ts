@@ -310,6 +310,12 @@ export interface FindingOut {
   // P1 logo fidelity overlay (image findings only), fractions of the image size
   box?: ImageBox | null;
   quad?: [number, number][] | null; // [x, y] corners TL, TR, BR, BL of the projected approved logo
+  // Edit regions: findings in the same sentence share ONE fix. For them span/quote cover the whole
+  // region (fix still replaces exactly span) and hit_start/hit_end are the flagged words (offsets into
+  // VersionOut.text), for highlighting. Same fix_group = same fix: accepting one accepts the group.
+  hit_start?: number | null;
+  hit_end?: number | null;
+  fix_group?: string | null;
 }
 
 /** A region of an image as fractions (0..1): top/bottom of the height, left/right of the width. */

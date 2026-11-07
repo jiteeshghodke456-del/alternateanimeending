@@ -152,12 +152,14 @@ def test_confidential_makes_no_external_calls(client: TestClient, monkeypatch) -
 
 def test_demo_post_full_pipeline_with_mocks(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
     install(monkeypatch, FakeJev(support={"F-12": 0.94, "F-13": 0.9}, rules={"R-TONE-02": lambda t: 0.95 if "silly" in t else 0.05}),
-            FakeLLM(fix_for=lambda q, a: "a coffee we love"))
+            FakeLLM(fix_for=lambda q, a: "A coffee we love."))  # LLM fixes rewrite whole sentences (edit regions)
     ids = create(client, DEMO_TEXT)
     v = wait_done(client, ids["version_id"])
     fs = findings(client, ids["version_id"])
     by = {(f["rule_code"], f["fact_code"], f["claim_status"]) for f in fs}
-    quotes = {f["rule_code"]: [x["quote"] for x in fs if x["rule_code"] == f["rule_code"]] for f in fs}
+    def hit(x: dict) -> str:  # the flagged words (edit-region findings carry the whole sentence in quote)
+        return v["text"][x["hit_start"]:x["hit_end"]] if x.get("hit_start") is not None else x["quote"]
+    quotes = {f["rule_code"]: [hit(x) for x in fs if x["rule_code"] == f["rule_code"]] for f in fs}
     assert "Steam Classic" in quotes["R-TERM-01"]  # old product name
     assert any(q.lower().startswith("cheap") or "guaranteed" in q for q in quotes["R-TERM-02"])  # banned word
     assert any("#1" in q for q in quotes["R-CLAIM-01"])  # #1 claim

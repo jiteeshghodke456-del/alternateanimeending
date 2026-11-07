@@ -149,7 +149,7 @@ class RegionRequest:
     `region_text` already has the brand word-list replacements applied (`required`)."""
 
     items: list[RegionItem]
-    unit_text: str  # masked paragraph
+    unit_text: str  # masked whole post (context)
     region_text: str  # masked; the sentence(s) to rewrite
     channel: str
     required: list[str] = field(default_factory=list)  # word-list replacements the rewrite must keep
@@ -187,7 +187,7 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
     lines.append(f"Channel: {req.channel}")
     if req.facts:
         lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
-    lines.append(f"The paragraph:\n<content>{req.unit_text}</content>")
+    lines.append(f"The whole post, for context:\n<content>{req.unit_text}</content>")
     lines.append(f"The excerpt to rewrite (whole sentences):\n<content>{req.region_text}</content>")
     if req.required:
         lines.append("Keep these approved words exactly as written: " + ", ".join(f"\"{w}\"" for w in req.required))
@@ -200,7 +200,10 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
         "exactly, so it must be complete, grammatical sentences that read naturally in the paragraph, start the way a "
         "sentence starts, and end with sentence punctuation. Don't repeat words from the text around the excerpt. "
         "Keep the message and any call to action. Drop a claim, offer or number you can't support with an approved fact "
-        "rather than inventing one. If there is no safe fix, use null."
+        "rather than inventing one. If a fact is marked EXPIRED, remove that offer or claim completely (code, discount and "
+        "all) and don't mention it, its code or that it ended (no words like offer, sale, discount or code); write about the "
+        "product from the post instead, keeping a call to action if the excerpt had one. Never swap in a different offer, "
+        "product, price or code. If there is no safe fix, use null."
     )
     if feedback:
         lines.append(f"Your previous fix was rejected: {feedback}\nPrevious fix: <content>{previous_fix or ''}</content>\nWrite a different fix.")

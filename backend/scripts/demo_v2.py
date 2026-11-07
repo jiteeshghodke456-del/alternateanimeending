@@ -25,6 +25,9 @@ from app.pipeline import jev  # noqa: E402
 from pipeline_helpers import DEMO_TEXT, seed_ctx, text_units  # noqa: E402
 
 
+REASONS: dict[int, list[str]] = {}
+
+
 def rows(res: E.EngineResult) -> list[Finding]:
     out = []
     for i, d in enumerate(sorted(res.findings, key=lambda d: (d.span_start or -1, d.rule_code or ""))):
@@ -32,6 +35,7 @@ def rows(res: E.EngineResult) -> list[Finding]:
                            severity=d.severity, band=d.band, span_start=d.span_start, span_end=d.span_end,
                            quote=d.quote, fix=d.fix, fix_verified=d.fix_verified,
                            status="accepted" if d.fix is not None else "open"))
+        REASONS[id(out[-1])] = d.selfcheck_reasons
     return out
 
 
@@ -47,6 +51,8 @@ def show(title: str, fs: list[Finding]) -> None:
         tag = "verified" if f.fix_verified else ("MANUAL" if f.fix is not None else "no fix")
         print(f"  [{f.span_start}:{f.span_end}] {f.rule_code or f.category:<12} {f.severity:<8} {f.band:<5} "
               f"{tag:<8} {f.quote[:50]!r} -> {f.fix!r}")
+        if not f.fix_verified and REASONS.get(id(f)):
+            print(f"      selfcheck: {REASONS[id(f)]}")
 
 
 async def check(text: str, use_llm: bool) -> tuple[list[Finding], jev.CallLog]:

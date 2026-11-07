@@ -155,10 +155,17 @@ def apply_findings(text: str, findings: list[Finding], units: Optional[dict[int,
             continue
         cand.append((s, e, repl, f))
 
-    cand.sort(key=lambda c: (c[0], c[1], c[3].id or 0))
+    # An edit region (several findings, one fix: same span, same fix_group) is applied once. Within a
+    # region a creator's edit wins over the suggested fix.
+    cand.sort(key=lambda c: (c[0], c[1], 0 if c[3].status == "edited" else 1, c[3].id or 0))
     kept: list[tuple[int, int, str, Finding]] = []
+    also: list[int] = []
     last_end = -1
     for c in cand:
+        if kept and (c[0], c[1]) == (kept[-1][0], kept[-1][1]) and (c[2] == kept[-1][2] or (
+                c[3].fix_group and c[3].fix_group == kept[-1][3].fix_group)):
+            also.append(c[3].id)  # same region: already applied once
+            continue
         if kept and c[0] < last_end:
             skipped.append({"finding_id": c[3].id, "reason": f"Overlaps finding {kept[-1][3].id}, so it was skipped. Check it again on the new version."})
             continue
@@ -168,7 +175,7 @@ def apply_findings(text: str, findings: list[Finding], units: Optional[dict[int,
     out = text
     for s, e, repl, _f in reversed(kept):
         out = out[:s] + repl + out[e:]
-    return ApplyResult(text=out, applied=[c[3].id for c in kept], skipped=skipped)
+    return ApplyResult(text=out, applied=[c[3].id for c in kept] + also, skipped=skipped)
 
 
 _TOKEN = re.compile(r"\s+|[^\s]+")

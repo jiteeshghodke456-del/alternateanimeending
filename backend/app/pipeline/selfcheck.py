@@ -12,6 +12,7 @@ The engine retries the LLM once with the reasons; after that the UI shows "manua
 """
 from __future__ import annotations
 
+import asyncio
 import re
 from dataclasses import dataclass, field
 from typing import Optional
@@ -113,12 +114,15 @@ async def verify_fix(
     deterministic: bool = False,
     extra_rules: Optional[list[RuleSpec]] = None,
     region: bool = False,
+    meaning_original: Optional[str] = None,
+    removal_required: bool = False,
 ) -> SelfCheckResult:
     """`deterministic` = the fix came from the brand word list (e.g. old -> new product name), so the
     meaning check is skipped: changing that word is the point of the fix.
     `extra_rules` = the other rules of an edit region (one fix for several findings): the fix must
     satisfy all of them. `region` = the fix rewrites whole sentences, so every claim left in it is
-    re-checked (not only new ones) and the text must stay well-formed."""
+    re-checked (not only new ones) and the text must stay well-formed. `meaning_original` = the unit with
+    the word-list renames already applied, so the meaning check doesn't read a product rename as a new topic."""
     original = unit.text
     fixed = apply_fix(original, start, end, fix)
     span = (start, start + len(fix))
@@ -166,27 +170,43 @@ async def verify_fix(
             reasons.append(f"the fix makes a claim that no current approved fact supports (“{cl.text[:80]}”)")
             break
 
-    # 3. Jev
+    # 3. Jev. Rule + superlative questions are about the fixed paragraph; the meaning questions ("same message,
+    # same call to action") are about the whole post, since a post keeps one call to action (R-MSG-02) and a fix may
+    # drop a second one. Both calls run in parallel.
     if use_jev and not reasons:
-        qs: dict = {} if deterministic else {**Q.MEANING_QUESTIONS, "new_superlative": Q.new_superlative_question(mask_pii(fix)[0])}
+        mo = meaning_original or original
+        whole = bool(ctx.post_text and unit.char_start is not None and ctx.post_text.strip() != original.strip())
+        m_state = (Q.revision_state(mask_pii(ctx.post_text[:unit.char_start] + mo + ctx.post_text[unit.char_start + len(original):])[0],
+                                    mask_pii(post)[0], ctx.channel)
+                   if whole and unit.char_start is not None else Q.revision_state(mask_pii(mo)[0], mask_pii(fixed)[0], ctx.channel))
+        u_state = Q.revision_state(mask_pii(mo)[0], mask_pii(fixed)[0], ctx.channel)
+        meaning_qs: dict = {} if deterministic else dict(Q.MEANING_QUESTIONS)
+        qs: dict = {} if deterministic else {"new_superlative": Q.new_superlative_question(mask_pii(fix)[0])}
         targets = [r for r in text_rules_for_jev(ctx) if r.severity == "blocking"]
         for r in rules:
             if r.check_method == "jev" and r.code not in {t.code for t in targets}:
                 targets.append(r)
         for r in targets:
             qs[r.code] = Q.rule_question(r, field="revised")
-        res = await jev.ask(Q.revision_state(mask_pii(original)[0], mask_pii(fixed)[0], ctx.channel), qs,
-                            purpose="selfcheck", calls=calls, unit_id=unit.id)
-        if not res.ok:
+        if not whole:
+            qs, meaning_qs = {**meaning_qs, **qs}, {}
+        asks = [jev.ask(u_state, qs, purpose="selfcheck", calls=calls, unit_id=unit.id)] if qs else []
+        if meaning_qs:
+            asks.append(jev.ask(m_state, meaning_qs, purpose="selfcheck", calls=calls, unit_id=unit.id))
+        results = await asyncio.gather(*asks)
+        nouls: dict[str, float] = {}
+        for res in results:
+            nouls.update(res.nouls)
+        if not all(res.ok for res in results):
             reasons.append("the self-check couldn't run (Jev error)")
         else:
-            if not deterministic and not Q.meaning_kept(res.nouls):
+            if not deterministic and not Q.meaning_kept(nouls, removal_required):
                 reasons.append("the fix changes the core message or call to action")
-            sp = res.nouls.get("new_superlative")
+            sp = nouls.get("new_superlative")
             if not deterministic and (sp is None or sp >= Q.SELFCHECK_RULE_MAX):
                 reasons.append("the fix ranks the product above others (an unsupported superlative)")
             for r in targets:
-                p = res.nouls.get(r.code)
+                p = nouls.get(r.code)
                 if p is None or to_band(p, r.category) != "pass":
                     reasons.append(f"the fixed text may still break {r.code}")
     return SelfCheckResult(not reasons, reasons, fixed)

@@ -210,9 +210,11 @@ def new_superlative_question(rewrite: str) -> Noul:
     )
 
 
-def meaning_kept(nouls: dict[str, float]) -> bool:
-    """Truth table for 'the fix keeps the message and the call to action'."""
-    if nouls.get("same_topic", 0.0) < MEANING_OK_AT:
+def meaning_kept(nouls: dict[str, float], removal_required: bool = False) -> bool:
+    """Truth table for 'the fix keeps the message and the call to action'.
+    `removal_required` (code-decided: the text relies on an EXPIRED fact, e.g. an ended offer, which the
+    fix must remove) waives same_topic, since dropping that offer is the point; the call to action must stay."""
+    if not removal_required and nouls.get("same_topic", 0.0) < MEANING_OK_AT:
         return False
     return nouls.get("original_has_cta", 1.0) < MEANING_OK_AT or nouls.get("keeps_cta", 0.0) >= MEANING_OK_AT
 
