@@ -75,11 +75,20 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
   const d = after - before;
   const mb = mean(cmp.overall, metric), ma = mean(now, metric);
   const byKey = new Map(segments.map((s) => [s.key, s]));
-  const verdict = points(d) < 0 ? `${M.label} went down. The rewrite reads better to this audience.`
-    : points(d) > 0 ? `${M.label} went up. The rewrite reads worse to this audience.`
+  const dir: "better" | "worse" | "same" = points(d) < 0 ? "better" : points(d) > 0 ? "worse" : "same";
+  const mostUnsure = metric === "distrust" && now.unsure_pct >= 0.5;
+  const verdict = dir === "better"
+    ? mostUnsure
+      ? `${M.label} fell from ${pct(before)}% to ${pct(after)}%; most simulated readers (${pct(now.unsure_pct)}%) are now unsure rather than trusting.`
+      : `${M.label} went down. The rewrite reads better to this audience.`
+    : dir === "worse" ? `${M.label} went up. The rewrite reads worse to this audience.`
     : mb != null && ma != null && Math.abs(ma - mb) >= 0.03
       ? `The share barely moved, but the average ${M.label.toLowerCase()} score ${ma < mb ? "dropped" : "rose"}.`
       : `${M.label} did not change much.`;
+  // colour follows direction, not the metric: green when it improves, red only when it gets worse
+  const afterText = dir === "better" ? "text-pass-text" : dir === "worse" ? "text-flag-text" : "text-foreground";
+  const afterColor = dir === "better" ? "#30D158" : dir === "worse" ? "#FF453A" : "#8E8E93";
+  const segColor = (delta: number) => (points(delta) < 0 ? "#30D158" : points(delta) > 0 ? "#FF453A" : "#8E8E93");
 
   return (
     <section aria-label={`Before and after: version ${prevN} against version ${thisN}`} className="glass-strong relative overflow-hidden p-5">
@@ -105,7 +114,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
           <ArrowRight className="mb-2 size-5 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
           <div className="min-w-0">
             <p className="text-caption font-medium">v{thisN} (this version)</p>
-            <p className={cn("text-[44px] font-semibold leading-none tracking-tight tabular-nums", M.text)}>{pct(after)}%</p>
+            <p className={cn("text-[44px] font-semibold leading-none tracking-tight tabular-nums", afterText)}>{pct(after)}%</p>
           </div>
           <DeltaChip d={d} avg={mb != null && ma != null ? ma - mb : null} className="mb-1 !text-footnote" />
         </div>
@@ -128,7 +137,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
                 </div>
                 <div className="mt-1.5 space-y-1">
                   <div className="flex items-center gap-2"><span className="w-6 text-caption text-muted-foreground">v{prevN}</span><Bar value={b} color={M.color} muted label={`${s.label} ${M.label} in version ${prevN}`} /><span className="w-9 text-right text-caption tabular-nums text-muted-foreground">{pct(b)}%</span></div>
-                  <div className="flex items-center gap-2"><span className="w-6 text-caption font-medium">v{thisN}</span><Bar value={a} color={M.color} label={`${s.label} ${M.label} in version ${thisN}`} /><span className="w-9 text-right text-caption font-semibold tabular-nums">{pct(a)}%</span></div>
+                  <div className="flex items-center gap-2"><span className="w-6 text-caption font-medium">v{thisN}</span><Bar value={a} color={segColor(a - b)} label={`${s.label} ${M.label} in version ${thisN}`} /><span className="w-9 text-right text-caption font-semibold tabular-nums">{pct(a)}%</span></div>
                   {mean(s.previous, metric) != null && mean(cur, metric) != null && (
                     <p className="pl-8 text-caption text-muted-foreground tabular-nums">Average score {mean(s.previous, metric)!.toFixed(2)} <ArrowRight className="inline size-3" aria-hidden /> {mean(cur, metric)!.toFixed(2)}</p>
                   )}
@@ -139,7 +148,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
         </ul>
         <p className="mt-4 flex items-center gap-1.5 text-caption text-muted-foreground">
           <span className="inline-block h-2 w-5 rounded-full" style={{ background: "repeating-linear-gradient(135deg, rgba(128,128,128,.55) 0 4px, rgba(128,128,128,.35) 4px 8px)" }} aria-hidden /> earlier version
-          <span className="ml-2 inline-block h-2 w-5 rounded-full" style={{ background: M.color }} aria-hidden /> this version
+          <span className="ml-2 inline-block h-2 w-5 rounded-full" style={{ background: afterColor }} aria-hidden /> this version
         </p>
       </div>
     </section>
