@@ -1,0 +1,599 @@
+/**
+ * Brand Gate API contract + client. Source of truth for shapes: backend/app/schemas.py.
+ * Change a field there => change it here in the same commit (CLAUDE.md "Code conventions").
+ *
+ * - All calls go to same-origin `/api` (Vite dev server proxies to :7860).
+ * - `credentials: "include"` sends the session cookie. As a fallback for iframes / blocked
+ *   third-party cookies, the login token is kept in sessionStorage and sent as a Bearer header
+ *   (and as `?token=` on the SSE URL, because EventSource can't set headers).
+ * - Every non-2xx response becomes an `ApiError` with a human `message` (server `detail`).
+ */
+
+// ------------------------------------------------------------------ enums
+export type Role = "admin" | "creator" | "reviewer" | "approver";
+export type ItemState =
+  | "draft" | "checking" | "findings_ready" | "in_review" | "changes_requested" | "approved" | "rejected";
+export type Channel = "instagram" | "email" | "website" | "linkedin";
+export type Severity = "blocking" | "major" | "minor";
+export type CheckMethod = "tier0" | "jev" | "claim" | "visual";
+export type TermKind = "banned" | "preferred" | "capitalise";
+export type Band = "flag" | "human" | "pass";
+export type FindingStatus = "open" | "accepted" | "edited" | "dismissed" | "overridden";
+export type FindingTier = "tier0" | "jev" | "claim" | "visual" | "logo";
+export type ClaimStatus = "supported" | "unsupported" | "outdated";
+export type CheckStatus = "not_run" | "queued" | "running" | "done" | "error";
+export type UnitKind = "text" | "image" | "caption" | "alt_text";
+export type VersionKind = "text" | "image" | "pdf";
+export type DismissReason = "false_alarm" | "approved_exception" | "rule_outdated" | "other";
+export type CheckStage =
+  | "queued" | "units" | "tier0" | "jev" | "claims" | "explain" | "selfcheck" | "done" | "error";
+
+/** ISO-8601 UTC datetime string, e.g. "2026-11-07T09:28:22.367381Z". */
+export type IsoDateTime = string;
+/** "YYYY-MM-DD" */
+export type IsoDate = string;
+
+export const ROLE_LABELS: Record<Role, string> = {
+  admin: "Brand Admin", creator: "Creator", reviewer: "Reviewer", approver: "Approver",
+};
+export const CHANNELS: Channel[] = ["instagram", "email", "website", "linkedin"];
+export const DISMISS_REASONS: { value: DismissReason; label: string }[] = [
+  { value: "false_alarm", label: "False alarm" },
+  { value: "approved_exception", label: "Approved exception" },
+  { value: "rule_outdated", label: "Rule outdated" },
+  { value: "other", label: "Other" },
+];
+/** Key of the seeded "Try the demo" post: `api.items({ key: DEMO_ITEM_KEY })`. */
+export const DEMO_ITEM_KEY = "demo_flawed_post";
+
+// ------------------------------------------------------------------ health / auth
+export interface HealthOut {
+  ok: boolean;
+  version: string;
+  jev_configured: boolean;
+  llm_configured: boolean;
+  demo_mode: boolean;
+}
+
+export interface UserOut { id: string; name: string; role: Role }
+export interface LoginIn { user_id: string }
+export interface LoginOut { user: UserOut; token: string }
+export interface MeOut {
+  user: UserOut | null; // null when not signed in
+  demo_mode: boolean;
+  users: UserOut[]; // demo users for the role picker; ids come from the seed (don't hard-code them)
+}
+export interface OkOut { ok: boolean; message: string }
+
+// ------------------------------------------------------------------ brand kit
+export interface PaletteColor { name: string; hex: string }
+export interface LogoOut { id: number; variant: "approved" | "alt_wrong" | string; url: string }
+export interface BrandOut {
+  id: number;
+  name: string;
+  tone_labels: string[];
+  channel_targets: Record<string, { max_grade?: number; [k: string]: unknown }>;
+  palette: PaletteColor[];
+  fonts: string[];
+  logos: LogoOut[];
+  guideline_url: string | null;
+  rule_count: number;
+  term_count: number;
+  fact_count: number;
+  demo: boolean; // seeded fictional brand: label it as demo data
+}
+
+export interface RuleOut {
+  id: number;
+  code: string;
+  version: number;
+  category: string;
+  severity: Severity;
+  statement: string;
+  source_quote: string;
+  page: number | null;
+  check_method: CheckMethod;
+  params: Record<string, unknown>; // e.g. { vague: true } on the 5 planted vague rules
+  examples_violating: string[];
+  examples_ok: string[];
+  enabled: boolean;
+  updated_at: IsoDateTime;
+}
+export interface RuleCreate {
+  code: string;
+  category: string;
+  severity?: Severity;
+  statement: string;
+  source_quote?: string;
+  page?: number | null;
+  check_method?: CheckMethod;
+  params?: Record<string, unknown>;
+  examples_violating?: string[];
+  examples_ok?: string[];
+  enabled?: boolean;
+}
+/** PATCH: send only changed fields. Any change bumps `version`. */
+export type RuleUpdate = Partial<Omit<RuleCreate, "code">>;
+
+export interface TermOut { id: number; kind: TermKind; value: string; replacement: string | null }
+export interface TermCreate { kind: TermKind; value: string; replacement?: string | null }
+export type TermUpdate = Partial<TermCreate>;
+
+export interface FactOut {
+  id: number;
+  code: string;
+  statement: string;
+  value: string;
+  source: string;
+  valid_until: IsoDate | null;
+  expired: boolean;
+}
+export interface FactCreate {
+  code: string;
+  statement: string;
+  value?: string;
+  source?: string;
+  valid_until?: IsoDate | null;
+}
+export type FactUpdate = Partial<Omit<FactCreate, "code">>;
+
+// P1 guideline import
+export interface ProposedRule { rule: RuleCreate; quote_verified: boolean; quote_score: number }
+export interface ImportPdfOut { proposals: ProposedRule[]; pages: number }
+export interface ImportPdfConfirmIn { rules: RuleCreate[] }
+
+// ------------------------------------------------------------------ content
+export interface ItemCreateIn {
+  title: string;
+  channel: Channel;
+  confidential?: boolean;
+  text?: string; // send text OR file
+  file?: File | Blob; // PNG/JPG/WEBP <= 10 MB, or PDF <= 20 pages
+  caption?: string; // images only
+  alt_text?: string; // images only
+}
+export interface ItemCreated { item_id: number; version_id: number }
+
+export interface ItemSummary {
+  id: number;
+  key: string | null; // stable seed handle, e.g. DEMO_ITEM_KEY
+  title: string;
+  channel: Channel;
+  creator_id: string;
+  creator_name: string;
+  state: ItemState;
+  confidential: boolean;
+  created_at: IsoDateTime;
+  updated_at: IsoDateTime;
+  latest_version_id: number | null;
+  latest_version_n: number | null;
+  open_findings: number;
+  blocking_open: number;
+}
+
+export interface UnitOut {
+  id: number;
+  kind: UnitKind;
+  page: number | null; // 1-based, PDFs only
+  idx: number;
+  text: string;
+  image_url: string | null;
+  char_start: number | null; // offsets into VersionOut.text
+  char_end: number | null;
+}
+
+export interface VersionSummary {
+  id: number;
+  n: number;
+  kind: VersionKind;
+  check_status: CheckStatus;
+  created_at: IsoDateTime;
+}
+
+export interface VersionStats {
+  units_total?: number;
+  units_done?: number;
+  judgments?: number;
+  elapsed_ms?: number;
+  cost_usd?: number;
+  pii_masked?: number;
+  [k: string]: unknown;
+}
+
+export interface VersionOut {
+  id: number;
+  item_id: number;
+  n: number;
+  kind: VersionKind;
+  text: string; // PDFs: paragraphs joined by "\n\n"; images: the caption
+  caption: string | null;
+  alt_text: string | null;
+  file_url: string | null;
+  check_status: CheckStatus;
+  stats: VersionStats;
+  created_at: IsoDateTime;
+  units: UnitOut[];
+}
+
+export interface ActionPermission { allowed: boolean; reason: string | null }
+export type ItemActionKey =
+  | "submit" | "approve" | "request_changes" | "reject" | "resubmit" | "override" | "comment";
+
+export interface ItemDetail {
+  item: ItemSummary;
+  versions: VersionSummary[]; // ascending by n
+  actions: Record<ItemActionKey, ActionPermission>;
+}
+
+export interface RuleRef {
+  code: string;
+  version: number;
+  statement: string;
+  source_quote: string;
+  page: number | null;
+}
+export interface FactRef {
+  code: string;
+  statement: string;
+  source: string;
+  valid_until: IsoDate | null;
+  expired: boolean;
+}
+
+export interface FindingOut {
+  id: number;
+  version_id: number;
+  unit_id: number | null;
+  rule_code: string | null;
+  rule_version: number | null;
+  fact_code: string | null;
+  tier: FindingTier;
+  category: string;
+  severity: Severity;
+  band: Band;
+  probability: number | null;
+  claim_status: ClaimStatus | null;
+  span_start: number | null; // offsets into VersionOut.text
+  span_end: number | null;
+  quote: string; // offending excerpt of the content
+  explanation: string;
+  fix: string | null;
+  fix_verified: boolean;
+  status: FindingStatus;
+  dismiss_reason: DismissReason | null;
+  dismiss_note: string | null;
+  edited_text: string | null;
+  rule: RuleRef | null; // guideline quote + page
+  fact: FactRef | null;
+}
+
+export interface FindingEditIn { text: string }
+export interface FindingDismissIn { reason: DismissReason; note?: string | null }
+export interface OverrideIn { reason: string }
+export interface NoteIn { note: string }
+export interface ResubmitOut { item_id: number; version_id: number; n: number }
+
+/** One SSE message on /api/versions/{id}/events. */
+export interface CheckEvent {
+  stage: CheckStage;
+  units_done: number;
+  units_total: number;
+  judgments: number;
+  elapsed_ms: number;
+  cost_usd: number;
+  finding: FindingOut | null;
+  message: string | null;
+}
+
+// ------------------------------------------------------------------ review
+export interface CommentOut {
+  id: number;
+  item_id: number;
+  user_id: string;
+  user_name: string;
+  role: Role;
+  body: string;
+  created_at: IsoDateTime;
+}
+export interface CommentIn { body: string }
+
+export interface AuditEventOut {
+  id: number;
+  item_id: number | null;
+  version_id: number | null;
+  user_id: string | null;
+  user_name: string | null;
+  action: string;
+  detail: Record<string, unknown>;
+  created_at: IsoDateTime;
+}
+
+export interface AIUsageGroup {
+  provider: string;
+  model: string;
+  purpose: string;
+  count: number;
+  input_tokens: number;
+  cost_usd: number;
+}
+export interface AIUsageOut {
+  item_id: number;
+  confidential: boolean;
+  no_external_services: boolean; // show "No external services used"
+  external_calls: number;
+  pii_masked: number;
+  total_cost_usd: number;
+  groups: AIUsageGroup[];
+}
+
+// ------------------------------------------------------------------ audience (P1)
+export interface AudienceOut {
+  version_id: number;
+  status: "none" | "running" | "done" | "error" | "unavailable";
+  label: string; // "Simulated audience, directional signal, not a survey"
+  results: Record<string, unknown>;
+  created_at: IsoDateTime | null;
+}
+
+// ------------------------------------------------------------------ insights
+export interface InsightsKpis {
+  items_checked: number;
+  findings: number;
+  fix_accept_rate: number; // 0..1
+  avg_check_ms: number;
+  jev_judgments: number;
+  total_cost_usd: number;
+}
+export interface CountBucket { key: string; count: number }
+export interface DismissalRate {
+  rule_code: string;
+  findings: number;
+  dismissed: number;
+  rate: number;
+  possibly_unclear: boolean;
+}
+export interface InsightsOut {
+  kpis: InsightsKpis;
+  by_category: CountBucket[];
+  top_rules: CountBucket[];
+  dismissal_rate: DismissalRate[];
+  by_channel: CountBucket[];
+}
+
+// ------------------------------------------------------------------ eval
+export interface EvalLatestOut {
+  available: boolean;
+  run_at: IsoDateTime | null;
+  split: string | null;
+  models: Record<string, string>;
+  metrics: Record<string, unknown>;
+  misses: Record<string, unknown>[];
+}
+export interface EvalRunOut { started: boolean; message: string }
+
+// ================================================================== client
+export class ApiError extends Error {
+  readonly status: number; // 0 = network error
+  readonly detail: unknown;
+  constructor(status: number, message: string, detail?: unknown) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+  get isAuth(): boolean { return this.status === 401; }
+  get isForbidden(): boolean { return this.status === 403; }
+  get notImplemented(): boolean { return this.status === 501; }
+}
+
+const BASE = "/api";
+const TOKEN_KEY = "bg-token";
+
+let memToken: string | null = null;
+
+export function getToken(): string | null {
+  if (memToken) return memToken;
+  try { memToken = sessionStorage.getItem(TOKEN_KEY); } catch { /* storage blocked */ }
+  return memToken;
+}
+export function setToken(token: string | null): void {
+  memToken = token;
+  try {
+    if (token) sessionStorage.setItem(TOKEN_KEY, token);
+    else sessionStorage.removeItem(TOKEN_KEY);
+  } catch { /* storage blocked */ }
+}
+
+const STATUS_MESSAGES: Record<number, string> = {
+  401: "Please sign in first.",
+  403: "You don't have permission to do that.",
+  404: "We couldn't find that. It may have been removed or the demo was reset.",
+  413: "That file is too large.",
+  415: "That file type isn't supported.",
+  422: "Some of the information isn't valid. Please check and try again.",
+  429: "Too many requests. Please wait a moment and try again.",
+  501: "This feature isn't available yet.",
+  503: "The service is temporarily unavailable. Please try again shortly.",
+};
+
+function humanMessage(status: number, body: unknown): string {
+  if (body && typeof body === "object" && "detail" in body) {
+    const d = (body as { detail: unknown }).detail;
+    if (typeof d === "string" && d.trim()) return d;
+  }
+  if (status >= 500) return "Something went wrong on our side. Please try again.";
+  return STATUS_MESSAGES[status] ?? `Request failed (${status}).`;
+}
+
+type Query = Record<string, string | number | boolean | null | undefined>;
+
+function qs(query?: Query): string {
+  if (!query) return "";
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) if (v !== undefined && v !== null && v !== "") p.set(k, String(v));
+  const s = p.toString();
+  return s ? `?${s}` : "";
+}
+
+export async function request<T>(
+  method: string,
+  path: string,
+  opts: { json?: unknown; form?: FormData; query?: Query; signal?: AbortSignal } = {},
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  let body: BodyInit | undefined;
+  if (opts.form) body = opts.form;
+  else if (opts.json !== undefined) {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(opts.json);
+  }
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}${qs(opts.query)}`, {
+      method, headers, body, credentials: "include", signal: opts.signal,
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new ApiError(0, "Can't reach the server. Check your connection and try again.", e);
+  }
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+  if (!res.ok) throw new ApiError(res.status, humanMessage(res.status, data), data);
+  return data as T;
+}
+
+const get = <T>(path: string, query?: Query) => request<T>("GET", path, { query });
+const post = <T>(path: string, json?: unknown) => request<T>("POST", path, { json: json ?? {} });
+const patch = <T>(path: string, json: unknown) => request<T>("PATCH", path, { json });
+
+export const api = {
+  // health / auth
+  health: () => get<HealthOut>("/health"),
+  me: () => get<MeOut>("/me"),
+  async login(user_id: string): Promise<LoginOut> {
+    const out = await post<LoginOut>("/demo/login", { user_id } satisfies LoginIn);
+    setToken(out.token);
+    return out;
+  },
+  async logout(): Promise<OkOut> {
+    setToken(null);
+    return post<OkOut>("/demo/logout");
+  },
+  reset: () => post<OkOut>("/demo/reset"),
+
+  // brand kit
+  brand: () => get<BrandOut>("/brand"),
+  rules: (q?: { category?: string; severity?: Severity; enabled?: boolean }) => get<RuleOut[]>("/rules", q),
+  createRule: (body: RuleCreate) => post<RuleOut>("/rules", body),
+  updateRule: (id: number, body: RuleUpdate) => patch<RuleOut>(`/rules/${id}`, body),
+  terms: () => get<TermOut[]>("/terms"),
+  createTerm: (body: TermCreate) => post<TermOut>("/terms", body),
+  updateTerm: (id: number, body: TermUpdate) => patch<TermOut>(`/terms/${id}`, body),
+  facts: () => get<FactOut[]>("/facts"),
+  createFact: (body: FactCreate) => post<FactOut>("/facts", body),
+  updateFact: (id: number, body: FactUpdate) => patch<FactOut>(`/facts/${id}`, body),
+  importPdf(file: File | Blob): Promise<ImportPdfOut> {
+    const form = new FormData();
+    form.append("file", file);
+    return request<ImportPdfOut>("POST", "/brand/import-pdf", { form });
+  },
+  importPdfConfirm: (body: ImportPdfConfirmIn) => post<RuleOut[]>("/brand/import-pdf/confirm", body),
+
+  // content
+  createItem(input: ItemCreateIn): Promise<ItemCreated> {
+    const form = new FormData();
+    form.append("title", input.title);
+    form.append("channel", input.channel);
+    form.append("confidential", String(Boolean(input.confidential)));
+    if (input.text !== undefined) form.append("text", input.text);
+    if (input.file) form.append("file", input.file);
+    if (input.caption !== undefined) form.append("caption", input.caption);
+    if (input.alt_text !== undefined) form.append("alt_text", input.alt_text);
+    return request<ItemCreated>("POST", "/items", { form });
+  },
+  items: (q?: { state?: ItemState; mine?: boolean; key?: string }) => get<ItemSummary[]>("/items", q),
+  item: (id: number) => get<ItemDetail>(`/items/${id}`),
+  version: (id: number) => get<VersionOut>(`/versions/${id}`),
+  findings: (versionId: number, q?: { include_pass?: boolean }) =>
+    get<FindingOut[]>(`/versions/${versionId}/findings`, q),
+  acceptFinding: (id: number) => post<FindingOut>(`/findings/${id}/accept`),
+  editFinding: (id: number, body: FindingEditIn) => post<FindingOut>(`/findings/${id}/edit`, body),
+  dismissFinding: (id: number, body: FindingDismissIn) => post<FindingOut>(`/findings/${id}/dismiss`, body),
+  resubmit: (itemId: number) => post<ResubmitOut>(`/items/${itemId}/resubmit`),
+
+  // workflow
+  submit: (itemId: number) => post<ItemDetail>(`/items/${itemId}/submit`),
+  approve: (itemId: number) => post<ItemDetail>(`/items/${itemId}/approve`),
+  requestChanges: (itemId: number, body: NoteIn) => post<ItemDetail>(`/items/${itemId}/request-changes`, body),
+  reject: (itemId: number, body: NoteIn) => post<ItemDetail>(`/items/${itemId}/reject`, body),
+  override: (findingId: number, body: OverrideIn) => post<FindingOut>(`/findings/${findingId}/override`, body),
+  comments: (itemId: number) => get<CommentOut[]>(`/items/${itemId}/comments`),
+  addComment: (itemId: number, body: CommentIn) => post<CommentOut>(`/items/${itemId}/comments`, body),
+  history: (itemId: number) => get<AuditEventOut[]>(`/items/${itemId}/history`),
+  aiUsage: (itemId: number) => get<AIUsageOut>(`/items/${itemId}/ai-usage`),
+
+  // audience (P1)
+  startAudience: (versionId: number) => post<AudienceOut>(`/versions/${versionId}/audience`),
+  audience: (versionId: number) => get<AudienceOut>(`/versions/${versionId}/audience`),
+
+  // insights / eval
+  insights: () => get<InsightsOut>("/insights"),
+  evalLatest: () => get<EvalLatestOut>("/eval/latest"),
+  evalRun: () => post<EvalRunOut>("/eval/run"),
+};
+
+/** Append the session token to a same-origin URL (for <img src>, EventSource, downloads) when cookies are blocked. */
+export function withToken(url: string): string {
+  const token = getToken();
+  if (!token) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+}
+
+// ================================================================== SSE
+export interface CheckStreamHandlers {
+  onEvent?: (ev: CheckEvent) => void; // every event, including those carrying a finding
+  onFinding?: (finding: FindingOut, ev: CheckEvent) => void;
+  onDone?: (ev: CheckEvent) => void;
+  onError?: (err: ApiError) => void; // stage "error" or a broken connection
+}
+
+const STAGES: CheckStage[] = ["queued", "units", "tier0", "jev", "claims", "explain", "selfcheck", "done", "error"];
+
+/**
+ * Subscribe to live check progress for a version. Returns an unsubscribe function.
+ * The server replays stored findings first, then streams live events, and closes after done/error.
+ */
+export function streamCheck(versionId: number, h: CheckStreamHandlers): () => void {
+  const es = new EventSource(withToken(`${BASE}/versions/${versionId}/events`), { withCredentials: true });
+  let finished = false;
+  const close = () => { finished = true; es.close(); };
+
+  const handle = (msg: MessageEvent<string>) => {
+    let ev: CheckEvent;
+    try { ev = JSON.parse(msg.data) as CheckEvent; } catch { return; }
+    h.onEvent?.(ev);
+    if (ev.finding) h.onFinding?.(ev.finding, ev);
+    if (ev.stage === "done") { close(); h.onDone?.(ev); }
+    else if (ev.stage === "error") {
+      close();
+      h.onError?.(new ApiError(500, ev.message || "The check failed. Please try again.", ev));
+    }
+  };
+  for (const s of STAGES) es.addEventListener(s, handle as EventListener);
+  es.onmessage = handle; // events without a name
+
+  es.onerror = () => {
+    if (finished) return;
+    // EventSource auto-reconnects on transient errors; give up only if the browser closed it.
+    if (es.readyState === EventSource.CLOSED) {
+      finished = true;
+      h.onError?.(new ApiError(0, "Lost the live connection. Refresh to see the latest results."));
+    }
+  };
+  return close;
+}
