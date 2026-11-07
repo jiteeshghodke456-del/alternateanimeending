@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
+import { SetupPackButton } from "@/components/RulePacksCard"; // rule packs
 import { BrandMark } from "@/components/BrandMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -338,6 +339,7 @@ function RulesStep({ back, next }: { back: () => void; next: () => void }) {
           <Button className={cn(primary, "mt-3")} disabled={starting || starterLeft.length === 0 || q.loading} onClick={addStarter}>
             {starting && <Loader2 className="animate-spin" />} {starterLeft.length === 0 ? <><Check strokeWidth={2} /> Added</> : "Add the starter set"}
           </Button>
+          <SetupPackButton onDone={() => { q.reload(); void refreshBrand(); }} />
         </div>
         <div className="flex flex-col rounded-2xl border border-border bg-background/50 p-4">
           <FileUp className="size-5 text-[var(--accent-text)]" strokeWidth={1.5} aria-hidden />

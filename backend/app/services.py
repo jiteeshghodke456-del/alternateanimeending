@@ -29,6 +29,7 @@ from app.models import (
 )
 from app.pipeline import units as U
 from app.schemas import (
+    CitationOut,
     FactOut,
     FactRef,
     FindingOut,
@@ -190,15 +191,26 @@ def to_version_out(session: Session, v: Version) -> VersionOut:
     )
 
 
+def rule_ref_of(r: Rule) -> RuleRef:
+    cit = (r.params or {}).get("citation") if r.pack_id else None
+    return RuleRef(code=r.code, version=r.version, statement=r.statement, source_quote=r.source_quote, page=r.page,
+                   pack_id=r.pack_id, citation=CitationOut.model_validate(cit) if cit else None)
+
+
 def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None) -> FindingOut:
     rule_ref = fact_ref = None
+    regulations: list[RuleRef] = []
     if f.rule_code:
         q = select(Rule).where(Rule.code == f.rule_code)
         if brand_id is not None:
             q = q.where(Rule.brand_id == brand_id)
         r = session.exec(q).first()
         if r:
-            rule_ref = RuleRef(code=r.code, version=r.version, statement=r.statement, source_quote=r.source_quote, page=r.page)
+            rule_ref = rule_ref_of(r)
+            if r.pack_id is None:  # rule packs: regulations linked to this brand rule
+                from app.packs import regulations_for
+
+                regulations = [rule_ref_of(x) for x in regulations_for(session, brand_id if brand_id is not None else r.brand_id, r.code, f.quote)]
     if f.fact_code:
         q2 = select(Fact).where(Fact.code == f.fact_code)
         if brand_id is not None:
@@ -209,7 +221,7 @@ def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None)
                                valid_until=fa.valid_until, expired=fact_expired(fa.valid_until))
     data = f.model_dump()
     data.pop("created_at", None)
-    return FindingOut(**data, rule=rule_ref, fact=fact_ref)
+    return FindingOut(**data, rule=rule_ref, fact=fact_ref, regulations=regulations)
 
 
 def touch(item: ContentItem) -> None:

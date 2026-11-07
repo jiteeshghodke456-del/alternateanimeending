@@ -131,6 +131,7 @@ export interface RuleOut {
   examples_ok: string[];
   enabled: boolean;
   updated_at: IsoDateTime;
+  pack_id?: string | null; // rule packs: the pack this rule came from (see "Rule packs" below)
 }
 export interface RuleCreate {
   code: string;
@@ -337,6 +338,8 @@ export interface RuleRef {
   statement: string;
   source_quote: string;
   page: number | null;
+  pack_id?: string | null; // rule packs: set when this rule is a regulation from a pack
+  citation?: Citation | null;
 }
 export interface FactRef {
   code: string;
@@ -380,6 +383,7 @@ export interface FindingOut {
   hit_start?: number | null;
   hit_end?: number | null;
   fix_group?: string | null;
+  regulations?: RuleRef[]; // rule packs: regulations linked to this brand rule (each has a citation)
 }
 
 /** A region of an image as fractions (0..1): top/bottom of the height, left/right of the width. */
@@ -1032,4 +1036,45 @@ export const claimsApi = {
   impact: (factId: number) => get<FactImpactOut>(`/facts/${factId}/impact`),
   /** Brand Admin. Approved / in-review items go to changes_requested; drafts are re-checked. */
   sendBack: (factId: number, body: { recheck?: boolean; note?: string }) => post<SendBackOut>(`/facts/${factId}/impact/send-back`, body),
+};
+
+// ================================================================== Rule packs (India regulatory pack)
+// Kept in one block so other branches' api.ts edits merge cleanly.
+export interface CitationAlso { document: string; clause: string; url: string }
+export interface Citation {
+  source_id: string;
+  document: string; // full title of the source document
+  short: string;
+  clause: string; // e.g. "Annexure 1 (1): False Urgency"
+  quote: string; // a short phrase from the source
+  url: string;
+  retrieved: IsoDate;
+  status: string;
+  also: CitationAlso[];
+}
+export interface PackSource { id: string; title: string; short: string; issuer: string; year: number; status: string; url: string; retrieved: IsoDate }
+export interface PackRule { code: string; category: string; severity: Severity; check_method: CheckMethod; statement: string; clause: string; source_short: string; url: string }
+export interface PackOut {
+  id: string;
+  name: string;
+  description: string;
+  version: number;
+  retrieved: IsoDate;
+  rule_count: number;
+  sources: PackSource[];
+  rules: PackRule[];
+  applied: boolean;
+  applied_count: number;
+  applied_version: number | null;
+  linked: Record<string, string[]>; // pack rule code -> brand rule codes it backs
+}
+export interface PackApplyOut { pack_id: string; added: number; updated: number; unchanged: number; skipped: string[]; linked: Record<string, string[]> }
+export interface PackRemoveOut { pack_id: string; removed: number }
+
+export const INDIA_PACK_ID = "india_regulatory";
+
+export const packsApi = {
+  list: () => request<PackOut[]>("GET", "/rules/packs"),
+  apply: (id: string) => request<PackApplyOut>("POST", `/rules/packs/${encodeURIComponent(id)}/apply`, { json: {} }),
+  remove: (id: string) => request<PackRemoveOut>("DELETE", `/rules/packs/${encodeURIComponent(id)}`),
 };
