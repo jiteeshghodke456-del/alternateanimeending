@@ -30,6 +30,9 @@ from app.pipeline.tier0 import Tier0Hit, run_tier0_units, sentence_at, sentences
 
 log = logging.getLogger("brandgate.engine")
 
+UNVERIFIED_CLAIM = ("This figure isn't in your approved facts yet, so it couldn't be verified. That doesn't make it "
+                    "wrong. If it's correct, use \u201cAdd as fact\u201d with its source and it will pass here and in "
+                    "later posts; if not, edit it.")
 IMAGE_UNAVAILABLE = "Image judged by code checks only (Jev image check unavailable)."
 
 
@@ -156,7 +159,7 @@ class _Run:
 
     def image_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if (r.check_method == "visual" or (r.check_method == "jev" and r.category == "visual"))
-                and not any(k in (r.params or {}) for k in Q.IMAGE_RULES_IN_CODE)]
+                and not any(k in (r.params or {}) for k in Q.IMAGE_RULES_IN_CODE) and Q.image_checkable(r)]
 
     def cap_band(self, rule: RuleSpec, b: str) -> str:
         """Deliberately vague rules (params.vague, e.g. "Posts should feel premium") create no findings:
@@ -434,6 +437,16 @@ class _Run:
         else:
             detail = "No current approved fact supports this claim."
         tier = "claim"
+        if rule is None and cr.status == "unsupported":
+            # Not verified is not false. No brand or regulation rule asks this kind of claim for evidence
+            # (e.g. a stat in a brand's own year-in-review), so the number may well be right: ask a person to
+            # confirm it, offer "Add as fact", and never rewrite the number away. Real-brand test (8 Nov):
+            # every figure in a Swiggy blog post was flagged at p = 1.00 and "fixed" by deleting it.
+            band = "pass" if cr.band == "pass" else "human"
+            return self.draft(u, None, band=band, tier=tier, p=None, start=cr.claim.start, end=cr.claim.end,
+                              fact_code=None, claim_status=cr.status, detail=UNVERIFIED_CLAIM, problem=UNVERIFIED_CLAIM,
+                              facts_note=notes, category="claims", severity="minor", local_only=True,
+                              explanation=UNVERIFIED_CLAIM)
         d = self.draft(u, rule, band=cr.band, tier=tier, p=cr.probability, start=cr.claim.start, end=cr.claim.end,
                        fact_code=cr.fact_code, claim_status=cr.status, detail=detail, problem=detail, facts_note=notes,
                        category=rule.category if rule else "claims", severity=rule.severity if rule else "major")
@@ -490,7 +503,8 @@ class _Run:
     # ---------------------------------------------------------------- edit regions
     def regionable(self, u: UnitIn, d: FindingDraft) -> bool:
         return (u.is_text and d.unit_idx == u.idx and d.local_start is not None and d.local_end is not None
-                and d.band != "pass" and d.tier != "logo" and not self.is_vague(self.rule(d.rule_code)))
+                and d.band != "pass" and d.tier != "logo" and not self.is_vague(self.rule(d.rule_code))
+                and not (d.tier == "claim" and d.local_only))  # unverified numbers are confirmed, never rewritten
 
     def plan_regions(self, u: UnitIn, drafts: list[FindingDraft]) -> list[tuple[Optional[tuple[int, int]], list[FindingDraft]]]:
         """Group findings into edit regions: each finding's span widened to whole sentences, overlapping

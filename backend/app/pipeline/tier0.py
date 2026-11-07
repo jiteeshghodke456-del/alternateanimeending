@@ -174,6 +174,35 @@ def statement_words(statement: str) -> list[str]:
     return [m.group(1).strip() for m in _QUOTED.finditer(statement) if m.group(1).strip()]
 
 
+_POSITIVE = re.compile(r"^\s*(always|only|use|write|refer|call|spell|say|keep|make sure|must)\b", re.IGNORECASE)
+_NEGATION = re.compile(r"\b(never|don'?t|do not|avoid|not|no|ban(?:ned)?|forbid(?:den)?|prohibit(?:ed)?)\b", re.IGNORECASE)
+
+
+def is_positive_statement(rule: RuleSpec) -> bool:
+    """A statement that asks FOR something ("Always ...", "Use ...") rather than against it."""
+    return bool(_POSITIVE.search(rule.statement)) and not NEVER_SAY.search(rule.statement)
+
+
+def is_must_use(rule: RuleSpec) -> bool:
+    """ "Always refer to the brand as 'Swiggy'": a positive statement with quoted words and no negation
+    before the quote. The quoted words are the required spelling."""
+    if not is_positive_statement(rule) or not statement_words(rule.statement):
+        return False
+    first_quote = _QUOTED.search(rule.statement)
+    return not _NEGATION.search(rule.statement[: first_quote.start()] if first_quote else rule.statement)
+
+
+def check_must_use(rule: RuleSpec, text: str) -> list[Tier0Hit]:
+    """Flag any spelling of a required word that differs from it (case or small typos are not guessed:
+    only the same letters in a different case, e.g. SWIGGY or swiggy for 'Swiggy')."""
+    hits = []
+    for w in statement_words(rule.statement):
+        for s, e, _ in find_phrases(text, [w], case_insensitive=True):
+            if text[s:e] != w:
+                hits.append(_hit(rule, text, s, e, fix=w, kind="term", detail=f"Write it exactly as “{w}”."))
+    return hits
+
+
 def check_banned(rule: RuleSpec, text: str) -> list[Tier0Hit]:
     p = rule.params or {}
     words = p.get("banned")
@@ -658,8 +687,16 @@ def check_rule_on_text(rule: RuleSpec, text: str, ctx: CheckContext, state: Post
     """All text checks one rule asks for (a rule may combine several param groups)."""
     p = rule.params or {}
     hits: list[Tier0Hit] = []
-    if "banned" in p or (rule.check_method == "tier0" and not _has_known_params(p)):
+    if "banned" in p:
         hits += check_banned(rule, text)
+    elif rule.check_method == "tier0" and not _has_known_params(p):
+        # No params (e.g. a rule imported from a guideline PDF): read the quoted words in the statement.
+        # "Never say 'cheap'" bans them; "Always refer to the brand as 'Swiggy'" requires them as written,
+        # so a different spelling or case is flagged, never the required word itself.
+        if is_must_use(rule):
+            hits += check_must_use(rule, text)
+        elif not is_positive_statement(rule):
+            hits += check_banned(rule, text)
     if "pattern" in p:
         hits += check_pattern(rule, text)
     if "patterns" in p:

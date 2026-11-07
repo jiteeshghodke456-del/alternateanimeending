@@ -337,6 +337,17 @@ function Item() {
     if (!dismissFor) return;
     await run("dismiss", async () => { upsert(await api.dismissFinding(dismissFor.id, { reason, note: note || null })); detailQ.reload(); toast.success("Finding dismissed"); });
   };
+  // "Add as fact" on an unverified figure: the number becomes an approved fact (with its source), so it passes
+  // in later checks and posts; this finding is closed with that note (no rewrite was ever proposed).
+  const onAddFact = (f: FindingOut, fact: { statement: string; source: string; valid_until: string | null }) => swallow(run("fact", async () => {
+    const facts = await api.facts();
+    const nums = facts.map((x) => /^F-(\d+)$/.exec(x.code)?.[1]).filter(Boolean).map(Number);
+    const code = `F-${String((nums.length ? Math.max(...nums) : 0) + 1).padStart(2, "0")}`;
+    await api.createFact({ code, statement: fact.statement, source: fact.source, valid_until: fact.valid_until });
+    upsert(await api.dismissFinding(f.id, { reason: "approved_exception", note: `Verified: added as approved fact ${code} (${fact.source}).` }));
+    detailQ.reload();
+    toast.success(`Saved as ${code}. It will pass in the next check.`);
+  }));
   const onOverride = async (reason: string) => {
     if (!overrideFor) return;
     await run("override", async () => { upsert(await api.override(overrideFor.id, { reason })); detailQ.reload(); toast.success("Override recorded"); });
@@ -558,7 +569,7 @@ function Item() {
                             canOverride={canReview && !locked && isLatest}
                             overrideDisabledReason={overrideWhy}
                             onAccept={onAccept} onEdit={onEdit}
-                            onDismiss={setDismissFor} onOverride={setOverrideFor}
+                            onDismiss={setDismissFor} onOverride={setOverrideFor} onAddFact={onAddFact}
                           />
                         </div>
                       </AnimatedListItem>

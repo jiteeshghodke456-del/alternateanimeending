@@ -12,6 +12,8 @@ Convention: rule Nouls are high = problem. The self-check and fact-support Nouls
 """
 from __future__ import annotations
 
+import re
+
 from typing import Any, Optional
 
 from typesafe_sdk import Choice, Noul, Score
@@ -97,10 +99,35 @@ def image_rule_question(rule: RuleSpec) -> Noul:
     return rule_question(rule, field="image")
 
 
+# Rules written in plain words (e.g. imported from a guideline PDF) carry no params, so the precondition is
+# read from the statement: a logo rule ("Don't rotate the logo") only applies to an image that shows a logo,
+# a type rule ("Set headlines in Gilroy") only to an image with words. Real-brand test (8 Nov): without this
+# gate, 25 logo rules asked of every photo on a blog page gave ~60 "needs a human look" findings at 30-64%.
+BRAND_MARK = Noul(
+    instructions="Does `image` show a company logo or brand mark?",
+    criteria={"true": "`image` shows a logo: a brand symbol, an app icon or a brand name set as a wordmark.",
+              "false": "`image` shows no logo: only photos, products, people, scenery or ordinary text."})
+_LOGO_WORDS = re.compile(r"\b(logo|logotype|wordmark|word mark|brand mark|s-pin|squircle|lockup|emblem)\b", re.IGNORECASE)
+_TYPE_WORDS = re.compile(r"\b(headlines?|typeface|font|type size|body copy|sub-?heads?|typography|sentence case|title case)\b",
+                         re.IGNORECASE)
+# Production specs that cannot be read from pixels (kerning, leading, point sizes, print colour codes).
+_NOT_FROM_PIXELS = re.compile(r"\b(kerning|leading|\d+\s?pt\b|cmyk|pantone)", re.IGNORECASE)
+
+
+def image_checkable(rule: RuleSpec) -> bool:
+    """False for print/production specs a picture cannot show; those rules are left to people."""
+    plain = not (set(rule.params or {}) - {"imported_from"})  # written in words, no machine params
+    return not (plain and _NOT_FROM_PIXELS.search(rule.statement))
+
+
 def image_precondition(rule: RuleSpec) -> Optional[tuple[str, Noul]]:
     for key, pair in IMAGE_PRECONDITIONS.items():
         if key in (rule.params or {}):
             return pair
+    if _LOGO_WORDS.search(rule.statement):
+        return ("brand_mark", BRAND_MARK)
+    if _TYPE_WORDS.search(rule.statement):
+        return IMAGE_PRECONDITIONS["min_contrast"]
     return None
 
 

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { BadgeCheck, Check, Gavel, Info, Link2, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
+import { BadgeCheck, BookPlus, Check, Gavel, Info, Link2, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BAND, SEVERITY_LABEL, SEVERITY_STYLE } from "@/lib/bands";
 import type { FindingOut, ItemState } from "@/lib/api";
 import { TipButton } from "@/components/TipButton";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { formatDate } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { RegulationChip, RegulationCitations } from "@/components/RegulationCitation"; // rule packs
@@ -78,14 +79,24 @@ export interface FindingCardProps {
   onEdit?: (f: FindingOut, text: string) => Promise<void> | void;
   onDismiss?: (f: FindingOut) => void;
   onOverride?: (f: FindingOut) => void;
+  /** "Add as fact" on an unverified figure: saves an approved fact with its source, then closes the finding */
+  onAddFact?: (f: FindingOut, fact: { statement: string; source: string; valid_until: string | null }) => Promise<void> | void;
 }
 
-export function FindingCard({ finding: f, group, onJump, active, canAct = true, readOnly = null, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
+/** A figure no brand or regulation rule asks evidence for: a reminder to verify, never a rewrite (engine.py). */
+export const isUnverifiedFigure = (f: FindingOut) => f.claim_status === "unsupported" && !f.rule_code && f.tier === "claim";
+
+export function FindingCard({ finding: f, group, onJump, active, canAct = true, readOnly = null, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride, onAddFact }: FindingCardProps) {
   const band = BAND[f.band];
   const BandIcon = band.icon;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(f.edited_text ?? f.fix ?? f.quote);
-  const [busy, setBusy] = useState<"accept" | "edit" | null>(null);
+  const [busy, setBusy] = useState<"accept" | "edit" | "fact" | null>(null);
+  const unverified = isUnverifiedFigure(f);
+  const [addingFact, setAddingFact] = useState(false);
+  const [factText, setFactText] = useState(f.quote ?? "");
+  const [factSource, setFactSource] = useState("");
+  const [factUntil, setFactUntil] = useState("");
   const shownFix = f.status === "edited" && f.edited_text ? f.edited_text : f.fix;
   const diff = shownFix && f.quote ? wordDiff(f.quote, shownFix) : null;
   const closed = f.status !== "open";
@@ -129,7 +140,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
         <RegulationChip f={f} />
         {f.claim_status && (
           <span className={cn("rounded-full px-2.5 py-1 text-caption font-medium capitalize", f.claim_status === "supported" ? "bg-pass/14 text-pass-text" : "bg-human/15 text-human-text")}>
-            Claim {f.claim_status}
+            {unverified ? "Not in your facts yet" : `Claim ${f.claim_status}`}
           </span>
         )}
         {closed && !readOnly && (
@@ -238,6 +249,39 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
             </div>
           </div>
         </div>
+      ) : !readOnly && f.status === "open" && unverified ? (
+        addingFact ? (
+          <form data-testid="add-fact-form" className="mt-4 space-y-2.5 rounded-2xl bg-foreground/5 p-3.5" onClick={(e) => e.stopPropagation()}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setBusy("fact");
+              try { await onAddFact?.(f, { statement: factText.trim(), source: factSource.trim(), valid_until: factUntil || null }); setAddingFact(false); }
+              finally { setBusy(null); }
+            }}>
+            <label className="block text-caption font-medium">Approved fact
+              <Textarea value={factText} onChange={(e) => setFactText(e.target.value)} className="mt-1 min-h-[64px] text-footnote" required />
+            </label>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <label className="block text-caption font-medium">Source (where this number comes from)
+                <Input value={factSource} onChange={(e) => setFactSource(e.target.value)} placeholder="e.g. Order data report, Dec 2025" className="mt-1" required />
+              </label>
+              <label className="block text-caption font-medium">Valid until
+                <Input type="date" value={factUntil} onChange={(e) => setFactUntil(e.target.value)} className="mt-1" />
+              </label>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" type="submit" disabled={busy !== null || !factText.trim() || !factSource.trim()} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
+                {busy === "fact" ? <Loader2 className="animate-spin" /> : <BookPlus strokeWidth={1.75} />} Save fact
+              </Button>
+              <Button size="sm" type="button" variant="ghost" onClick={() => setAddingFact(false)} className="rounded-full">Cancel</Button>
+            </div>
+          </form>
+        ) : (
+          <p data-testid="unverified-note" className="mt-4 flex items-start gap-2 rounded-2xl bg-foreground/5 p-3.5 text-footnote text-muted-foreground">
+            <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden />
+            <span>Nothing is rewritten for an unverified figure. If it's correct, add it as a fact; if not, edit it.</span>
+          </p>
+        )
       ) : !readOnly && f.status === "open" ? (
         <p data-testid="manual-fix" className="mt-4 flex items-start gap-2 rounded-2xl bg-foreground/5 p-3.5 text-footnote text-muted-foreground">
           <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.5} aria-hidden />
@@ -261,6 +305,11 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           {!linked && f.fix && (
             <Button size="sm" disabled={locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} {group && group.others.length > 0 ? `Accept fix for ${group.others.length + 1} findings` : "Accept fix"}
+            </Button>
+          )}
+          {unverified && onAddFact && !addingFact && (
+            <Button size="sm" disabled={locked} onClick={(e) => { e.stopPropagation(); setAddingFact(true); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
+              <BookPlus strokeWidth={1.75} /> Add as fact
             </Button>
           )}
           {!linked && textual && <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>}
