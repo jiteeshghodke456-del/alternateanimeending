@@ -146,7 +146,14 @@ def _save_calls(calls: jev.CallLog, saved: int) -> int:
 
 
 async def run_audience(run_id: int) -> None:
-    """Background task: own DB sessions; never raises."""
+    """Background task: own DB sessions; never raises. Takes a check slot (MAX_CONCURRENT_CHECKS)."""
+    from app.pipeline import limits
+
+    async with limits.check_slot():
+        await _run_audience(run_id)
+
+
+async def _run_audience(run_id: int) -> None:
     calls = jev.CallLog()
     version_id = None
     try:
@@ -282,9 +289,12 @@ async def run_import(import_id: str, pages: list[str]) -> None:
     job = _imports.get(import_id)
     if job is None:
         return
+    from app.pipeline import limits
+
     calls = jev.CallLog()
     try:
-        res = await PI.propose_rules(pages, calls)
+        async with limits.check_slot():
+            res = await PI.propose_rules(pages, calls)
         job.update(status="done", proposals=res["proposals"], warnings=res["warnings"],
                    elapsed_ms=res["elapsed_ms"], cost_usd=res["cost_usd"])
     except PI.PdfImportError as exc:
@@ -310,7 +320,10 @@ async def import_pdf(user: AdminUser, file: UploadFile = File(...)) -> ImportPdf
     if len(data) > get_settings().max_upload_bytes:
         raise HTTPException(status_code=413, detail="That file is larger than 10 MB.")
     try:
-        pages = await asyncio.to_thread(PI.extract_pages, data)
+        from app.pipeline import limits
+
+        async with limits.check_slot():  # pdfplumber on 20 pages is one of the heavier jobs
+            pages = await asyncio.to_thread(PI.extract_pages, data)
     except PI.PdfImportError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
     import uuid

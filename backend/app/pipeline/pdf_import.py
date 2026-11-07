@@ -71,7 +71,12 @@ def extract_pages(data: bytes) -> list[str]:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             if len(pdf.pages) > MAX_PAGES:
                 raise PdfImportError(413, f"That PDF has {len(pdf.pages)} pages. The limit is {MAX_PAGES}.")
-            pages = [(pg.extract_text() or "") for pg in pdf.pages]
+            pages = []
+            for pg in pdf.pages:
+                try:
+                    pages.append(pg.extract_text() or "")
+                finally:
+                    pg.close()  # drop the page's parsed objects before the next page
     except PdfImportError:
         raise
     except Exception as exc:  # noqa: BLE001  (broken or encrypted PDFs)

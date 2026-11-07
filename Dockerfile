@@ -33,10 +33,20 @@ ENV DB_PATH=/home/user/data/brandgate.db \
     FRONTEND_DIST=/home/user/app/frontend/dist \
     DEMO_MODE=1 \
     PORT=7860
+# Memory budget (Render free tier = 512 MiB; see DECISIONS.md). glibc keeps up to 8 malloc arenas per
+# CPU of the *host*, and OpenBLAS/OpenMP size their thread pools from the host too: cap all of them.
+ENV MALLOC_ARENA_MAX=2 \
+    OPENBLAS_NUM_THREADS=1 \
+    OMP_NUM_THREADS=1 \
+    MAX_CONCURRENT_CHECKS=2 \
+    PRERUN_DELAY_S=15 \
+    IMAGE_MAX_SIDE=1024 \
+    SIFT_MAX_SIDE=640 \
+    JEV_CONCURRENCY=8
 RUN mkdir -p /home/user/data && chown -R user:user /home/user/data
 
 USER user
 WORKDIR /home/user/app/backend
 EXPOSE 7860
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:7860/api/health', timeout=4).status==200 else 1)"
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--proxy-headers", "--forwarded-allow-ips", "*"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1", "--proxy-headers", "--forwarded-allow-ips", "*"]

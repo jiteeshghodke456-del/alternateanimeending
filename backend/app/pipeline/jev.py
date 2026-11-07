@@ -26,7 +26,7 @@ log = logging.getLogger("brandgate.jev")
 logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)  # it logs request bodies at DEBUG
 
 PROVIDER = "typesafe"
-CONCURRENCY = 8
+CONCURRENCY = 8  # default; JEV_CONCURRENCY overrides it
 TIMEOUT_S = 20.0
 HARD_TIMEOUT_S = 45.0  # outer guard: 20 s + one retry with backoff
 
@@ -112,7 +112,7 @@ def _loop_key() -> int:
 def _semaphore() -> asyncio.Semaphore:
     k = _loop_key()
     if k not in _sems:
-        _sems[k] = asyncio.Semaphore(CONCURRENCY)
+        _sems[k] = asyncio.Semaphore(max(1, int(get_settings().jev_concurrency or CONCURRENCY)))
     return _sems[k]
 
 
@@ -215,7 +215,7 @@ async def ask(
 
 # ------------------------------------------------------------------ images
 MIN_SIDE, MAX_SIDE = 280, 1568  # API limits (docs.typesafe.ai/images)
-SEND_MAX_SIDE = 1024  # smaller than the limit to keep tokens (cost) down
+SEND_MAX_SIDE = 1024  # smaller than the limit to keep tokens (cost) down; IMAGE_MAX_SIDE can lower it
 
 
 def prepare_image(path: str) -> bytes:
@@ -228,7 +228,8 @@ def prepare_image(path: str) -> bytes:
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
         im = Image.alpha_composite(bg, im).convert("RGB")
         w, h = im.size
-        scale = min(1.0, SEND_MAX_SIDE / max(w, h))
+        send_max = max(MIN_SIDE, min(SEND_MAX_SIDE, int(get_settings().image_max_side or SEND_MAX_SIDE)))
+        scale = min(1.0, send_max / max(w, h))
         if scale < 1.0:
             im = im.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
         w, h = im.size

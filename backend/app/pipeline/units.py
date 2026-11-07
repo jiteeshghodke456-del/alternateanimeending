@@ -167,7 +167,11 @@ def split_pdf(data: bytes) -> SplitResult:
         parts: list[str] = []
         offset = 0
         for pno, page in enumerate(pdf.pages, start=1):
-            for para in _page_paragraphs(page):
+            try:
+                paras = _page_paragraphs(page)
+            finally:
+                page.close()  # drop the page's parsed objects (chars, lines) before the next page
+            for para in paras:
                 if parts:
                     offset += 2  # "\n\n"
                 units.append(UnitDraft(kind="text", idx=len(units), text=para, page=pno, char_start=offset, char_end=offset + len(para)))

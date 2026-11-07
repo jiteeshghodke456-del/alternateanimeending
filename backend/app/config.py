@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     max_pdf_pages: int = 20
     max_text_chars: int = 20_000
 
+    # Memory budget (Render free tier = 512 MiB; DECISIONS.md "Memory budget on Render free tier")
+    max_concurrent_checks: int = 2  # checks + audience runs + PDF imports running at once; the rest queue
+    prerun_delay_s: float = 15.0  # startup demo pre-run waits this long so the server is healthy first
+    image_max_side: int = 1024  # images are downscaled to this before Jev (and colour work)
+    sift_max_side: int = 640  # logo matching: largest piece one SIFT pass sees (~225 bytes/pixel); bigger images are tiled
+    jev_concurrency: int = 8  # Jev calls in flight per process
+
     @property
     def jev_configured(self) -> bool:
         return bool(self.typesafe_api_key.strip())

@@ -242,6 +242,17 @@ def _save_calls(s: Session, calls: jev.CallLog, saved: int) -> int:
 
 # ------------------------------------------------------------------ the check
 async def run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm: Optional[bool] = None) -> None:
+    """Waits for one of the MAX_CONCURRENT_CHECKS slots (the version stays "queued" meanwhile), then checks."""
+    from app.pipeline import limits
+
+    try:
+        async with limits.check_slot():
+            await _run_check(version_id, use_jev=use_jev, use_llm=use_llm)
+    finally:
+        _running.discard(version_id)
+
+
+async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm: Optional[bool] = None) -> None:
     from app.services import audit, to_finding_out
 
     started = time.perf_counter()
@@ -457,13 +468,15 @@ def on_startup() -> None:
             log.info("marked %d stale running checks as errors", n)
     except Exception:  # noqa: BLE001
         log.exception("stale-check cleanup failed")
-    start_prerun()
+    start_prerun(delay_s=get_settings().prerun_delay_s)
 
 
-def start_prerun() -> bool:
+def start_prerun(delay_s: float = 0.0) -> bool:
     """DEMO_MODE + a Jev key: check every seeded version that was never checked, once, in the
     background and one at a time, so the dashboard has real data. Idempotent: only versions with
-    check_status "not_run" are picked up, and only once per process. Item states are untouched."""
+    check_status "not_run" are picked up, and only once per process. Item states are untouched.
+    At startup it waits `delay_s` (PRERUN_DELAY_S) first, so the server answers health checks and
+    judges' first requests before any heavy work starts; each check also takes a check slot."""
     global _prerun_started
     s = get_settings()
     if _prerun_started or not s.demo_mode or not s.jev_configured:
@@ -472,6 +485,10 @@ def start_prerun() -> bool:
     gen = _prerun_gen
 
     async def _go() -> None:
+        if delay_s > 0:
+            await asyncio.sleep(delay_s)
+            if gen != _prerun_gen:  # a demo reset during the wait started its own pre-run
+                return
         with Session(get_engine()) as sess:
             ids = [v.id for v in sess.exec(select(Version).where(Version.check_status == "not_run").order_by(Version.id)).all()]
         log.info("demo pre-run: checking %d seeded versions", len(ids))

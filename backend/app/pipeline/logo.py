@@ -38,7 +38,7 @@ MAX_ASPECT_DEVIATION = 0.10  # projected width/height vs the logo's own, beyond 
 MIN_SIDE_PX = 24  # each side of the projected outline, in scene pixels
 MIN_AREA_FRAC = 0.0015  # projected outline must cover at least 0.15% of the image ...
 MAX_AREA_FRAC = 1.5  # ... and not hugely more than all of it
-MAX_SCENE_SIDE = 1600  # bigger uploads are downscaled for speed (quad is returned as fractions)
+MAX_SCENE_SIDE = 1600  # hard upper bound; settings.sift_max_side (default 800) is the working cap (memory)
 COLOUR_MIN_SHARE = 0.08  # colour clusters inside the logo smaller than this are ignored (anti-aliasing)
 DEFAULT_COLOUR_DELTA_E = 12.0  # same default as the palette rule (R-VIS-02 params.palette_delta_e)
 HAS_LOGO_FLAG_AT = 0.70  # Jev `has_logo` p >= this + no geometric match -> "altered" (flag band)
@@ -79,16 +79,78 @@ class LogoVerdict:
 
 
 # ------------------------------------------------------------------ helpers
-@functools.lru_cache(maxsize=8)
-def _logo_features(path: str, mtime: float):  # noqa: ANN202  (cv2 types)
-    import cv2
+TILE_MARGIN = 64  # px of context around each SIFT tile; keypoints are kept only from the tile's core
 
+
+def sift_max_side() -> int:
+    """Largest piece of an image one SIFT pass sees. SIFT needs ~225 bytes per pixel at its peak (it
+    doubles the image first): 1080 px ~265 MiB, 640 px ~95 MiB. Bigger images are cut into
+    overlapping tiles instead of being downscaled, so small logos keep their detail (DECISIONS.md,
+    "Memory budget on Render free tier")."""
+    from app.config import get_settings
+
+    return max(256, min(MAX_SCENE_SIDE, int(get_settings().sift_max_side)))
+
+
+def _fit(img: np.ndarray, side: int) -> np.ndarray:
+    from app.pipeline.limits import cv2 as _cv
+
+    h0, w0 = img.shape[:2]
+    f = min(1.0, side / max(h0, w0))
+    if f >= 1.0:
+        return img
+    return _cv().resize(img, (max(1, round(w0 * f)), max(1, round(h0 * f))), interpolation=_cv().INTER_AREA)
+
+
+def _spans(n: int, core: int) -> list[tuple[int, int]]:
+    k = max(1, -(-n // core))  # ceil
+    step = -(-n // k)
+    return [(i * step, min(n, (i + 1) * step)) for i in range(k)]
+
+
+def sift_features(gray: np.ndarray, max_side: int) -> tuple[np.ndarray, Optional[np.ndarray]]:
+    """SIFT keypoint positions (N x 2, float32) and descriptors. Images whose long side exceeds
+    `max_side` are processed in overlapping tiles (core + TILE_MARGIN of context), keeping each
+    keypoint only from the tile whose core contains it, so peak memory follows the tile size."""
+    from app.pipeline.limits import cv2 as _cv
+
+    cv2 = _cv()
+    h, w = gray.shape[:2]
+    if max(h, w) <= max_side:
+        kps, desc = cv2.SIFT_create().detectAndCompute(gray, None)
+        pts = np.float32([k.pt for k in kps]) if kps else np.zeros((0, 2), np.float32)
+        return pts, desc
+    core = max(64, max_side - 2 * TILE_MARGIN)
+    all_pts: list[np.ndarray] = []
+    all_desc: list[np.ndarray] = []
+    for y0, y1 in _spans(h, core):
+        for x0, x1 in _spans(w, core):
+            ty0, ty1, tx0, tx1 = max(0, y0 - TILE_MARGIN), min(h, y1 + TILE_MARGIN), max(0, x0 - TILE_MARGIN), min(w, x1 + TILE_MARGIN)
+            kps, desc = cv2.SIFT_create().detectAndCompute(np.ascontiguousarray(gray[ty0:ty1, tx0:tx1]), None)
+            if not kps or desc is None:
+                continue
+            pts = np.float32([k.pt for k in kps]) + np.float32([tx0, ty0])
+            keep = (pts[:, 0] >= x0) & (pts[:, 0] < x1) & (pts[:, 1] >= y0) & (pts[:, 1] < y1)
+            if keep.any():
+                all_pts.append(pts[keep])
+                all_desc.append(desc[keep])
+            del kps, desc
+    if not all_pts:
+        return np.zeros((0, 2), np.float32), None
+    return np.concatenate(all_pts), np.concatenate(all_desc)
+
+
+@functools.lru_cache(maxsize=8)
+def _logo_features(path: str, mtime: float, side: int = MAX_SCENE_SIDE):  # noqa: ANN202  (cv2 types)
+    from app.pipeline.limits import cv2 as _cv
+
+    cv2 = _cv()
     img = cv2.imread(path, cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError("approved logo could not be read")
+    img = _fit(img, side)  # downscaled, not tiled: the whole logo must stay in view for its coarse-scale keypoints
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    kps, desc = cv2.SIFT_create().detectAndCompute(gray, None)
-    pts = np.float32([k.pt for k in kps]) if kps else np.zeros((0, 2), np.float32)
+    pts, desc = sift_features(gray, side)
     colours = _clusters(cv2.cvtColor(img, cv2.COLOR_BGR2RGB).reshape(-1, 3))
     return pts, desc, gray.shape, colours
 
@@ -163,23 +225,34 @@ def logo_colours(scene_rgb: np.ndarray, H: np.ndarray, logo_shape: tuple[int, in
 def match_logo(image_path: str, logo_path: str, *, palette: Optional[list[tuple[str, str]]] = None,
                colour_threshold: float = DEFAULT_COLOUR_DELTA_E, ratio: float = RATIO) -> LogoMatch:
     """SIFT on the approved logo vs the image, ratio test, RANSAC homography, geometry check,
-    then the colour check inside the projected logo. Never raises: errors come back in `.error`."""
-    import cv2
+    then the colour check inside the projected logo. Never raises: errors come back in `.error`.
+    One SIFT pass at a time per process (limits.SIFT_LOCK): each pass briefly needs 100+ MiB."""
+    from app.pipeline import limits
 
     t0 = time.perf_counter()
+    with limits.SIFT_LOCK:
+        try:
+            return _match_logo(image_path, logo_path, palette, colour_threshold, ratio, t0)
+        finally:
+            limits.trim()
+
+
+def _match_logo(image_path: str, logo_path: str, palette: Optional[list[tuple[str, str]]], colour_threshold: float,
+                ratio: float, t0: float) -> LogoMatch:
+    from app.pipeline.limits import cv2 as _cv
+
+    cv2 = _cv()
     try:
-        pts1, d1, (lh, lw), approved_colours = _logo_features(logo_path, os.path.getmtime(logo_path))
+        side = sift_max_side()
+        pts1, d1, (lh, lw), approved_colours = _logo_features(logo_path, os.path.getmtime(logo_path), side)
         scene = cv2.imread(image_path, cv2.IMREAD_COLOR)
         if scene is None:
             raise ValueError("image could not be read")
-        h0, w0 = scene.shape[:2]
-        f = min(1.0, MAX_SCENE_SIDE / max(h0, w0))
-        if f < 1.0:
-            scene = cv2.resize(scene, (round(w0 * f), round(h0 * f)), interpolation=cv2.INTER_AREA)
+        scene = _fit(scene, MAX_SCENE_SIDE)
         sh, sw = scene.shape[:2]
-        kps2, d2 = cv2.SIFT_create().detectAndCompute(cv2.cvtColor(scene, cv2.COLOR_BGR2GRAY), None)
+        pts2, d2 = sift_features(cv2.cvtColor(scene, cv2.COLOR_BGR2GRAY), side)
         out = LogoMatch(inliers=0, raw_inliers=0, good_matches=0, valid_outline=False)
-        if d1 is None or d2 is None or len(kps2) < 2:
+        if d1 is None or d2 is None or len(pts2) < 2:
             out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
             return out
         pairs = cv2.BFMatcher(cv2.NORM_L2).knnMatch(d1, d2, k=2)
@@ -187,7 +260,7 @@ def match_logo(image_path: str, logo_path: str, *, palette: Optional[list[tuple[
         out.good_matches = len(good)
         if len(good) >= 4:
             src = pts1[[m.queryIdx for m in good]].reshape(-1, 1, 2)
-            dst = np.float32([kps2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+            dst = pts2[[m.trainIdx for m in good]].reshape(-1, 1, 2)
             cv2.setRNGSeed(12345)  # RANSAC is randomised; make results repeatable
             H, mask = cv2.findHomography(src, dst, cv2.RANSAC, RANSAC_REPROJ_PX)
             if H is not None and mask is not None:
