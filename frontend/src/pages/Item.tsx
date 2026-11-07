@@ -18,6 +18,7 @@ import { StateBadge } from "@/components/StateBadge";
 import { ErrorState } from "@/components/ErrorState";
 import { EmptyState } from "@/components/EmptyState";
 import { DiffView } from "@/components/DiffView";
+import { WebPagePanel } from "@/components/WebPagePanel";
 import { TipButton } from "@/components/TipButton";
 import { DismissDialog, NoteDialog } from "@/components/ReasonDialog";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -94,6 +95,10 @@ function ContentPanel({ version, findings, active, onSelect, palette, culprit }:
         <p className="text-footnote text-muted-foreground"><span className="font-medium text-foreground">Alt text:</span> {alt || "none provided"}</p>
       </div>
     );
+  }
+
+  if (version.kind === "web") {
+    return <WebPagePanel version={version} findings={findings} spansFor={spansFor} active={active} onSelect={onSelect} />;
   }
 
   if (version.kind === "pdf") {

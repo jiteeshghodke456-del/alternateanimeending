@@ -23,7 +23,7 @@ export type FindingTier = "tier0" | "jev" | "claim" | "visual" | "logo";
 export type ClaimStatus = "supported" | "unsupported" | "outdated";
 export type CheckStatus = "not_run" | "queued" | "running" | "done" | "error";
 export type UnitKind = "text" | "image" | "caption" | "alt_text";
-export type VersionKind = "text" | "image" | "pdf";
+export type VersionKind = "text" | "image" | "pdf" | "web";
 export type DismissReason = "false_alarm" | "approved_exception" | "rule_outdated" | "other";
 export type CheckStage =
   | "queued" | "units" | "tier0" | "jev" | "claims" | "explain" | "selfcheck" | "done" | "error";
@@ -290,6 +290,8 @@ export interface VersionOut {
   stats: VersionStats;
   created_at: IsoDateTime;
   units: UnitOut[];
+  /** Web pages only (kind "web"): where the page came from. */
+  source?: WebSource | null;
 }
 
 export interface ActionPermission { allowed: boolean; reason: string | null }
@@ -443,7 +445,30 @@ export interface AIUsageOut {
   total_cost_usd: number;
   summary: string; // plain-language line
   groups: AIUsageGroup[]; // grouped by provider + purpose
+  /** Web pages: "Fetched https://… (no third-party service)". Older servers omit it. */
+  fetches?: string[];
 }
+
+// ------------------------------------------------------------------ web page source (POST /items/from-url)
+export interface WebSource {
+  url: string;
+  final_url: string;
+  title: string;
+  fetched_at: IsoDateTime;
+  elapsed_ms: number;
+  bytes: number;
+  paragraphs: number;
+  headings: number;
+  images: number;
+  images_skipped: number;
+  truncated: number; // text blocks left out (over 40 blocks or the character limit)
+  a11y_issues: number;
+  lang: string;
+  robots: string;
+  block_tags?: string[]; // per text unit: h1..h6 | p | li | ...
+}
+export interface ItemFromUrlIn { url: string; title?: string; channel?: Channel; confidential?: boolean }
+export interface WebItemCreated extends ItemCreated { page: WebSource }
 
 // ------------------------------------------------------------------ audience (P1)
 // Shapes mirror backend/app/schemas.py (Audience*). Shares are 0..1; "p" values are Jev probabilities.
@@ -808,6 +833,7 @@ export const api = {
     if (input.alt_text !== undefined) form.append("alt_text", input.alt_text);
     return request<ItemCreated>("POST", "/items", { form });
   },
+  createItemFromUrl: (body: ItemFromUrlIn) => post<WebItemCreated>("/items/from-url", body),
   items: (q?: { state?: ItemState; mine?: boolean; key?: string }) => get<ItemSummary[]>("/items", q),
   item: (id: number) => get<ItemDetail>(`/items/${id}`),
   version: (id: number) => get<VersionOut>(`/versions/${id}`),
