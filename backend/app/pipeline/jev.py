@@ -39,10 +39,18 @@ class ChoiceAnswer:
 
 
 @dataclass
+class ScoreAnswer:
+    score: float  # the API's expected level index (0-based)
+    confidence: Optional[float]
+    probabilities: dict[str, float]  # level index as a string ("0", "1", ...) -> probability
+
+
+@dataclass
 class JevResult:
     ok: bool
     nouls: dict[str, float] = field(default_factory=dict)
     choices: dict[str, ChoiceAnswer] = field(default_factory=dict)
+    scores: dict[str, ScoreAnswer] = field(default_factory=dict)
     input_tokens: int = 0
     latency_ms: int = 0
     cost_usd: float = 0.0
@@ -51,7 +59,7 @@ class JevResult:
 
     @property
     def judgments(self) -> int:
-        return len(self.nouls) + len(self.choices)
+        return len(self.nouls) + len(self.choices) + len(self.scores)
 
 
 @dataclass
@@ -147,6 +155,12 @@ async def _call_api(state: Any, questions: Mapping[str, Any], *, model: Optional
                                       extra_headers=dict(extra_headers) if extra_headers else None, timeout=timeout)
 
 
+def _normalize_scores(res: Any) -> dict[str, ScoreAnswer]:
+    return {k: ScoreAnswer(score=float(v.score), confidence=getattr(v, "confidence", None),
+                           probabilities={str(a): float(b) for a, b in (getattr(v, "probabilities", None) or {}).items()})
+            for k, v in (getattr(res, "scores", None) or {}).items()}
+
+
 def _normalize(res: Any) -> tuple[dict[str, float], dict[str, ChoiceAnswer], int, str]:
     nouls = {k: float(v.noul) for k, v in (getattr(res, "nouls", None) or {}).items()}
     choices = {k: ChoiceAnswer(choice=str(v.choice), confidence=getattr(v, "confidence", None),
@@ -196,15 +210,17 @@ async def ask(
             res = await asyncio.wait_for(
                 _call_api(state, questions, model=model, extra_headers=headers, timeout=TIMEOUT_S), HARD_TIMEOUT_S)
             nouls, choices, tokens, used_model = _normalize(res)
+            scores = _normalize_scores(res)
             ok, err = True, None
         except Exception as exc:  # noqa: BLE001  (SDK errors, timeouts, bad responses)
             nouls, choices, tokens, used_model = {}, {}, 0, ""
+            scores = {}
             ok, err = False, _error_text(exc)
             log.warning("jev call failed: purpose=%s unit=%s error=%s", purpose, unit_id, err)
     latency = int((time.perf_counter() - t0) * 1000)
-    result = JevResult(ok=ok, nouls=nouls, choices=choices, input_tokens=tokens, latency_ms=latency,
+    result = JevResult(ok=ok, nouls=nouls, choices=choices, scores=scores, input_tokens=tokens, latency_ms=latency,
                        cost_usd=cost_for(tokens), model=used_model or model or model_name(), error=err)
-    missing = [q for q in questions if q not in nouls and q not in choices]
+    missing = [q for q in questions if q not in nouls and q not in choices and q not in scores]
     if ok and missing:
         result.ok, result.error = False, f"missing answers for {len(missing)} question(s)"
     if calls is not None:
