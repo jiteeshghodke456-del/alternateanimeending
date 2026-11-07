@@ -18,8 +18,10 @@ pillow>=11,<14
 numpy>=2,<3
 opencv-python-headless>=4.10,<6
 textstat~=0.7
+pyphen>=0.14,<1  # syllables for Flesch-Kincaid (textstat's cmudict path downloads NLTK data at runtime)
 rapidfuzz>=3,<4
 
 # Tests
+python-dotenv>=1,<2  # live tests read the repo .env
 pytest>=8,<10
 httpx~=0.28
