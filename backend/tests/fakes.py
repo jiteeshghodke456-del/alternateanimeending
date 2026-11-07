@@ -28,6 +28,8 @@ class FakeJev:
     fail_all: bool = False
     meaning: float = 0.95
     tokens: int = 430
+    kind: Any = None  # claim_kind answer: an option name or callable(text) -> name; None = the first option
+    checkable: Any = 0.9  # claim_checkable: p or callable(text) -> p
     calls: list[dict] = field(default_factory=list)
 
     async def __call__(self, state: Any, questions: dict, *, model: Optional[str], extra_headers: Any, timeout: float) -> Any:
@@ -46,10 +48,14 @@ class FakeJev:
             if q.type == "choice":
                 opts = list(q.criteria.keys())
                 pick = "pushy" if ("now" in text.lower() and "pushy" in opts) else opts[0]
+                if name == "claim_kind" and self.kind is not None:
+                    pick = self.kind(text) if callable(self.kind) else self.kind
                 choices[name] = SimpleNamespace(choice=pick, confidence=0.9, probabilities={pick: 0.9})
                 continue
             if name.startswith("support_"):
                 p = self.support.get(name[len("support_"):], 0.02)
+            elif name == "claim_checkable":
+                p = self.checkable(text) if callable(self.checkable) else self.checkable
             elif name in ("same_topic", "keeps_cta"):
                 p = self.meaning
             elif name == "original_has_cta":

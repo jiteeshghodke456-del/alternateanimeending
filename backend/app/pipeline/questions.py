@@ -187,6 +187,69 @@ CLAIM_TYPE = Choice(
 )
 
 
+# Check-worthiness gate (claims.gate): asked in the claim's own Jev call, next to the fact-support Nouls.
+# State {"text": claim clause}; the paragraph it comes from goes in these two questions only (the support
+# questions judge the clause alone). Code maps the answers to an outcome; see the claims.py docstring.
+KIND_COMPARATIVE = "comparative_or_superlative"
+KIND_SERVICE = "service_promise"
+KIND_HEALTH = "health_or_safety"
+KIND_FIRST_PARTY = "first_party_statistic"
+KIND_PUFFERY = "opinion_or_puffery"
+CLAIM_KINDS: dict[str, str] = {  # first option = the safe default (keeps today's behaviour)
+    KIND_COMPARATIVE: "Ranks the brand or product above others or calls it the best, like “#1 in India”, "
+                      "“the quickest delivery app” or “3 times more than other brands”.",
+    KIND_SERVICE: "Promises the customer something about the product, service or offer: a delivery time, a price, "
+                  "a discount, something free, a guarantee, what the product contains, or where it is available, "
+                  "like “delivered in 20 minutes” or “flat 30% off”.",
+    KIND_HEALTH: "Says the product affects health, safety or the body, like “good for your heart”, “boosts immunity” "
+                 "or “safe for babies”.",
+    KIND_FIRST_PARTY: "Reports the brand's own records about its orders, customers or sales, like “1 in 40 orders "
+                      "included ice cream”, “our busiest hour was 8 pm” or “orders in Nagpur doubled this year”.",
+    KIND_PUFFERY: "Praise, excitement or a feeling that nobody could measure, like “a truly amazing year” or "
+                  "“everyone loves it”.",
+}
+CLAIM_RECORD_AT = FLAG_AT  # claim_record >= this: the brand's own past data (claims.is_first_party)
+CLAIM_IS_CLAIM_AT = FLAG_AT  # claim_checkable >= this: a factual claim; HUMAN_AT..this: unsure; below HUMAN_AT: not a claim
+
+
+def _from_paragraph(paragraph: Optional[str]) -> str:
+    return f" `text` comes from this paragraph: “{paragraph}”" if paragraph and paragraph.strip() != "" else ""
+
+
+def claim_kind_question(paragraph: Optional[str] = None) -> Choice:
+    return Choice(instructions=f"What kind of statement is `text`?{_from_paragraph(paragraph)}",
+                  criteria=dict(CLAIM_KINDS))
+
+
+def claim_checkable_question(paragraph: Optional[str] = None) -> Noul:
+    """Companion Noul for claim_kind (null case: nothing to check). High = a factual claim (named so)."""
+    return Noul(
+        instructions=f"Does `text` state something that records or tests could prove true or false?{_from_paragraph(paragraph)}",
+        criteria={
+            "true": "`text` states a checkable fact, such as a number, a price, a delivery time, a ranking, a result "
+                    "or what a product contains.",
+            "false": "`text` only tells a story, sets a mood, gives an opinion or invites the reader, like "
+                     "“Handmade with love” or “What a year it was!”",
+        },
+    )
+
+
+def claim_record_question(paragraph: Optional[str] = None) -> Noul:
+    """A separate Noul, not a Choice option: a statement can be a record AND read like a ranking or a promise
+    (“the fastest delivery happened in 3 minutes”), and a Choice would have to split between them.
+    High = the brand reporting its own past data (named so)."""
+    return Noul(
+        instructions=f"Does `text` report something that already happened in the brand's own orders, customers or sales?"
+                     f"{_from_paragraph(paragraph)}",
+        criteria={
+            "true": "`text` describes past results from the brand's own data, like “our busiest hour last year was 8 pm” "
+                    "or “one customer ordered 300 times”.",
+            "false": "`text` promises the reader something or compares the brand with others, like “delivered in 20 "
+                     "minutes” or “India's favourite app”.",
+        },
+    )
+
+
 def support_question(fact: FactSpec) -> Noul:
     """High = supported. One question per candidate fact, with the fact written into the question."""
     return Noul(

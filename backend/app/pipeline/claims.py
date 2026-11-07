@@ -19,6 +19,30 @@ Claims Jev found without a trigger word: partial support (p >= HUMAN_AT) counts,
 Without Jev (no key, confidential, or a failed call): rule 3 runs on number matching alone
 (candidates with ratio >= 50); everything else is "unsupported (no Jev)" in the human band.
 Expiry is always compared in code.
+
+Check-worthiness gate (`gate`, applied after the table above when the engine asks for it, i.e. a live Jev
+check; selfcheck does not). The claim's Jev call also asks `claim_kind` (Choice: comparative_or_superlative,
+service_promise, health_or_safety, first_party_statistic, opinion_or_puffery) and its companion Noul
+`claim_checkable` (high = a factual claim), plus the Noul `claim_record` (high = the brand reporting what already
+happened in its own orders, customers or sales). "first-party" = kind first_party_statistic, or claim_record >= 0.70
+with kind comparative_or_superlative / service_promise (a record can read like a ranking or a promise: "the fastest
+delivery happened in 3 minutes"; health claims never count). "named" = the words came from a rule's own superlative_patterns
+("best" under R-CLAIM-01 / IN-ASCI-02): the brand or regulation named them, so the rule decides. Eco claims
+(a rule's claim_terms list) skip the gate. Code, first matching row wins:
+
+  status supported                                          -> unchanged (no finding)
+  status outdated, or a current fact contradicts it         -> unchanged (evidence says otherwise)
+  not named and claim_checkable < HUMAN_AT                  -> not_a_claim (no finding)
+  not named and kind = opinion_or_puffery                   -> not_a_claim (no finding; tone rules cover it)
+  first-party (see above)                                   -> reminder: rule_code None, band "human" at most
+                                                               (the brand reporting its own data is unverified,
+                                                               not false; "Add as fact" clears it)
+  kind = comparative / service_promise / health_or_safety   -> unchanged: flag when a rule asks for evidence,
+                                                               a reminder when none does (engine.from_claim)
+  ... comparative / service with HUMAN_AT <= claim_record < 0.70 -> band capped at "human", rule kept (may be a
+                                                               record: the Noul is unsettled, so a person decides)
+  ... and not named with HUMAN_AT <= claim_checkable < 0.70 -> band capped at "human" (unsure it is a claim)
+No Jev, a confidential item or a failed call: no gate (the code-only table above).
 """
 from __future__ import annotations
 
@@ -74,10 +98,17 @@ class ClaimResult:
     via: str = "jev"  # jev|numbers|no_facts|no_jev
     candidates: list[dict] = field(default_factory=list)  # [{code, score, p, expired}]
     error: Optional[str] = None
+    kind: Optional[str] = None  # claim_kind (Jev), when the gate ran
+    p_checkable: Optional[float] = None  # claim_checkable (Jev), when the gate ran
+    p_record: Optional[float] = None  # claim_record (Jev), when the gate ran
+    gated: Optional[str] = None  # the gate row that changed the outcome (None = unchanged)
 
     @property
     def is_finding(self) -> bool:
-        return self.status != "supported" and self.band != "pass"
+        return self.status not in ("supported", NOT_A_CLAIM) and self.band != "pass"
+
+
+NOT_A_CLAIM = "not_a_claim"
 
 
 # ------------------------------------------------------------------ claim extraction
@@ -280,25 +311,88 @@ def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], c
     return ClaimResult(status="unsupported", rule_code=claim.rule_code, probability=None, band="human", via="no_jev", **base)
 
 
+# ------------------------------------------------------------------ check-worthiness gate
+def named_by_rule(claim: Claim, rules: list[RuleSpec]) -> bool:
+    """True if a superlative trigger matches a rule's own superlative_patterns (the rule named the words)."""
+    pats = [str(p) for r in rules if r.enabled for p in (r.params or {}).get("superlative_patterns", [])]
+    for t in claim.triggers:
+        if t.group != "superlative":
+            continue
+        for p in pats:
+            try:
+                if re.search(p, t.text, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+    return False
+
+
+def is_first_party(kind: Optional[str], p_record: Optional[float]) -> bool:
+    if kind == Q.KIND_FIRST_PARTY:
+        return True
+    return p_record is not None and p_record >= Q.CLAIM_RECORD_AT and kind in (Q.KIND_COMPARATIVE, Q.KIND_SERVICE)
+
+
+def gate(cr: ClaimResult, kind: Optional[str], p_checkable: Optional[float], ctx: CheckContext,
+         p_record: Optional[float] = None) -> ClaimResult:
+    """The check-worthiness truth table in the module docstring. Pure; the answers come from Jev."""
+    cr.kind, cr.p_checkable, cr.p_record = kind, p_checkable, p_record
+    if kind is None or p_checkable is None or cr.claim.group == "eco":
+        return cr
+    if cr.status != "unsupported" or contradicting_fact(cr, ctx) is not None:
+        return cr
+    named = named_by_rule(cr.claim, ctx.enabled_rules())
+    if not named and (p_checkable < Q.HUMAN_AT or kind == Q.KIND_PUFFERY):
+        cr.status, cr.band, cr.rule_code = NOT_A_CLAIM, "pass", None
+        cr.gated = "not_checkable" if p_checkable < Q.HUMAN_AT else "puffery"
+        return cr
+    if is_first_party(kind, p_record):
+        if cr.rule_code is not None or cr.band == "flag":
+            cr.gated = "first_party"
+        cr.rule_code = None  # engine.from_claim turns a rule-less unsupported claim into a minor reminder
+        cr.band = "pass" if cr.band == "pass" else "human"
+        return cr
+    if cr.band == "flag" and kind in (Q.KIND_COMPARATIVE, Q.KIND_SERVICE) and p_record is not None and p_record >= Q.HUMAN_AT:
+        cr.band, cr.gated = "human", "maybe_record"  # may be the brand's own past data: a person decides
+        return cr
+    if not named and p_checkable < Q.CLAIM_IS_CLAIM_AT and cr.band == "flag":
+        cr.band, cr.gated = "human", "unsure"
+    return cr
+
+
 # ------------------------------------------------------------------ Jev support check
 async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: Optional[jev.CallLog] = None,
-                      unit_id: Optional[int] = None, masked_text: Optional[str] = None, purpose: str = "claims") -> ClaimResult:
-    """One Jev call per claim: state {"text": claim}, one support Noul per candidate fact."""
+                      unit_id: Optional[int] = None, masked_text: Optional[str] = None, purpose: str = "claims",
+                      gate_with: Optional[str] = None) -> ClaimResult:
+    """One Jev call per claim: state {"text": claim}, one support Noul per candidate fact.
+    `gate_with` (the masked paragraph, engine only): also ask claim_kind + claim_checkable in the same call and
+    apply `gate`. A claim with no candidate fact then gets a call too (for the gate alone)."""
     facts = ctx.facts
     if claim.group == "eco":  # only facts about the same term can support "organic", "sustainable", ...
         terms = [t.text.lower() for t in claim.triggers]
         facts = [f for f in facts if any(t in _fact_text(f).lower() for t in terms)]
     found = top_facts(claim.text, facts)
-    if not found:
+    gating = use_jev and gate_with is not None and claim.group != "eco"
+    if not found and not gating:
         return decide(claim, [], ctx, jev_ok=use_jev)
     if not use_jev:
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False)
-    qs = {Q.support_key(f.code): Q.support_question(f) for f, _ in found}
+    qs: dict = {Q.support_key(f.code): Q.support_question(f) for f, _ in found}
+    if gating:
+        qs["claim_kind"] = Q.claim_kind_question(gate_with)
+        qs["claim_checkable"] = Q.claim_checkable_question(gate_with)
+        qs["claim_record"] = Q.claim_record_question(gate_with)
     res = await jev.ask(Q.claim_state(masked_text if masked_text is not None else claim.text), qs, purpose=purpose,
                         calls=calls, unit_id=unit_id)
     if not res.ok:
+        if not found:  # the call was only for the gate: decide as without it
+            return decide(claim, [], ctx, jev_ok=True, error=res.error)
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False, error=res.error)
-    return decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True)
+    cr = decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True)
+    if gating:
+        kind = res.choices.get("claim_kind")
+        cr = gate(cr, kind.choice if kind else None, res.nouls.get("claim_checkable"), ctx, res.nouls.get("claim_record"))
+    return cr
 
 
 # ------------------------------------------------------------------ claims ledger (Round 3, improvement 1)

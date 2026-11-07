@@ -230,8 +230,12 @@ class _Run:
 
     async def check_claim(self, u: UnitIn, cl: C.Claim) -> C.ClaimResult:
         cr = await C.check_claim(cl, self.ctx, use_jev=self.use_jev, calls=self.calls, unit_id=u.id,
-                                 masked_text=mask_pii_map(cl.text)[0])
-        self.res.claims.append({"unit_idx": u.idx, "group": cr.claim.group, "status": cr.status, "via": cr.via,
+                                 masked_text=mask_pii_map(cl.text)[0],
+                                 gate_with=mask_pii_map(u.text)[0] if self.use_jev else None)
+        if cr.status == C.NOT_A_CLAIM:  # check-worthiness gate: opinion or not a factual claim (claims.gate)
+            return cr
+        self.res.claims.append({"kind": cr.kind, "gated": cr.gated, "p_checkable": cr.p_checkable, "p_record": cr.p_record,
+                                "unit_idx": u.idx, "group": cr.claim.group, "status": cr.status, "via": cr.via,
                                 "rule_code": cr.rule_code, "fact_code": cr.fact_code, "p": cr.probability,
                                 "local_start": cr.claim.start, "local_end": cr.claim.end, "candidates": cr.candidates,
                                 # claims ledger (run.py writes ClaimRecord rows from these)
