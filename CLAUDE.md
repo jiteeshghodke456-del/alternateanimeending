@@ -1,9 +1,9 @@
-# CLAUDE.md: Brand Gate
+# CLAUDE.md: Rulemint (formerly Brand Gate)
 
 Instructions for any coding agent (Claude Code, Cursor, etc.) or teammate working in this repo. Read this first, then `BUILD.md`.
 
 ## What this is
-Brand Gate checks brand content **before it is published**. A company loads its guidelines, approved facts and brand assets once. Every post, image or PDF is then checked against them. Each issue cites the exact rule (with quote and page) or fact it breaks, explains why in plain words, and suggests a fix that keeps the writer's message. People decide everything through a creator → reviewer → approver workflow.
+Rulemint checks brand content **before it is published**. A company loads its guidelines, approved facts and brand assets once. Every post, image or PDF is then checked against them. Each issue cites the exact rule (with quote and page) or fact it breaks, explains why in plain words, and suggests a fix that keeps the writer's message. People decide everything through a creator → reviewer → approver workflow.
 
 Built for **CodeNexus India 2026, problem statement by Inkloom AI** (brand-governance platform). Team: Jiteesh Ghodke (AI/ML), Prasoon Bodke (Backend), Advait Malwade (Frontend), Samiksha Bhusare (Product/Research, Presentation).
 
@@ -113,11 +113,11 @@ If `TYPESAFE_API_KEY` is missing, the app still runs: Tier 0 checks work, and th
 - For non-confidential items, `privacy.mask_pii()` masks emails, phone numbers and long digit strings before any external call.
 
 ## UI design system: glassmorphism, Apple-like, premium
-- **Background:** a soft, slowly drifting mesh gradient (2–3 blurred colour blobs, low saturation). It must be static when `prefers-reduced-motion` is set.
-- **Glass surfaces:** `bg-white/55 dark:bg-white/[0.06] backdrop-blur-2xl backdrop-saturate-150 border border-white/50 dark:border-white/10 rounded-3xl shadow-[0_8px_40px_rgba(0,0,0,0.08)]`.
+- **Background:** a lava lamp: five soft violet/orange/pink blobs drawn into a tiny canvas (1/8 of the viewport, at most 30 fps, upscaled by the browser) under one static frost layer (wash + film grain). Still under `prefers-reduced-motion`, stopped while the tab is hidden. See `components/MeshBackground.tsx`.
+- **Glass surfaces:** `.glass` / `.glass-strong` in `styles/index.css`: tint + top sheen, a 1px light edge and layered shadows. Only the sticky top bar and bottom tabs (`.glass-chrome`) use `backdrop-filter`, so the animated background is never re-blurred per panel.
 - **Readability beats glass.** Text panels and the findings list use a more opaque surface (`bg-white/80`, `dark:bg-neutral-900/70`). Body text must reach WCAG AA (4.5:1) contrast. This product checks accessibility, so it can't fail its own test.
 - **Type:** Inter (variable) at 15px body. Headings use semibold with tight tracking (`tracking-tight`). Use SF-style hierarchy: large title, then section title, then body, then caption.
-- **Colour:** neutral greys plus one accent (`#0A84FF`). Semantic colours: flag `#FF453A`, human-review `#FF9F0A`, pass `#30D158`. Never use colour alone for meaning; always pair it with an icon or label.
+- **Colour:** neutral greys plus one accent, Rulemint violet `#951EFC` (`--accent-fill`, `--accent-vivid`, `--accent-text`); the logo orange `#FE7204` appears only in the logo, the lava and gradients, so it never competes with the human-review orange. Semantic colours: flag `#FF453A`, human-review `#FF9F0A`, pass `#30D158`. Never use colour alone for meaning; always pair it with an icon or label.
 - **Motion:** framer-motion springs, 150–300 ms, subtle. Magic UI pieces:
   - `NumberTicker` for the live meter
   - `BorderBeam` on the card while a scan is running

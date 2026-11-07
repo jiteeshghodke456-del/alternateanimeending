@@ -1,12 +1,12 @@
-# Brand Gate
+# Rulemint
 
-Brand Gate checks brand content against a company's guidelines and approved facts before it is published.
+Rulemint (formerly Brand Gate) checks brand content against a company's guidelines and approved facts before it is published.
 
 A company loads its brand rules, approved facts, colour palette and logo once. Each post, image or PDF is then checked against them, and every issue cites the rule (with its quote and page) or the fact it breaks. People make every decision through a creator, reviewer and approver workflow, and no fix is applied unless a person accepts it.
 
 Built for CodeNexus India 2026, problem statement by Inkloom AI (brand-governance platform).
 
-Live app: https://brand-gate.onrender.com (free hosting: if it has been idle, the first page can take about a minute to wake up)
+Live app: https://brand-gate.onrender.com (free hosting: if it has been idle, the first page can take about a minute to wake up). The address still says brand-gate because the product was renamed to Rulemint on 8 Nov 2026; nothing else changed.
 
 ## 60-second judge walkthrough
 
@@ -45,7 +45,7 @@ Then check your first post. A brand with no rules still gets the word, fact and 
 - **AI-image provenance.** Uploaded images are read for Content Credentials (C2PA), IPTC/XMP "digital source type", EXIF and AI-generator PNG chunks before the stored copy is stripped of metadata. An AI-made image without an "AI-generated" label in its caption or alt text gets a finding with a one-click fix. It runs locally, also for confidential items. Signatures are not verified, and a missing record proves nothing: we never claim to detect AI images without metadata.
 - **Check a live web page.** New content → Web page: paste a URL. The server fetches it safely (public addresses only, size and time limits, robots.txt respected, no browser), checks the main text and up to 4 images against your brand, and adds code-based accessibility findings (alt text, link and button names, heading order, page language, link text, paragraph length).
 - **Brand Score and channel limits.** Each version gets a 0–100 score worked out in code from its open findings (blocking 25/12, major 10/5, minor 3/1 for flagged / needs-a-human-look; the formula is one click away), shown on the item, the version switcher (v1 → v2), the content list and the Dashboard. Each channel has a target (default 70, editable in Brand Kit → Channels); submitting below it asks for a reason that reviewers see, and never blocks on its own. Platform limits come only from official pages, each cited: Instagram caption 2,200 characters, 30 hashtags, 20 @ tags, aspect ratio 4:5 to 1.91:1 (Meta for Developers); LinkedIn post 3,000 characters (Microsoft Learn); email subject 60 characters (vendor guidance, editable). PDFs also get a font check against the brand fonts.
-- **Precedent memory.** When someone dismisses a finding with a reason or overrides a blocking one, Brand Gate remembers it. Next time the same rule fires on the same wording, the card says "Seen before: dismissed by Meera on 7 Nov — reason" and the finding drops one band; a blocking rule never drops below "Needs a human look". Nothing is dismissed automatically, and admins can revoke a precedent in Brand Kit → Precedents. Try it: post "Free shipping on online orders above Rs 599. Order today." in the demo brand.
+- **Precedent memory.** When someone dismisses a finding with a reason or overrides a blocking one, Rulemint remembers it. Next time the same rule fires on the same wording, the card says "Seen before: dismissed by Meera on 7 Nov — reason" and the finding drops one band; a blocking rule never drops below "Needs a human look". Nothing is dismissed automatically, and admins can revoke a precedent in Brand Kit → Precedents. Try it: post "Free shipping on online orders above Rs 599. Order today." in the demo brand.
 - **Hindi, Marathi and Hinglish.** Word lists, urgency and superlative triggers, sentence splitting on "।", Indian digits and lakh/crore in claims, Indian PII masking (phone numbers, UPI, PAN, Aadhaar-like numbers), and fixes that stay in the post's language. On a 23-post Indian-language set, 18 of 18 labelled issues are found (11 before), with fewer false findings; English results are unchanged.
 
 ## What it checks

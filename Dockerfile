@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Brand Gate: one container, one URL. Hugging Face Spaces (Docker SDK) listens on 7860.
+# Rulemint: one container, one URL. Hugging Face Spaces (Docker SDK) listens on 7860.
 
 # ---------- stage 1: build the frontend (skipped gracefully if there's no package.json)
 FROM node:20-slim AS web

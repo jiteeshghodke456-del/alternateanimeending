@@ -1,4 +1,4 @@
-# BUILD.md: Brand Gate, Round 2 build spec
+# BUILD.md: Rulemint (formerly Brand Gate), Round 2 build spec
 
 **Goal:** pass Round 2 with a deployed product whose core workflow runs end to end, plus three working innovations. Judges score only what runs. Fewer features, all working.
 
