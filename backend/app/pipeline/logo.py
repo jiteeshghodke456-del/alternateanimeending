@@ -333,3 +333,34 @@ def decide(m: LogoMatch, has_logo_p: Optional[float] = None) -> LogoVerdict:
         return LogoVerdict("not_found", "pass", "No logo in this image.")
     return LogoVerdict("not_found", "human", "The approved logo wasn't found in this image. If the image shows a "
                        "logo, it may be redrawn or altered.")
+
+
+# ------------------------------------------------------------------ web pages
+# Images from a web page are mostly photos and other brands' logos, not the brand's own ads. Jev's "shows a
+# logo" can't tell whose logo it is, and stray SIFT matches are common: on the Basecamp and BBC pages every
+# image was flagged "altered" (geometric inliers 0, raw RANSAC inliers 4-31, has_logo 0.64-0.99). So web
+# images only report strong evidence: the genuine logo, a stretched genuine logo, or a look-alike with a valid
+# outline, plenty of geometric inliers, a plausible shape and the brand's colours inside it.
+# Measured on the seeded wrong-logo ad: 0 geometric inliers, 16 raw, no valid outline, so a redrawn logo with
+# no shared keypoints is NOT caught on web pages (it still is on uploaded images, through Jev's has_logo).
+WEB_LOOKALIKE_AT = 20  # geometric inliers with a valid outline (POSSIBLE_AT is 10; third-party images had 0)
+WEB_LOOKALIKE_MAX_ASPECT = 0.25
+WEB_LOOKALIKE_PALETTE_SHARE = 0.6  # share of the outlined region's colours within DEFAULT_COLOUR_DELTA_E of the palette
+
+
+def decide_web(m: LogoMatch) -> LogoVerdict:
+    """Logo verdict for an image taken from a web page. Jev's has_logo is not used. Only "genuine" (pass),
+    a stretched genuine logo (flag) and a strong look-alike (human) are reported; anything else is
+    "not_found" in the pass band, which creates no finding."""
+    genuine_at = m.genuine_at or GENUINE_AT
+    if m.valid_outline and m.inliers >= genuine_at:
+        return decide(m)
+    if m.valid_outline and m.inliers >= WEB_LOOKALIKE_AT and (m.aspect_deviation or 0.0) <= WEB_LOOKALIKE_MAX_ASPECT:
+        on_palette = sum(float(c.get("share", 0.0)) for c in m.colours
+                         if c.get("delta_e") is not None and float(c["delta_e"]) <= DEFAULT_COLOUR_DELTA_E)
+        if on_palette >= WEB_LOOKALIKE_PALETTE_SHARE:
+            return LogoVerdict("altered", "human", f"Part of this image matches the approved logo ({m.inliers} points, "
+                               f"in the brand's colours) but not closely enough to be the logo file. It may be a "
+                               f"modified copy (a genuine copy usually has {genuine_at}+ points).")
+    return LogoVerdict("not_found", "pass", "No approved logo in this image (web page images are only flagged on "
+                       "strong evidence).")

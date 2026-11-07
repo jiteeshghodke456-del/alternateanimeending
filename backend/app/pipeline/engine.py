@@ -244,7 +244,7 @@ class _Run:
                      if logo_rule else None)
         rules = self.image_rules()
         res: Optional[jev.JevResult] = None
-        if self.use_jev and (rules or logo_rule) and u.image_path:
+        if self.use_jev and (rules or (logo_rule and self.ctx.version_kind != "web")) and u.image_path:
             qs: dict[str, Any] = {}
             pre: dict[str, str] = {}
             for r in rules:
@@ -253,7 +253,7 @@ class _Run:
                 if pc:
                     qs[pc[0]] = pc[1]
                     pre[r.code] = pc[0]
-            if logo_rule:
+            if logo_rule and self.ctx.version_kind != "web":  # web images: logo.decide_web uses geometry only
                 qs["has_logo"] = Q.HAS_LOGO
             try:
                 from typesafe_sdk import Image
@@ -300,7 +300,7 @@ class _Run:
             self.res.warnings.append(f"Logo check could not run ({m.error}).")
             self.res.logo.append({"unit_idx": u.idx, "verdict": None, "error": m.error})
             return []
-        v = L.decide(m, has_logo)
+        v = L.decide_web(m) if self.ctx.version_kind == "web" else L.decide(m, has_logo)
         self.res.logo.append({"unit_idx": u.idx, "verdict": v.verdict, "band": v.band, "reason": v.reason,
                               "inliers": m.inliers, "raw_inliers": m.raw_inliers, "good_matches": m.good_matches,
                               "has_logo": None if has_logo is None else round(has_logo, 4), "stretched": v.stretched,

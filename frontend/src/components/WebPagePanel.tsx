@@ -62,7 +62,9 @@ export function WebPagePanel({ version, findings, spansFor, active, onSelect }: 
   const tags = version.source?.block_tags ?? [];
   const texts = version.units.filter((u) => u.kind === "text");
   const images = version.units.filter((u) => u.kind === "image" && u.image_url);
-  const logo = Array.isArray(version.stats.logo) ? (version.stats.logo as { unit_idx?: number }[]) : [];
+  // Web images report only strong logo evidence; "not found" is normal on a web page, so it isn't shown.
+  const logo = Array.isArray(version.stats.logo)
+    ? (version.stats.logo as { unit_idx?: number; verdict?: string }[]).filter((c) => c.verdict !== "not_found") : [];
   return (
     <div className="space-y-5">
       {version.source && <WebSourceCard source={version.source} />}

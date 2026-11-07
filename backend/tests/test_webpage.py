@@ -414,3 +414,59 @@ def test_adjacent_inline_elements_get_a_space_but_words_stay_whole() -> None:
             '<a href="/x">linked</a>. Done here today.</p></main>')
     assert P.parse_page(html, "https://x.example/").blocks[0].text == (
         "Website Redesign Project Project Assets are Bold and linked. Done here today.")
+
+
+# ------------------------------------------------------------------ logo fidelity on web images
+def _m(**kw: Any) -> Any:
+    from app.pipeline.logo import LogoMatch
+
+    base = {"inliers": 0, "raw_inliers": 0, "good_matches": 0, "valid_outline": False}
+    return LogoMatch(**{**base, **kw})
+
+
+def test_web_logo_decision_reports_only_strong_evidence() -> None:
+    from app.pipeline import logo as L
+
+    # measured on the Basecamp/BBC page images: no geometric match, up to 31 raw RANSAC inliers -> nothing
+    for raw in (4, 8, 31):
+        assert L.decide_web(_m(raw_inliers=raw, good_matches=45)).band == "pass"
+    assert L.decide(_m(raw_inliers=31), 0.9).band == "flag"  # uploads keep the has_logo rule (golden path 8b)
+    assert L.decide_web(_m(inliers=285, raw_inliers=285, valid_outline=True, aspect_deviation=0.0)).verdict == "genuine"
+    st = L.decide_web(_m(inliers=122, raw_inliers=122, valid_outline=True, aspect_deviation=0.4))
+    assert (st.verdict, st.band, st.stretched) == ("altered", "flag", True)
+    on = [{"hex": "#F18C29", "share": 0.7, "delta_e": 0.1, "nearest": "Saffron Orange"}]
+    off = [{"hex": "#2255EE", "share": 0.7, "delta_e": 40.0, "nearest": "Saffron Orange"}]
+    look = L.decide_web(_m(inliers=25, raw_inliers=25, valid_outline=True, aspect_deviation=0.05, colours=on))
+    assert (look.verdict, look.band) == ("altered", "human")
+    assert L.decide_web(_m(inliers=25, raw_inliers=25, valid_outline=True, aspect_deviation=0.05, colours=off)).band == "pass"
+    assert L.decide_web(_m(inliers=15, raw_inliers=15, valid_outline=True, aspect_deviation=0.0, colours=on)).band == "pass"
+
+
+def test_api_web_images_logo_genuine_outlined_and_no_false_logo_findings(client: TestClient, server: _Server) -> None:
+    from pathlib import Path
+
+    seed = Path(__file__).resolve().parents[1] / "app/seed/content"
+    rng = __import__("random").Random(7)
+    noise = Image.new("RGB", (640, 480))
+    noise.putdata([(rng.randrange(256), rng.randrange(256), rng.randrange(256)) for _ in range(640 * 480)])
+    buf = io.BytesIO()
+    noise.save(buf, format="PNG")
+    imgs = {"/img/ad_good.png": (seed / "ad_good.png").read_bytes(), "/img/ad_wronglogo.png": (seed / "ad_wronglogo.png").read_bytes(),
+            "/img/photo.png": buf.getvalue()}
+    for path, data in imgs.items():
+        server.routes[path] = (lambda d: lambda h: send(h, d, "image/png"))(data)
+    page = ('<html lang="en"><body><main><h1>Our autumn ads</h1><p>Three images from our latest campaign for the new roast.</p>'
+            + "".join(f'<img src="{p}" alt="Campaign image number {i}">' for i, p in enumerate(imgs)) + "</main></body></html>")
+    server.routes["/ads"] = lambda h: send(h, page.encode())
+    login(client, "creator")
+    r = client.post("/api/items/from-url", json={"url": server.base + "/ads"})
+    assert r.status_code == 201, r.text
+    v = _wait(client, r.json()["version_id"])
+    assert r.json()["page"]["images"] == 3
+    by_idx = {u["idx"]: u for u in v["units"] if u["kind"] == "image"}
+    verdicts = {c["unit_idx"]: c["verdict"] for c in v["stats"]["logo"]}
+    assert sorted(verdicts.values()) == ["genuine", "not_found", "not_found"], verdicts
+    genuine = next(c for c in v["stats"]["logo"] if c["verdict"] == "genuine")
+    assert genuine["quad"] and by_idx[genuine["unit_idx"]]
+    fs = client.get(f"/api/versions/{v['id']}/findings").json()
+    assert not [f for f in fs if f["tier"] == "logo"], [f["explanation"] for f in fs if f["tier"] == "logo"]
