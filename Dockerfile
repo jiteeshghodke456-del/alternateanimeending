@@ -30,6 +30,7 @@ COPY --from=web --chown=user:user /web/dist frontend/dist
 
 ENV DB_PATH=/home/user/data/brandgate.db \
     UPLOAD_DIR=/home/user/data/uploads \
+    WORKSPACES_DIR=/home/user/data/ws \
     FRONTEND_DIST=/home/user/app/frontend/dist \
     DEMO_MODE=1 \
     PORT=7860
