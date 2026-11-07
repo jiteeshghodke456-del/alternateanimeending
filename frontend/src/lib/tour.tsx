@@ -111,7 +111,7 @@ export const STEPS: TourStep[] = [
       <>
         <p>Brand Gate checks a post, image or PDF against a brand's own rules before it is published, and people approve it.</p>
         <ul className="mt-2 space-y-1.5">
-          <li><Em>Audience Preview:</Em> simulated reader groups rate the post 1 to 5, before and after the fixes.</li>
+          <li><Em>Audience Preview:</Em> simulated reader groups rate how believable the post is, 1 to 5, before and after the fixes.</li>
           <li><Em>Logo Fidelity:</Em> the logo in an ad is matched to the approved logo file (SIFT + RANSAC).</li>
           <li><Em>Guideline PDF import:</Em> rules proposed from the PDF, each quote verified against its text.</li>
         </ul>
@@ -235,13 +235,13 @@ export const STEPS: TourStep[] = [
       const id = needItem(c.data);
       c.go(`/items/${id}?tab=audience&v=${c.data.v2 ?? c.data.v1}`);
     },
-    body: () => <p>Simulated reader groups, built from public persona data, react to the post on a 1 to 5 scale (lower means more trusting). Run it on version 1 and version 2 to see, group by group, what the fixes changed. It is a directional signal, not a survey.</p>,
+    body: () => <p>Simulated reader groups, built from public persona data, rate how believable the post is on a 1 to 5 scale (lower means more believable), and say separately whether it is for them at all. Run it on version 1 and version 2 to see, group by group, what the fixes changed. It is a directional signal, not a survey.</p>,
     doneBody: (d) => {
       const a = d.au;
       if (!a) return <p>Both runs are done. Each group card shows its change from version 1.</p>;
       const diff = a.after - a.before;
       const dir = diff <= -0.15 ? "better" : diff >= 0.15 ? "worse" : "about the same";
-      return <p>The average reaction moved from <Em>{f2(a.before)}</Em> to <Em>{f2(a.after)}</Em> ({dir}; lower is more trusting) across {a.groups} reader groups. Each group card shows its own before and after.</p>;
+      return <p>Average credibility moved from <Em>{f2(a.before)}</Em> to <Em>{f2(a.after)}</Em> ({dir}; lower is more believable) across {a.groups} reader groups. Each group card shows its own before and after.</p>;
     },
     doLabel: "Run it on v1 and v2",
     doIt: async (c) => {

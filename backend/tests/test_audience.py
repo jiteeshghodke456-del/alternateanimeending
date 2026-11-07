@@ -25,8 +25,9 @@ CLEAN = ("Saffron Signature Roast is back on our shelves.\n\n"
 
 
 class AudienceJev:
-    """Readers react badly (Score level 4) when the content has '#1' and well (level 1) otherwise, with a
-    one-level shift for the 41-60 group; the culprit Choice picks the option whose paragraph contains '#1'."""
+    """Readers find the post hard to believe (Score level 4) when the content has '#1' and believable (level 1)
+    otherwise, with a one-level shift for the 41-60 group; students say it isn't for them (relevance, which must
+    not move credibility); the culprit Choice picks the option whose paragraph contains '#1'."""
 
     def __init__(self, fail_requests: int = 0) -> None:
         self.calls: list[dict] = []
@@ -34,7 +35,7 @@ class AudienceJev:
 
     async def __call__(self, state: Any, questions: dict, *, model: Any, extra_headers: Any, timeout: float) -> Any:
         is_audience = isinstance(state, dict) and ("content" in state or "caption" in state) and \
-            any(k.endswith("_reaction") for k in questions)
+            any(k.endswith("_credibility") for k in questions)
         if is_audience:
             self.calls.append({"state": state, "questions": questions})
         if is_audience and self.fail_requests > 0:
@@ -54,12 +55,14 @@ class AudienceJev:
                                                 probabilities={o: (0.6 if o == pick else 0.4 / (len(opts) - 1)) for o in opts})
             elif name == "any_distrust":
                 nouls[name] = SimpleNamespace(noul=0.95 if bad else 0.1)
-            elif name.endswith("_reaction"):
+            elif name.endswith("_credibility"):
                 top = 3 if bad else 0
                 if "Middle-aged adult" in q.instructions:
                     top += 1
                 probs = {str(k): (0.8 if k == top else 0.05) for k in range(5)}
                 scores[name] = SimpleNamespace(score=float(top), confidence=0.8, probabilities=probs)
+            elif name.endswith("_not_for_them"):
+                nouls[name] = SimpleNamespace(noul=0.9 if "pocket money" in q.instructions else 0.1)
             else:
                 nouls[name] = SimpleNamespace(noul=0.1)
         return SimpleNamespace(model="jev-1.14.0", nouls=nouls, choices=choices, scores=scores,
@@ -89,7 +92,7 @@ def test_fallback_readers_are_the_six_segments_with_traits() -> None:
     assert prof.startswith(f"{rs[0]['age']}-year-old") and "Trusts:" in prof and "Doubts:" in prof
 
 
-def test_each_reader_gets_its_own_two_questions_reader_first_in_chunks_of_20() -> None:
+def test_each_reader_gets_its_own_three_questions_reader_first_in_chunks_of_20() -> None:
     rs = list(A.load_readers())
     paras = [p.strip() for p in DEMO_TEXT.split("\n\n")]
     reqs = A.build_requests(rs, paras, is_image=False)
@@ -97,13 +100,17 @@ def test_each_reader_gets_its_own_two_questions_reader_first_in_chunks_of_20() -
     assert all(len(chunk) == 20 for _, chunk in reqs)
     qs0, chunk0 = reqs[0]
     assert set(qs0) >= {"any_distrust", "culprit"}
-    assert sum(1 for k in qs0 if k.endswith("_reaction")) == 20 and sum(1 for k in qs0 if k.endswith("_confused")) == 20
+    for suffix in ("_credibility", "_not_for_them", "_confused"):
+        assert sum(1 for k in qs0 if k.endswith(suffix)) == 20, suffix
+    assert len(qs0) == 3 * 20 + 2
     r = chunk0[0]
-    q = qs0[f"p{r['idx']}_reaction"]
+    q = qs0[f"p{r['idx']}_credibility"]
     assert q.type == "score" and len(q.criteria) == 5
     assert q.instructions.startswith("Reader: " + A.reader_profile(r))  # the reader comes first
     assert "`content`" in q.instructions
     assert qs0[f"p{r['idx']}_confused"].instructions.startswith("Reader: ")
+    nft = qs0[f"p{r['idx']}_not_for_them"]
+    assert nft.type == "noul" and nft.instructions.startswith("Reader: " + A.reader_profile(r))
     assert all("culprit" not in qs for qs, _ in reqs[1:])
     assert all(not k.startswith(("p1", "option", "a_")) for k in qs0["culprit"].criteria)
 
@@ -116,10 +123,23 @@ def test_option_names_are_unique() -> None:
 def test_wording_lives_in_questions_module_and_has_no_brand_examples() -> None:
     q = Q.audience_confused_question("34-year-old shop owner")
     assert "misunderstand the main message" in q.instructions
-    texts = [Q.question_text(q), Q.question_text(Q.audience_reaction_question("x")), Q.question_text(Q.AUDIENCE_ANY_DISTRUST)]
+    texts = [Q.question_text(q), Q.question_text(Q.audience_credibility_question("x")), Q.question_text(Q.AUDIENCE_ANY_DISTRUST)]
     blob = json.dumps(texts)
     assert "Rs 495" not in blob and "coffee" not in blob.lower()
-    assert Q.AUDIENCE_REACTION_LEVELS[0].startswith("This reader trusts") and "distrusts" in Q.AUDIENCE_REACTION_LEVELS[4]
+    assert Q.AUDIENCE_CREDIBILITY_LEVELS[0].startswith("This reader finds the post clear and believable")
+    assert "scam" in Q.AUDIENCE_CREDIBILITY_LEVELS[4]
+
+
+def test_credibility_levels_measure_only_credibility() -> None:
+    """The old Score anchored level 1 on acting and level 4 on "doesn't fit what they need", which made every
+    ad from an unknown brand look doubted. Credibility levels must not mention acting or relevance."""
+    blob = " ".join(Q.AUDIENCE_CREDIBILITY_LEVELS).lower()
+    for word in ("would act", "open the link", "try the offer", "forward", "fit what they", "need"):
+        assert word not in blob, word
+    assert len(Q.AUDIENCE_CREDIBILITY_LEVELS) == 5 == len(Q.AUDIENCE_LEVEL_LABELS)
+    rel = Q.audience_not_for_them_question("x")
+    assert "even if they believe it" in rel.criteria["true"]  # names the case that caused the mix-up
+    assert "believable" in Q.audience_credibility_question("x").instructions
 
 
 def test_expected_score_math() -> None:
@@ -144,6 +164,33 @@ def _reader(i: int, seg: str) -> dict:
             "district": "Pune", "state": "Maharashtra", "group": {"label": seg.upper(), "description": "d", "traits": {}}}
 
 
+def test_aggregate_relevance_is_reported_apart_from_credibility() -> None:
+    rs = [_reader(i, "a" if i < 4 else "b") for i in range(8)]
+    # same credibility everywhere; group a says it isn't for them (p 0.9), group b finds it relevant
+    answers = {i: (1.5, 0.1, 0.9 if i < 4 else 0.1) for i in range(8)}
+    answers[3] = (1.5, 0.1, 0.5)  # in the uncertain band: not counted as "not for them"
+    out = A.aggregate(rs, answers)
+    a, b = out["segments"]
+    assert a["mean_score"] == b["mean_score"] == 1.5 and a["trust_pct"] == b["trust_pct"] == 1.0
+    assert a["not_for_them_pct"] == 0.75 and b["not_for_them_pct"] == 0.0
+    assert abs(a["mean_not_for_them"] - 0.8) < 1e-9
+    assert out["overall"]["not_for_them_pct"] == 0.375
+    rows = {r["idx"]: r for r in out["personas"]}
+    assert rows[0]["not_for_them_flag"] is True and rows[3]["not_for_them_flag"] is False and rows[3]["not_for_them"] == 0.5
+
+
+def test_worst_readers_are_by_credibility_only() -> None:
+    rs = [_reader(i, "a") for i in range(4)]
+    # reader 0 is the least convinced; readers 1-3 tie on credibility but differ in confusion / relevance
+    out = A.aggregate(rs, {0: (4.0, 0.0, 0.0), 1: (2.0, 0.9, 0.9), 2: (2.0, 0.0, 0.0), 3: (3.0, 0.0, 0.95)})
+    assert [w["idx"] for w in out["segments"][0]["worst"]] == [0, 3, 1]
+
+
+def test_two_tuple_answers_still_aggregate() -> None:
+    out = A.aggregate([_reader(0, "a")], {0: (2.0, 0.1)})
+    assert out["overall"]["not_for_them_pct"] == 0.0 and out["personas"][0]["not_for_them"] is None
+
+
 def test_aggregate_per_group_mean_spread_shares_and_vs_overall() -> None:
     rs = [_reader(i, "a" if i < 4 else "b") for i in range(8)]
     answers = {0: (1.0, 0.1), 1: (3.0, 0.8), 2: (5.0, 0.1), 3: (4.0, 0.2), 4: (2.0, 0.1), 5: (2.0, 0.1)}
@@ -153,7 +200,7 @@ def test_aggregate_per_group_mean_spread_shares_and_vs_overall() -> None:
     assert abs(a["sd"] - 1.479) < 0.001
     assert a["trust_pct"] == 0.25 and a["unsure_pct"] == 0.25 and a["doubt_pct"] == 0.5 and a["confused_pct"] == 0.25
     assert a["levels"] == [1, 0, 1, 1, 1]
-    assert [w["idx"] for w in a["worst"]] == [2, 3, 1]
+    assert [w["idx"] for w in a["worst"]] == [2, 3, 1]  # by credibility only
     b = next(s for s in out["segments"] if s["key"] == "b")
     assert b["answered"] == 2 and b["n"] == 4 and b["mean_score"] == 2.0 and b["sd"] == 0.0  # 6, 7 not answered
     assert out["overall"]["answered"] == 6 and abs(out["overall"]["mean_score"] - 17 / 6) < 1e-3
@@ -293,6 +340,11 @@ def test_full_run_masks_pii_logs_calls_and_labels(client: TestClient, monkeypatc
     old = next(s for s in out["segments"] if s["key"] == "41-60")
     assert old["vs_overall"] > 0.5  # this group reacts worse in the fake, and the numbers show it
     assert all(len(s["worst"]) == 3 for s in out["segments"])
+    stu = next(s for s in out["segments"] if s["key"] == "students")
+    young = next(s for s in out["segments"] if s["key"] == "18-24 urban")
+    assert stu["not_for_them_pct"] == 1.0 and young["not_for_them_pct"] == 0.0  # relevance is per group ...
+    assert abs(stu["mean_score"] - young["mean_score"]) < 1e-6  # ... and does not move credibility
+    assert out["personas"][0]["not_for_them"] is not None
     assert out["culprit_paragraph"]["index"] == 0 and out["culprit_paragraph"]["certain"]
     assert out["progress"] == {"done": 240, "total": 240}
     assert len(fake.calls) == 12
@@ -445,11 +497,15 @@ def test_image_post_runs_with_image_state_and_no_culprit(client: TestClient, mon
     assert "culprit" not in qs and "`image`" in next(iter(qs.values())).instructions
 
 
-def test_old_shape_run_asks_for_a_rerun(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+@pytest.mark.parametrize("old", [
+    {"overall": {"distrust_pct": 1.0}, "segments": []},  # the distrust/unsure model (before 7 Nov)
+    {"schema": 2, "overall": {"mean_score": 4.0, "trust_pct": 0.0, "doubt_pct": 1.0}, "segments": []},  # reaction score (7 Nov)
+])
+def test_old_shape_run_asks_for_a_rerun(client: TestClient, monkeypatch, old) -> None:  # noqa: ANN001
     install_audience(monkeypatch, AudienceJev())
     vid = _item(client, DEMO_TEXT)
-    with Session(get_engine()) as s:  # a run saved by the old distrust/unsure model
-        s.add(AudienceRun(version_id=vid, status="done", results={"overall": {"distrust_pct": 1.0}, "segments": []}))
+    with Session(get_engine()) as s:
+        s.add(AudienceRun(version_id=vid, status="done", results=old))
         s.commit()
     out = client.get(f"/api/versions/{vid}/audience").json()
     assert out["status"] == "none" and "Run it again" in out["message"]

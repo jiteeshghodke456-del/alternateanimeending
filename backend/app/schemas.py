@@ -709,23 +709,27 @@ class AudiencePersona(_Out):
     segment: str  # reader-group key
     bio: str  # short: "34, Shop owner, Nagpur, Maharashtra"
     detail: str  # the group's description and trust / doubt triggers
-    score: Optional[float]  # expected reaction 1 (trusts it, would act) .. 5 (distrusts it, put off); null = not answered
+    score: Optional[float]  # expected credibility 1 (believes it) .. 5 (thinks it is spam / misleading); null = not answered
     level: Optional[int]  # nearest of the 5 levels (decided in code)
-    lean: Optional[AudienceLean]  # <= 2.5 trust, >= 3.5 doubt, else unsure (decided in code)
+    lean: Optional[AudienceLean]  # "trust" = leans to believe, "doubt", else "unsure" (bands in questions.py, decided in code)
     confused: Optional[float]  # Jev p that this reader would misunderstand the main message
     confused_flag: Optional[bool]  # confused > 0.70
+    not_for_them: Optional[float] = None  # Jev p that the post isn't relevant to this reader (never part of `score`)
+    not_for_them_flag: Optional[bool] = None  # not_for_them > 0.70
 
 
 class AudienceTotals(_Out):
     n: int
     answered: int
-    mean_score: float  # mean expected reaction, 1..5 (lower = more trusting)
+    mean_score: float  # mean expected credibility, 1..5 (lower = more believable)
     sd: float  # spread of the readers' scores
-    trust_pct: float  # 0..1, share with score <= 2.5
-    unsure_pct: float  # share with 2.5 < score < 3.5
-    doubt_pct: float  # share with score >= 3.5
+    trust_pct: float  # 0..1, share leaning to believe it (score <= AUDIENCE_TRUST_MAX)
+    unsure_pct: float  # share in between
+    doubt_pct: float  # share leaning to doubt it (score >= AUDIENCE_DOUBT_MIN)
     confused_pct: float  # share with confused p > 0.70
     mean_confused: float
+    not_for_them_pct: float = 0.0  # relevance, separate from credibility: share with not_for_them p > 0.70
+    mean_not_for_them: float = 0.0
     levels: list[int]  # readers at each level 1..5
 
 
@@ -734,7 +738,7 @@ class AudienceSegment(AudienceTotals):
     label: str
     description: str = ""
     vs_overall: float  # this group's mean minus the post's overall mean (positive = more negative than average)
-    worst: list[AudiencePersona]  # the 3 most negative readers
+    worst: list[AudiencePersona]  # the 3 least convinced readers (by credibility only)
     why: Optional[str] = None  # one LLM-written sentence for the most doubtful groups (an AI guess)
     why_source: Optional[Literal["llm"]] = None
 
@@ -756,12 +760,13 @@ class AudienceCulprit(_Out):
 
 
 class AudienceDelta(_Out):
-    mean_score: float  # this version minus the compared one (negative = reacts better)
+    mean_score: float  # this version minus the compared one (negative = believed more)
     trust_pct: float
     unsure_pct: float
     doubt_pct: float
     confused_pct: float
     mean_confused: float
+    not_for_them_pct: float = 0.0
 
 
 class AudienceSegmentDelta(_Out):

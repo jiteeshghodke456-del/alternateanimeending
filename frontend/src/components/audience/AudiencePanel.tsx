@@ -13,8 +13,8 @@ import { cn } from "@/lib/utils";
 const pct = (x: number): number => Math.round(x * 100);
 const f1 = (x: number): string => x.toFixed(1);
 const signed = (x: number): string => `${x > 0 ? "+" : x < 0 ? "−" : "±"}${Math.abs(x).toFixed(1)}`;
-/** Plain words for a 1..5 mean. */
-const leanWords = (s: number): string => (s <= 2.5 ? "leans to trust" : s >= 3.5 ? "leans to doubt" : "unsure");
+/** Plain words for a 1..5 credibility mean (same bands as the backend: questions.AUDIENCE_TRUST_MAX / _DOUBT_MIN). */
+const leanWords = (s: number): string => (s <= 2.5 ? "leans to believe" : s >= 3.5 ? "leans to doubt" : "unsure");
 const MOVE = 0.15; // smaller changes in a mean score are shown as "about the same"
 
 /* ------------------------------------------------------------------ small pieces */
@@ -35,7 +35,7 @@ function DeltaChip({ d, className }: { d: number; className?: string }) {
 }
 
 /**
- * The 1-5 reaction scale with a marker at the mean and a band for the spread (mean ± sd).
+ * The 1-5 credibility scale with a marker at the mean and a band for the spread (mean ± sd).
  * The marker carries the number; the ends are labelled in words.
  */
 function ScaleBar({ mean, sd, label, ghost, compact }: { mean: number; sd?: number; label: string; ghost?: number | null; compact?: boolean }) {
@@ -61,7 +61,7 @@ function ScaleBar({ mean, sd, label, ghost, compact }: { mean: number; sd?: numb
       </div>
       {!compact && (
         <div className="mt-0.5 flex justify-between text-[11px] text-muted-foreground" aria-hidden>
-          <span>1 trusts</span><span>3 unsure</span><span>5 distrusts</span>
+          <span>1 believes it</span><span>3 can&apos;t tell</span><span>5 thinks it&apos;s misleading</span>
         </div>
       )}
     </div>
@@ -71,7 +71,7 @@ function ScaleBar({ mean, sd, label, ghost, compact }: { mean: number; sd?: numb
 function Shares({ t }: { t: AudienceTotals }) {
   return (
     <p className="text-caption text-muted-foreground tabular-nums">
-      <span className="font-medium text-foreground">{pct(t.trust_pct)}%</span> lean to trust ·{" "}
+      <span className="font-medium text-foreground">{pct(t.trust_pct)}%</span> lean to believe ·{" "}
       <span className="font-medium text-foreground">{pct(t.unsure_pct)}%</span> unsure ·{" "}
       <span className="font-medium text-foreground">{pct(t.doubt_pct)}%</span> lean to doubt
       {t.confused_pct > 0 && <> · <span className="font-medium text-foreground">{pct(t.confused_pct)}%</span> may misread it</>}
@@ -79,10 +79,22 @@ function Shares({ t }: { t: AudienceTotals }) {
   );
 }
 
+/** Relevance, kept apart from credibility: who says the post isn't for them. Absent in runs without it. */
+function Relevance({ t }: { t: AudienceTotals }) {
+  if (t.not_for_them_pct == null) return null;
+  return (
+    <p className="text-caption text-muted-foreground tabular-nums">
+      <span className="font-medium text-foreground">Relevance:</span>{" "}
+      <span className="font-medium text-foreground">{pct(t.not_for_them_pct)}%</span> say it isn&apos;t for them
+      <span className="sr-only"> (not counted in the credibility score)</span>
+    </p>
+  );
+}
+
 function Footnote({ data }: { data: AudienceOut | null }) {
   return (
     <footer className="px-1 text-caption text-muted-foreground">
-      <p>{data?.label ?? AUDIENCE_LABEL}. Scores are 1 (trusts it and would act) to 5 (distrusts it or is put off), averaged from each simulated reader&apos;s answer probabilities.</p>
+      <p>{data?.label ?? AUDIENCE_LABEL}. Credibility is 1 (believes it) to 5 (thinks it&apos;s misleading), averaged from each simulated reader&apos;s answer probabilities. Relevance (&ldquo;isn&apos;t for them&rdquo;) is asked separately and never changes the credibility score.</p>
       <p className="opacity-90">{data?.attribution ?? AUDIENCE_ATTRIBUTION}</p>
     </footer>
   );
@@ -100,10 +112,10 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
   const improved = moved.filter((x) => x.s.delta.mean_score <= -MOVE).length;
   const worse = moved.filter((x) => x.s.delta.mean_score >= MOVE).length;
   const verdict = dir === "better"
-    ? `Readers react better to v${thisN}: the average moved from ${f1(before)} to ${f1(after)} (lower is more trusting)${now.mean_score > 2.5 ? ", but on average they are still not leaning to trust it" : ""}.`
-    : dir === "worse" ? `Readers react worse to v${thisN}: the average moved from ${f1(before)} to ${f1(after)}.`
-    : `The average reaction barely moved (${f1(before)} to ${f1(after)}).`;
-  const groupLine = moved.length ? ` ${improved} of ${moved.length} groups react better${worse ? `, ${worse} worse` : ""}.` : "";
+    ? `Readers find v${thisN} more believable: the average moved from ${f1(before)} to ${f1(after)} (lower is more believable)${now.mean_score > 2.5 ? ", but on average they are still not leaning to believe it" : ""}.`
+    : dir === "worse" ? `Readers find v${thisN} less believable: the average moved from ${f1(before)} to ${f1(after)}.`
+    : `Credibility barely moved (${f1(before)} to ${f1(after)}).`;
+  const groupLine = moved.length ? ` ${improved} of ${moved.length} groups find it more believable${worse ? `, ${worse} less` : ""}.` : "";
   const afterText = dir === "better" ? "text-pass-text" : dir === "worse" ? "text-flag-text" : "text-foreground";
 
   return (
@@ -127,7 +139,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
           <span className="font-medium text-foreground">{verdict}</span>{groupLine}
         </p>
 
-        <p className="mt-4 flex justify-between text-[11px] text-muted-foreground" aria-hidden><span>1 trusts it</span><span>3 unsure</span><span>5 distrusts it</span></p>
+        <p className="mt-4 flex justify-between text-[11px] text-muted-foreground" aria-hidden><span>1 believes it</span><span>3 can&apos;t tell</span><span>5 thinks it&apos;s misleading</span></p>
         <ul className="mt-2 space-y-4">
           {moved.map(({ s, cur }) => (
             <li key={s.key}>
@@ -173,8 +185,9 @@ function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment;
         </span>
         {delta != null && <DeltaChip d={delta} />}
       </div>
-      <div className="mt-2"><ScaleBar mean={seg.mean_score} sd={seg.sd} label={`${seg.label}, average reaction`} /></div>
+      <div className="mt-2"><ScaleBar mean={seg.mean_score} sd={seg.sd} label={`${seg.label}, average credibility`} /></div>
       <div className="mt-1.5"><Shares t={seg} /></div>
+      <div className="mt-0.5"><Relevance t={seg} /></div>
       <p className="mt-1 text-caption text-muted-foreground tabular-nums">Spread {seg.sd.toFixed(2)} · {seg.answered}/{seg.n} answered</p>
     </button>
   );
@@ -182,10 +195,10 @@ function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment;
 
 function SegmentDetail({ seg, culprit }: { seg: AudienceSegment; culprit: AudienceCulprit | null }) {
   return (
-    <section aria-label={`${seg.label}: the three most negative readers`} className="glass-strong space-y-4 p-5">
+    <section aria-label={`${seg.label}: the three least convinced readers`} className="glass-strong space-y-4 p-5">
       <div>
         <h3 className="text-headline">{seg.label}</h3>
-        <p className="text-footnote text-muted-foreground">The three most negative simulated readers in this group.</p>
+        <p className="text-footnote text-muted-foreground">The three simulated readers in this group who find the post least believable.</p>
       </div>
       {seg.why && (
         <p className="rounded-2xl bg-[#0A84FF]/8 p-3.5 text-footnote">
@@ -205,6 +218,7 @@ function SegmentDetail({ seg, culprit }: { seg: AudienceSegment; culprit: Audien
                 </span>
               </div>
               {p.confused_flag && <p className="mt-1 text-caption font-medium text-[var(--accent-text)]">May misread the main message</p>}
+              {p.not_for_them_flag && <p className="mt-1 text-caption text-muted-foreground">Says it isn&apos;t for them (not counted in credibility)</p>}
               <p className="mt-1 text-caption leading-5 text-muted-foreground">{p.detail}</p>
             </li>
           );
@@ -273,8 +287,8 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
             <h3 className="text-headline">Audience preview</h3>
             <p className="mt-0.5 text-footnote text-muted-foreground">
               {data?.audience_source === "brand"
-                ? `${total} simulated readers from ${segs.length || "the"} reader groups your brand defined react to this version, so you can see which groups may doubt or misread it before it goes out.`
-                : `${total} simulated Indian readers in six groups react to this version, so you can see which groups may doubt or misread it before it goes out.`}
+                ? `${total} simulated readers from ${segs.length || "the"} reader groups your brand defined react to this version, so you can see which groups may doubt or misread it, and who it isn't for, before it goes out.`
+                : `${total} simulated Indian readers in six groups react to this version, so you can see which groups may doubt or misread it, and who it isn't for, before it goes out.`}
             </p>
           </div>
           {!unavailable && runBtn(done ? "Run again" : "Run audience preview", done ? "again" : "play")}
@@ -296,9 +310,10 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
         )}
         {done && data?.overall && (
           <div className="mt-4">
-            <p className="text-footnote"><span className="font-semibold">Post average {f1(data.overall.mean_score)} of 5</span> <span className="text-muted-foreground">({leanWords(data.overall.mean_score)}; spread {data.overall.sd.toFixed(2)})</span></p>
-            <div className="mt-1"><ScaleBar mean={data.overall.mean_score} sd={data.overall.sd} label="All simulated readers, average reaction" /></div>
+            <p className="text-footnote"><span className="font-semibold">Credibility {f1(data.overall.mean_score)} of 5</span> <span className="text-muted-foreground">({leanWords(data.overall.mean_score)}; spread {data.overall.sd.toFixed(2)})</span></p>
+            <div className="mt-1"><ScaleBar mean={data.overall.mean_score} sd={data.overall.sd} label="All simulated readers, average credibility" /></div>
             <div className="mt-1"><Shares t={data.overall} /></div>
+            <div className="mt-0.5"><Relevance t={data.overall} /></div>
           </div>
         )}
         {done && data && (
@@ -338,7 +353,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
       {done && segs.length > 0 && (
         <>
           <h3 className="px-1 pt-1 text-headline">{segs.length} reader groups</h3>
-          <p className="-mt-2 px-1 text-caption text-muted-foreground">Tap a group to see its most negative readers{segs.some((s) => s.why) ? " and a likely reason" : ""}.</p>
+          <p className="-mt-2 px-1 text-caption text-muted-foreground">Tap a group to see its least convinced readers{segs.some((s) => s.why) ? " and a likely reason" : ""}.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {segs.map((s) => (
               <SegmentCard key={s.key} seg={s} selected={selected === s.key} onSelect={() => setSelected((cur) => (cur === s.key ? null : s.key))} delta={cmpDelta.get(s.key)?.mean_score} />
