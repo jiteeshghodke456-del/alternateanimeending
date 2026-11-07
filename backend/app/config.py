@@ -54,7 +54,8 @@ class Settings(BaseSettings):
     # copied from a template ("demo" or "blank"). WORKSPACES_ENABLED=0 = the old single shared DB at DB_PATH.
     workspaces_enabled: bool = True
     workspaces_dir: str = str(default_tmp_dir() / "brandgate_ws")
-    max_workspaces: int = 40  # least-recently-used beyond this are deleted
+    max_workspaces: int = 200  # least-recently-used beyond this are deleted (~0.3 MB of disk each)
+    max_workspaces_hard: int = 300  # a workspace with a signed-in request in the last hour is only deleted beyond this
     workspace_ttl_h: float = 12.0  # deleted after this long without a request
 
     # Auth

@@ -102,13 +102,16 @@ def test_cookieless_request_gets_a_demo_workspace(clients: list[TestClient]) -> 
     c = clients[0]
     assert c.get("/api/health").status_code == 200
     assert "bg_ws" not in c.cookies  # health never creates a workspace
-    r = c.get("/api/me")
-    assert r.status_code == 200 and "bg_ws" in r.cookies
-    assert r.json()["users"], "demo users come from the workspace"
-    ws = c.get("/api/workspace").json()
+    n0 = len(W.all_meta())
+    r = c.get("/api/me")  # the landing page: served read-only from the demo template
+    assert r.status_code == 200 and "bg_ws" not in r.cookies and "x-bg-workspace" not in r.headers
+    assert r.json()["users"], "demo users come from the template"
+    assert len(W.all_meta()) == n0
+    rw = c.get("/api/workspace")  # asking for the workspace creates it
+    ws = rw.json()
     assert ws["kind"] == "demo" and ws["brand"]["name"] and ws["expires_at"] and ws["limits"]["max_workspaces"] >= 1
     assert c.get("/api/workspace").json()["id"] == ws["id"]  # the cookie sticks
-    assert r.headers["x-bg-workspace"] == ws["token"]
+    assert rw.headers["x-bg-workspace"] == ws["token"] and "x-bg-workspace-reset" not in rw.headers
     # cookies blocked (cross-site iframe): the header / ?ws= token selects the same workspace
     bare = TestClient(app)
     assert bare.get("/api/workspace", headers={"X-BG-Workspace": ws["token"]}).json()["id"] == ws["id"]
@@ -286,9 +289,10 @@ def test_unknown_or_expired_cookie_gets_a_new_demo_workspace(clients: list[TestC
 
 def test_lru_eviction_and_engine_cache(ws_env: Path) -> None:
     s = get_settings()
-    saved = s.max_workspaces
+    saved = s.max_workspaces, s.max_workspaces_hard
     try:
-        s.max_workspaces = 3
+        W.clear_for_tests()  # workspaces signed into by earlier tests would be protected
+        s.max_workspaces = s.max_workspaces_hard = 3
         W.enforce_limits()
         made = [W.create("demo") for _ in range(3)]
         assert {m.id for m in W.all_meta()} == {m.id for m in made}
@@ -303,7 +307,7 @@ def test_lru_eviction_and_engine_cache(ws_env: Path) -> None:
             W.engine_for(m.id)
         assert len(W._engines) <= W.ENGINE_CACHE
     finally:
-        s.max_workspaces = saved
+        s.max_workspaces, s.max_workspaces_hard = saved
 
 
 def test_copied_workspace_never_inherits_a_running_check(ws_env: Path) -> None:
@@ -435,3 +439,70 @@ def test_reset_after_a_real_recheck_leaves_no_duplicate_findings(clients: list[T
     after = a.get(f"/api/versions/{vid}/findings").json()
     assert a.get(f"/api/versions/{vid}").json()["check_status"] == b.get(f"/api/versions/{vid}").json()["check_status"]
     assert len(after) == len(fresh), "the reset workspace differs from a fresh copy of the demo"
+
+
+# ------------------------------------------------------------------ audit #9: eviction of active work
+def test_page_views_and_bots_never_create_workspaces(clients: list[TestClient]) -> None:
+    n0 = len(W.all_meta())
+    for _ in range(25):  # 25 first visits / crawler hits on the landing page
+        bot = TestClient(app)
+        assert bot.get("/api/me").status_code == 200
+        assert bot.get("/api/items").status_code == 401  # needs a sign-in; still nothing created
+    assert len(W.all_meta()) == n0
+    c = clients[0]
+    users = c.get("/api/me").json()["users"]
+    r = c.post("/api/demo/login", json={"user_id": next(u["id"] for u in users if u["role"] == "creator")})
+    assert r.status_code == 200 and "bg_ws" in r.cookies  # sign-in creates the workspace
+    assert len(W.all_meta()) == n0 + 1
+    assert c.get("/api/brand").json()["demo"] is True
+
+
+def test_signed_in_workspace_survives_a_flood_until_the_hard_cap(clients: list[TestClient]) -> None:
+    s = get_settings()
+    saved = s.max_workspaces, s.max_workspaces_hard
+    try:
+        W.clear_for_tests()  # workspaces signed into by earlier tests would be protected
+        s.max_workspaces, s.max_workspaces_hard = 3, 6
+        judge = clients[0]
+        judge.post("/api/workspaces", json={"kind": "demo"})
+        login(judge, "creator")
+        post_text(judge, "Judge's work in progress.", "Judge post")
+        jid = judge.get("/api/workspace").json()["id"]
+        old = W.get_meta(jid)
+        assert old is not None and time.time() - old.last_signed_in < 5
+        old.last_used -= 1800  # idle for 30 min: the oldest workspace on disk
+        for _ in range(4):  # visitors who each opened a workspace but never signed in
+            TestClient(app).post("/api/workspaces", json={"kind": "demo"})
+        assert W.get_meta(jid) is not None, "an active judge's workspace was deleted below the hard cap"
+        assert "Judge post" in {i["title"] for i in judge.get("/api/items").json()}
+        assert len(W.all_meta()) <= 6
+        W.get_meta(jid).last_signed_in -= W.ACTIVE_PROTECT_S + 1  # an hour without a signed-in request
+        W.get_meta(jid).last_used -= 1800
+        TestClient(app).post("/api/workspaces", json={"kind": "demo"})
+        assert W.get_meta(jid) is None  # no longer protected: plain LRU applies
+    finally:
+        s.max_workspaces, s.max_workspaces_hard = saved
+
+
+def test_expired_workspace_says_so_and_parallel_requests_share_the_new_one(clients: list[TestClient]) -> None:
+    c = clients[0]
+    c.post("/api/workspaces", json={"kind": "demo"})
+    login(c, "creator")
+    old = c.get("/api/workspace").json()["id"]
+    W.get_meta(old).last_used -= W.ttl_s() + 10
+    r1 = c.get("/api/items")
+    assert r1.status_code == 200 and r1.headers.get("x-bg-workspace-reset") == "1"
+    new = W.unsign(r1.headers["x-bg-workspace"])
+    assert new and new != old
+    # a second request still carrying the old token (sent in parallel) lands in the same new workspace
+    stale = TestClient(app)
+    stale.cookies.set("bg_ws", W.sign(old))
+    r2 = stale.get("/api/me")
+    assert r2.headers.get("x-bg-workspace-reset") == "1" and W.unsign(r2.headers["x-bg-workspace"]) == new
+    # once the browser has the new cookie, no more reset headers
+    assert "x-bg-workspace-reset" not in c.get("/api/items").headers
+    # signed in but the workspace cookie is gone entirely (its max-age passed): also a reset, not a template read
+    lost = TestClient(app)
+    tok = c.post("/api/demo/login", json={"user_id": "rohan"}).json()["token"]
+    r3 = lost.get("/api/items", headers={"Authorization": f"Bearer {tok}"})
+    assert r3.status_code == 200 and r3.headers.get("x-bg-workspace-reset") == "1"

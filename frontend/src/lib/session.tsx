@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, ApiError, serverFeatures, setToken, type BrandOut, type ServerFeatures, type HealthOut, type Role, type UserOut, type WorkspaceKind, type WorkspaceOut } from "./api";
+import { toast } from "sonner";
+import { api, ApiError, serverFeatures, setToken, WORKSPACE_RESET_EVENT, type BrandOut, type ServerFeatures, type HealthOut, type Role, type UserOut, type WorkspaceKind, type WorkspaceOut } from "./api";
 
 interface SessionValue {
   user: UserOut | null;
@@ -62,6 +63,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setBrand(b.status === "fulfilled" ? b.value : null);
     setWorkspace(w.status === "fulfilled" ? w.value : null);
   }, []);
+
+  // A response said this browser's workspace expired: say so, then reload who is signed in and the brand.
+  useEffect(() => {
+    const onReset = () => {
+      toast.info("Your workspace expired; a fresh demo was opened.", { id: "workspace-reset", duration: 8000 });
+      api.me().then((me) => {
+        setUser(me.user);
+        setUsers(me.users);
+        setDemoMode(me.demo_mode);
+        if (me.user) void refreshBrand();
+      }, () => undefined);
+    };
+    window.addEventListener(WORKSPACE_RESET_EVENT, onReset);
+    return () => window.removeEventListener(WORKSPACE_RESET_EVENT, onReset);
+  }, [refreshBrand]);
 
   // Brand + workspace follow the signed-in user (they need a session).
   useEffect(() => {

@@ -591,6 +591,16 @@ const BASE = "/api";
 const TOKEN_KEY = "bg-token";
 const WS_KEY = "bg-ws";
 const WS_HEADER = "X-BG-Workspace";
+const WS_RESET_HEADER = "X-BG-Workspace-Reset";
+/** Window event fired when a response says this browser's workspace expired (SessionProvider shows a toast). */
+export const WORKSPACE_RESET_EVENT = "bg:workspace-reset";
+let lastResetNotice = 0;
+function notifyWorkspaceReset(): void {
+  const now = Date.now();
+  if (now - lastResetNotice < 10_000) return; // parallel requests: one notice
+  lastResetNotice = now;
+  try { window.dispatchEvent(new Event(WORKSPACE_RESET_EVENT)); } catch { /* no window (tests) */ }
+}
 
 let memWs: string | null = null;
 /** Workspace token: sent as X-BG-Workspace (and ?ws= on URLs) so workspaces work where cookies are blocked. */
@@ -681,6 +691,8 @@ export async function request<T>(
   // A response that had to create a workspace hands back its token; keep it for cookie-less browsers.
   const newWs = res.headers.get(WS_HEADER);
   if (newWs) setWorkspaceToken(newWs);
+  // The workspace this browser had expired (or was deleted) and the server opened a fresh demo.
+  if (res.headers.get(WS_RESET_HEADER) === "1") notifyWorkspaceReset();
   const text = await res.text();
   let data: unknown = null;
   if (text) {

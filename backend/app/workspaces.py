@@ -8,9 +8,14 @@ see each other's actions. A new workspace is a copy of a template built once at 
 
 How a request finds its workspace: `WorkspaceMiddleware` reads the signed `bg_ws` cookie and puts a
 `WsRef` in a context variable. `db.get_engine()` and `services.upload_dir()` read it, so routers and
-pipeline code that open `Session(get_engine())` need no change. A request without a valid cookie
-gets a new demo workspace the first time it touches the DB (lazily, so /api/health, unknown routes
-and static files never create one), and the middleware sets the cookie on the response.
+pipeline code that open `Session(get_engine())` need no change.
+
+A workspace is created only when it is needed. A first visit (no workspace token and no sign-in) is
+served READ-ONLY from the demo template for GET requests (the landing page's /api/me), so page views,
+crawlers and bots never create one. Demo sign-in, POST /api/workspaces and any other write create it,
+and the middleware sets the cookie on that response. A request whose workspace expired or was
+deleted gets a fresh demo workspace plus the response header `X-BG-Workspace-Reset: 1`, so the UI
+can say so instead of silently showing different data.
 
 Background work (checks, audience runs, PDF import, eval) captures the workspace when it is
 scheduled (`bind()`, used by pipeline.run._schedule) and keeps using it. In-memory state that is
@@ -18,8 +23,9 @@ keyed by DB ids (running checks, SSE subscribers, audience runs) uses `key(id)`,
 `(workspace_id, id)` in workspace mode and the plain id otherwise.
 
 Limits: at most MAX_WORKSPACES on disk (least recently used are deleted, visitors with only one or
-two requests first), deleted after WORKSPACE_TTL_H idle, at most ENGINE_CACHE open engines (NullPool,
-so an idle workspace holds no connection).
+two requests first). A workspace with a signed-in request in the last hour (ACTIVE_PROTECT_S) is never
+deleted for room unless the total would pass MAX_WORKSPACES_HARD. Deleted after WORKSPACE_TTL_H idle;
+at most ENGINE_CACHE open engines (NullPool, so an idle workspace holds no connection).
 """
 from __future__ import annotations
 
@@ -61,6 +67,11 @@ TOUCH_PERSIST_S = 60.0  # write last_used to disk at most this often per workspa
 ESTABLISHED_HITS = 3  # workspaces with fewer requests that have been idle ONE_OFF_IDLE_S are evicted first
 ONE_OFF_IDLE_S = 600.0
 SKIP_PATHS = ("/api/health", "/api/docs", "/api/openapi.json")
+RESET_HEADER = "x-bg-workspace-reset"  # "1" when the request's workspace was gone and a fresh demo was opened
+ACTIVE_PROTECT_S = 3600.0  # a workspace with a signed-in request this recent is kept until MAX_WORKSPACES_HARD
+REPLACED_KEEP_S = 120.0  # parallel requests with the same expired token share one replacement workspace
+# GET requests that never create a workspace: a first visit reads the demo template instead
+CREATES_ON_GET = ("/api/workspace",)
 
 BLANK_USERS = (("admin", "Admin", "admin"), ("writer", "Writer", "creator"),
                ("reviewer", "Reviewer", "reviewer"), ("approver", "Approver", "approver"))
@@ -74,6 +85,8 @@ class WsRef:
 
     id: Optional[str] = None
     created: bool = False  # a new workspace was made for this request: the response sets the cookie
+    template_read: bool = False  # first-visit GET served read-only from the demo template (nothing created)
+    replaced: Optional[str] = None  # the expired/unknown token this request came with (fresh demo opened)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
@@ -96,6 +109,9 @@ def ensure(ref: WsRef) -> str:
         if ref.id is None:
             ref.id = create("demo").id
             ref.created = True
+            if ref.replaced:
+                with _lock:
+                    _replaced[ref.replaced] = (ref.id, time.time())
     return ref.id
 
 
@@ -187,6 +203,7 @@ class Meta:
     created_at: float
     last_used: float
     hits: int = 0
+    last_signed_in: float = 0.0  # last request that carried a valid sign-in token
     persisted_at: float = 0.0
 
     def created_iso(self) -> str:
@@ -204,6 +221,7 @@ _meta: dict[str, Meta] = {}
 _lock = threading.RLock()
 _engines: "OrderedDict[str, Any]" = OrderedDict()
 _opened: set[str] = set()  # workspaces opened at least once by this process (stale-check cleanup done)
+_replaced: dict[str, tuple[str, float]] = {}  # expired token -> (replacement workspace id, when)
 busy_checks: list[Callable[[str], bool]] = []  # hooks: is background work running in this workspace?
 
 
@@ -213,6 +231,10 @@ def ttl_s() -> float:
 
 def max_workspaces() -> int:
     return max(1, int(get_settings().max_workspaces))
+
+
+def max_workspaces_hard() -> int:
+    return max(max_workspaces(), int(get_settings().max_workspaces_hard))
 
 
 def _write_meta(m: Meta) -> None:
@@ -255,7 +277,7 @@ def lookup(ws_id: Optional[str]) -> Optional[str]:
         return ws_id
 
 
-def touch(ws_id: str) -> None:
+def touch(ws_id: str, signed_in: bool = False) -> None:
     now = time.time()
     with _lock:
         m = _meta.get(ws_id)
@@ -263,7 +285,10 @@ def touch(ws_id: str) -> None:
             return
         m.last_used = now
         m.hits += 1
-        if now - m.persisted_at > TOUCH_PERSIST_S or m.hits == ESTABLISHED_HITS:
+        first_sign_in = signed_in and now - m.last_signed_in > TOUCH_PERSIST_S
+        if signed_in:
+            m.last_signed_in = now
+        if now - m.persisted_at > TOUCH_PERSIST_S or m.hits == ESTABLISHED_HITS or first_sign_in:
             try:
                 _write_meta(m)
             except OSError:
@@ -513,17 +538,28 @@ def _enforce_limits(room_for: int = 0) -> None:
     for m in list(_meta.values()):
         if _expired(m, now):
             _evict(m.id, "expired")
+    for k, (_, t) in list(_replaced.items()):
+        if now - t > REPLACED_KEEP_S:
+            _replaced.pop(k, None)
     excess = len(_meta) + room_for - max_workspaces()
     if excess <= 0:
         return
+
+    def active(m: Meta) -> bool:  # someone signed in used it within the last hour
+        return now - m.last_signed_in < ACTIVE_PROTECT_S
+
     # Stale one-off workspaces (crawlers, a single page view) go first, then plain LRU; busy ones last.
     def _order(m: Meta) -> tuple:
         one_off = m.hits < ESTABLISHED_HITS and now - m.last_used > ONE_OFF_IDLE_S
         return (not one_off, _busy(m.id), m.last_used)
 
-    order = sorted(_meta.values(), key=_order)
-    for m in order[:excess]:
+    # Soft cap: never delete an active workspace to make room; the total may grow up to the hard cap.
+    for m in sorted((m for m in _meta.values() if not active(m)), key=_order)[:excess]:
         _evict(m.id, "over MAX_WORKSPACES, least recently used")
+    hard_excess = len(_meta) + room_for - max_workspaces_hard()
+    if hard_excess > 0:  # only now may active workspaces go (still least recently used, busy last)
+        for m in sorted(_meta.values(), key=_order)[:hard_excess]:
+            _evict(m.id, "over MAX_WORKSPACES_HARD, least recently used")
 
 
 def enforce_limits() -> None:
@@ -600,7 +636,8 @@ def _load_registry() -> None:
         try:
             data = json.loads((d / META_NAME).read_text(encoding="utf-8"))
             m = Meta(id=d.name, kind=str(data.get("kind", "demo")), created_at=float(data["created_at"]),
-                     last_used=float(data.get("last_used", data["created_at"])), hits=int(data.get("hits", 0)))
+                     last_used=float(data.get("last_used", data["created_at"])), hits=int(data.get("hits", 0)),
+                     last_signed_in=float(data.get("last_signed_in", 0.0)))
             if m.kind not in KINDS or not (d / DB_NAME).is_file():
                 raise ValueError("incomplete")
             m.persisted_at = time.time()
@@ -627,9 +664,19 @@ def clear_for_tests() -> None:
             _dispose(ws_id)
         _meta.clear()
         _opened.clear()
+        _replaced.clear()
 
 
 # ------------------------------------------------------------------ ASGI middleware
+def _has_sign_in(conn: Any) -> bool:
+    """The request carries a valid (signed, unexpired) demo sign-in token."""
+    from app.deps import COOKIE_NAME as SESSION_COOKIE, read_token
+
+    tok = conn.cookies.get(SESSION_COOKIE)
+    if not tok:
+        auth = conn.headers.get("authorization", "")
+        tok = auth[7:].strip() if auth.lower().startswith("bearer ") else conn.query_params.get("token")
+    return bool(tok) and read_token(tok) is not None
 class WorkspaceMiddleware:
     """Pure ASGI (no BaseHTTPMiddleware), so the context variable reaches the endpoint, its
     threadpool dependencies and any task it starts."""
@@ -647,16 +694,32 @@ class WorkspaceMiddleware:
         conn = HTTPConnection(scope)
         # cookie first; header / ?ws= are the fallback for browsers that block the cookie (cross-site iframe)
         raw = conn.cookies.get(COOKIE_NAME) or conn.headers.get(HEADER_NAME) or conn.query_params.get("ws")
+        signed_in = _has_sign_in(conn)
         ws_id = lookup(unsign(raw))
+        replaced: Optional[str] = None
+        if ws_id is None and (raw or signed_in):
+            # this visitor HAD a workspace (a token or a sign-in) that expired or was deleted
+            replaced = raw or "signed-in"
+            with _lock:
+                again = _replaced.get(raw) if raw else None
+            if again and lookup(again[0]):
+                ws_id = again[0]  # a parallel request already opened the replacement
         if ws_id:
-            touch(ws_id)
-        ref = WsRef(id=ws_id)
+            touch(ws_id, signed_in=signed_in)
+        ref = WsRef(id=ws_id, replaced=replaced)
+        if ws_id is None and not raw and not signed_in and scope.get("method") in ("GET", "HEAD") \
+                and path not in CREATES_ON_GET and db_file(TEMPLATE_IDS["demo"]).is_file():
+            # first visit: read the demo template (users for the role picker); nothing is created
+            ref = WsRef(id=TEMPLATE_IDS["demo"], template_read=True)
         token = _current.set(ref)
 
         async def _send(msg: dict) -> None:
-            if msg.get("type") == "http.response.start" and ref.created and ref.id:
-                msg = {**msg, "headers": [*msg.get("headers", []), (b"set-cookie", cookie_header(ref.id)),
-                                          (HEADER_NAME.encode(), sign(ref.id).encode())]}
+            if msg.get("type") == "http.response.start" and ref.id and (ref.created or ref.replaced) \
+                    and not ref.template_read:
+                extra = [(b"set-cookie", cookie_header(ref.id)), (HEADER_NAME.encode(), sign(ref.id).encode())]
+                if ref.replaced:
+                    extra.append((RESET_HEADER.encode(), b"1"))
+                msg = {**msg, "headers": [*msg.get("headers", []), *extra]}
             await send(msg)
 
         try:
