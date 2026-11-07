@@ -27,6 +27,7 @@ from app.schemas import (
     ItemDetail,
     ItemState,
     ItemSummary,
+    OkOut,
     ResubmitOut,
     VersionOut,
 )
@@ -203,6 +204,31 @@ def get_unit_image(unit_id: int, session: SessionDep, user: CurrentUser) -> File
     if u is None or not u.image_path or not Path(u.image_path).is_file():
         raise HTTPException(status_code=404, detail="This image isn't available.")
     return FileResponse(u.image_path)
+
+
+# OWNER: pipeline-agent
+@router.post("/versions/{version_id}/check", response_model=OkOut)
+async def check_version(version_id: int, session: SessionDep, user: CurrentUser) -> OkOut:
+    """(Re-)run the check on a version, e.g. a seeded item that shows "not checked yet".
+    Admin, or the item's creator. Items in draft/findings_ready go to "checking" and back to
+    "findings_ready"; items further along the workflow keep their state. A re-run replaces the
+    version's findings. Progress streams on GET /versions/{id}/events."""
+    v = get_version_or_404(session, version_id)
+    item = get_item_or_404(session, v.item_id)
+    if user.role != "admin" and item.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="Only a Brand Admin or the item's creator can run the check.")
+    if pipeline_run.is_running(v.id) or v.check_status == "running":
+        return OkOut(ok=True, message="This version is already being checked.")
+    if item.state in ("draft", "findings_ready", "checking"):
+        item.state = "checking"
+        touch(item)
+        session.add(item)
+    v.check_status = "queued"
+    session.add(v)
+    audit(session, "check_requested", item_id=item.id, version_id=v.id, user_id=user.id, detail={})
+    session.commit()
+    pipeline_run.start_check(v.id)
+    return OkOut(ok=True, message="Check started.")
 
 
 # OWNER: pipeline-agent (event source lives in pipeline/run.py: subscribe())

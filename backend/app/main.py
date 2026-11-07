@@ -26,6 +26,9 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
     summary = seed_if_empty()
     if summary:
         log.info("Seeded empty database: %s", summary)
+    from app.pipeline.run import on_startup  # pipeline-agent: bind loop, clean stale checks, demo pre-run
+
+    on_startup()
     yield
 
 

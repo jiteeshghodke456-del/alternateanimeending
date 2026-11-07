@@ -149,3 +149,13 @@ def test_dominant_colours_shares(tmp_path) -> None:  # noqa: ANN001
 def test_ciede2000_known_values(lab1, lab2, expected) -> None:  # noqa: ANN001
     assert tier0.ciede2000(lab1, lab2) == pytest.approx(expected, abs=1e-4)
     assert tier0.ciede2000(lab2, lab1) == pytest.approx(expected, abs=1e-4)
+
+
+def test_never_say_rule_is_exact_even_when_method_is_jev() -> None:
+    rule = RuleSpec(code="R-TEST-98", category="words", severity="minor", statement="Never say 'cheap'", check_method="jev")
+    ctx = seed_ctx("So cheap.")
+    ctx.rules, ctx.terms = [rule], []
+    assert [(h.rule_code, h.quote) for h in tier0.run_tier0_text("So cheap.", ctx)] == [("R-TEST-98", "cheap")]
+    vague = RuleSpec(code="R-TEST-97", category="tone", severity="minor", statement="Sound 'premium'", check_method="jev")
+    ctx.rules = [vague]
+    assert tier0.run_tier0_text("So cheap.", ctx) == []

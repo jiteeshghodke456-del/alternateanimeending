@@ -158,6 +158,14 @@ def find_phrases(text: str, phrases: Iterable[str], case_insensitive: bool = Tru
 _QUOTED = re.compile(r"[\"'‘“]([^\"'’”]{2,40})[\"'’”]")
 
 
+NEVER_SAY = re.compile(r"^\s*(never|don'?t|do not|avoid|no)\s+(say|use|write|saying|using|writing)\b", re.IGNORECASE)
+
+
+def is_never_say(rule: RuleSpec) -> bool:
+    """An admin rule like "Never say 'cheap'" with no params is checked exactly, whatever its method."""
+    return not _has_known_params(rule.params or {}) and bool(NEVER_SAY.search(rule.statement)) and bool(statement_words(rule.statement))
+
+
 def statement_words(statement: str) -> list[str]:
     """Quoted words in a rule statement ("Never say 'cheap'") for admin rules without params."""
     return [m.group(1).strip() for m in _QUOTED.finditer(statement) if m.group(1).strip()]
@@ -639,6 +647,8 @@ def run_tier0_text(text: str, ctx: CheckContext, state: Optional[PostState] = No
     for rule in rules:
         if rule.check_method in ("tier0", "claim"):
             hits += check_rule_on_text(rule, text, ctx, state)
+        elif is_never_say(rule):
+            hits += check_banned(rule, text)
     hits = merge_hits(hits)
     term_hits = check_terms(text, ctx.terms, rules)
     hits += [h for h in term_hits if not any(_overlaps(h, o) for o in hits)]
