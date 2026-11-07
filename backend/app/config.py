@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     jev_concurrency: int = 8  # Jev calls in flight per process
     audience_readers: int = 240  # simulated readers per Audience Preview run (2 judgments each)
 
+    # Web page source (pipeline/webfetch.py)
+    webfetch_contact_url: str = "https://brand-gate.onrender.com"  # in the bot's user agent: BrandGateBot/1.0 (+url)
+    webfetch_proxy: str = ""  # dev sandboxes only: send page fetches through this HTTP proxy (DNS checked per hop)
+    webfetch_ca_bundle: str = ""  # CA bundle for webfetch_proxy (a TLS-intercepting proxy)
+
     @field_validator("session_secret")
     @classmethod
     def _blank_secret_uses_dev_default(cls, v: str) -> str:
