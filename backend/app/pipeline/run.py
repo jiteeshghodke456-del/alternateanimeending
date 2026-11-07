@@ -40,7 +40,7 @@ from sqlmodel import Session, delete, select
 from app import workspaces as W
 from app.config import get_settings
 from app.db import get_engine
-from app.models import AICall, Asset, Brand, ContentItem, Fact, Finding, Override, Rule, Term, Unit, Version, utcnow
+from app.models import AICall, Asset, Brand, ClaimRecord, ContentItem, Fact, Finding, Override, Rule, Term, Unit, Version, utcnow
 from app.pipeline import engine as E
 from app.pipeline import explain as X
 from app.pipeline import jev
@@ -264,6 +264,28 @@ def _finding_row(version_id: int, d: E.FindingDraft) -> Finding:
     )
 
 
+def claim_records(version_id: int, item_id: int, res: E.EngineResult) -> list[ClaimRecord]:
+    """Claims ledger rows for every claim the engine checked (supported ones too)."""
+    from datetime import date
+
+    out = []
+    for c in res.claims:
+        base = c.get("unit_char_start")
+        s0, e0 = c.get("local_start"), c.get("local_end")
+        span = (base + s0, base + e0) if base is not None and s0 is not None and e0 is not None else (None, None)
+        codes = list(c.get("fact_codes") or [])
+        primary = codes[0] if codes else c.get("fact_code")
+        vu = c.get("valid_until")
+        p_support = next((x["p"] for x in c.get("candidates") or [] if x["code"] == primary), None) if primary else None
+        out.append(ClaimRecord(
+            version_id=version_id, item_id=item_id, unit_id=c.get("unit_id"), group=c.get("group") or "factual",
+            text=(c.get("text") or "")[:1000], span_start=span[0], span_end=span[1],
+            status=c.get("ledger_status") or c.get("status") or "unsupported", via=c.get("via") or "jev",
+            fact_code=primary, fact_codes=codes, fact_valid_until=date.fromisoformat(vu) if vu else None,
+            support_p=p_support, rule_code=c.get("rule_code")))
+    return out
+
+
 def _save_calls(s: Session, calls: jev.CallLog, saved: int) -> int:
     for r in calls.records[saved:]:
         s.add(AICall(version_id=r.version_id, unit_id=r.unit_id, provider=r.provider, model=r.model, purpose=r.purpose,
@@ -306,6 +328,7 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             old = select(Finding.id).where(Finding.version_id == v.id)
             s.execute(delete(Override).where(Override.finding_id.in_(old)))  # type: ignore[attr-defined]
             s.execute(delete(Finding).where(Finding.version_id == v.id))  # a re-run replaces earlier findings
+            s.execute(delete(ClaimRecord).where(ClaimRecord.version_id == v.id))  # ...and its claims ledger rows
             v.check_status = "running"
             v.stats = {"units_total": units_total, "units_done": 0, "judgments": 0, "elapsed_ms": 0, "cost_usd": 0.0}
             audit(s, "check_started", item_id=item.id, version_id=v.id,
@@ -343,6 +366,8 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             v = s.get(Version, version_id)
             item = s.get(ContentItem, v.item_id)
             v.stats = _stats(res, calls, ctx, rows, elapsed)
+            for rec in claim_records(v.id, item.id, res):
+                s.add(rec)
             v.check_status = "done"
             if item.state == "checking":
                 item.state = "findings_ready"

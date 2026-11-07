@@ -267,3 +267,58 @@ async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: 
     if not res.ok:
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False, error=res.error)
     return decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True)
+
+
+# ------------------------------------------------------------------ claims ledger (Round 3, improvement 1)
+CONTRADICT_SCORE = 60  # token-set ratio: the fact is about the same thing as the claim
+
+
+def _fact_by_code(ctx: CheckContext, code: Optional[str]) -> Optional[FactSpec]:
+    return next((f for f in ctx.facts if f.code == code), None) if code else None
+
+
+def contradicting_fact(cr: ClaimResult, ctx: CheckContext) -> Optional[FactSpec]:
+    """Ledger refinement of an *unsupported* factual claim (code, no model): a current fact about the
+    same thing (ratio >= CONTRADICT_SCORE, Jev did not find support) states numbers, and none of the
+    claim's numbers appear in it ("40 cafes" vs F-04 "12 cafes"). The finding itself stays "unsupported"."""
+    if cr.status != "unsupported" or cr.claim.group != "factual" or cr.claim.from_jev:
+        return None
+    claim_nums = numbers(cr.claim.text)
+    if not claim_nums:
+        return None
+    for c in sorted(cr.candidates, key=lambda c: -c["score"]):
+        if c["expired"] or c["score"] < CONTRADICT_SCORE or (c["p"] is not None and c["p"] >= Q.HUMAN_AT):
+            continue
+        f = _fact_by_code(ctx, c["code"])
+        fnums = numbers(_fact_text(f)) if f else set()
+        if f and fnums and not (claim_nums & fnums):
+            return f
+    return None
+
+
+def relied_facts(cr: ClaimResult, ctx: CheckContext) -> list[str]:
+    """Codes of the approved facts this claim relies on (the ledger's "evidence"), primary first.
+    supported/outdated -> the deciding fact; supported by numbers -> every candidate fact that holds one
+    of the claim's numbers; contradicted -> the fact it contradicts; unsupported -> none."""
+    out: list[str] = [cr.fact_code] if cr.fact_code else []
+    if cr.status in ("supported", "outdated") and cr.via == "numbers":
+        claim_nums = numbers(cr.claim.text)
+        for c in cr.candidates:
+            f = _fact_by_code(ctx, c["code"])
+            if f is None or c["code"] in out or (c["p"] is not None and c["p"] < Q.HUMAN_AT):
+                continue
+            if numbers(_fact_text(f)) & claim_nums:
+                out.append(f.code)
+    elif cr.status == "unsupported":
+        f = contradicting_fact(cr, ctx)
+        out = [f.code] if f else []
+    return out
+
+
+def ledger_status(cr: ClaimResult, ctx: CheckContext) -> str:
+    return "contradicted" if contradicting_fact(cr, ctx) is not None else cr.status
+
+
+def support_probability(cr: ClaimResult, fact_code: Optional[str]) -> Optional[float]:
+    """Jev's probability that `fact_code` supports the claim (None when decided without Jev)."""
+    return next((c["p"] for c in cr.candidates if c["code"] == fact_code), None) if fact_code else None

@@ -223,7 +223,11 @@ class _Run:
                                  masked_text=mask_pii_map(cl.text)[0])
         self.res.claims.append({"unit_idx": u.idx, "group": cr.claim.group, "status": cr.status, "via": cr.via,
                                 "rule_code": cr.rule_code, "fact_code": cr.fact_code, "p": cr.probability,
-                                "local_start": cr.claim.start, "local_end": cr.claim.end, "candidates": cr.candidates})
+                                "local_start": cr.claim.start, "local_end": cr.claim.end, "candidates": cr.candidates,
+                                # claims ledger (run.py writes ClaimRecord rows from these)
+                                "unit_id": u.id, "unit_char_start": u.char_start, "text": cr.claim.text,
+                                "ledger_status": C.ledger_status(cr, self.ctx), "fact_codes": C.relied_facts(cr, self.ctx),
+                                "valid_until": cr.fact_valid_until.isoformat() if cr.fact_valid_until else None})
         if cr.probability is not None and cr.via in ("jev", "numbers"):
             self.res.judgments.append(Judgment(u.idx, cr.rule_code, "claims", cr.probability, "claim",
                                                cr.claim.start, cr.claim.end, cr.status, cr.fact_code))
