@@ -119,8 +119,8 @@ def test_brand_overrides_limits_and_target() -> None:
     out = CH.check_text("instagram", "a" * 101, eff)
     assert codes(out) == ["R-CH-IG-CAPTION"] and "Limit set by your brand (platform default 2,200" in out[0].detail
     assert codes(CH.check_image("instagram", (1080, 1350), eff)) == ["R-CH-IG-RATIO"]
-    assert CH.target_score("instagram", targets) == 90 and CH.target_score("email", targets) == 80
-    assert CH.target_score("instagram", {"instagram": {"target_score": 150}}) == 80  # invalid -> default
+    assert CH.target_score("instagram", targets) == 90 and CH.target_score("email", targets) == 70
+    assert CH.target_score("instagram", {"instagram": {"target_score": 150}}) == 70  # invalid -> default
 
 
 def test_every_check_has_a_source_url_and_date() -> None:
@@ -218,6 +218,7 @@ def test_submit_below_target_requires_reason_and_reviewer_sees_it(who) -> None: 
     item_id, vid = make_item("rohan", channel="instagram")
     for _ in range(3):
         make_finding(vid, 0, 5, severity="major")  # 100 - 3x10 = 70 < 80
+    _set_target("instagram", 80)  # the default is 70; this test sets a stricter brand target
     rohan, meera = who("rohan"), who("meera")
     detail = rohan.get(f"/api/items/{item_id}").json()
     assert detail["item"]["score"] == 70 and detail["item"]["score_band"] == "fair" and detail["item"]["target_score"] == 80
@@ -233,6 +234,7 @@ def test_submit_below_target_requires_reason_and_reviewer_sees_it(who) -> None: 
         ev = s.exec(select(AuditEvent).where(AuditEvent.item_id == item_id, AuditEvent.action == "submitted")).one()
         assert ev.detail["below_target_reason"] == "Launch copy approved by legal on call"
         assert ev.detail["score"] == 70 and ev.detail["target_score"] == 80
+    _set_target("instagram", None)  # back to the default for later tests
 
 
 def test_submit_at_or_above_target_needs_no_reason_and_dismissed_findings_raise_score(who) -> None:  # noqa: F811
@@ -264,7 +266,7 @@ def test_channels_endpoint_overrides_and_permissions(who) -> None:  # noqa: F811
     asha, rohan = who("asha"), who("rohan")
     got = rohan.get("/api/brand/channels").json()
     ig = next(c for c in got["channels"] if c["channel"] == "instagram")
-    assert ig["target_score"] == 80 and {lim["code"] for lim in ig["limits"]} >= {"R-CH-IG-CAPTION", "R-CH-IG-RATIO"}
+    assert ig["target_score"] == 70 and {lim["code"] for lim in ig["limits"]} >= {"R-CH-IG-CAPTION", "R-CH-IG-RATIO"}
     assert all(lim["citation"]["url"].startswith("https://") for lim in ig["limits"])
     assert got["not_included"]
     assert rohan.put("/api/brand/channels/instagram", json={"target_score": 90}).status_code == 403
@@ -285,7 +287,7 @@ def test_channels_endpoint_overrides_and_permissions(who) -> None:  # noqa: F811
     # reset to defaults
     r = asha.put("/api/brand/channels/instagram", json={"target_score": None, "limits": {"caption_max_chars": None}})
     ig = next(c for c in r.json()["channels"] if c["channel"] == "instagram")
-    assert ig["target_score"] == 80 and not any(lim["overridden"] for lim in ig["limits"])
+    assert ig["target_score"] == 70 and not any(lim["overridden"] for lim in ig["limits"])
 
 
 def test_channel_finding_cites_platform_page(who) -> None:  # noqa: F811
@@ -334,7 +336,7 @@ def test_channel_settings_are_per_workspace(ws_clients: list[TestClient]) -> Non
     assert r.status_code == 200, r.text
     la = next(c for c in a.get("/api/brand/channels").json()["channels"] if c["channel"] == "linkedin")
     lb = next(c for c in b.get("/api/brand/channels").json()["channels"] if c["channel"] == "linkedin")
-    assert la["target_score"] == 95 and lb["target_score"] == 80
+    assert la["target_score"] == 95 and lb["target_score"] == 70
     assert la["limits"][0]["value"] == 1200 and lb["limits"][0]["value"] == 3000
 
 

@@ -35,7 +35,7 @@ def catalog() -> dict[str, Any]:
 
 
 def default_target_score() -> int:
-    return int(catalog().get("default_target_score", 80))
+    return int(catalog().get("default_target_score", 70))
 
 
 def checks_for(channel: str) -> dict[str, dict[str, Any]]:

@@ -1,6 +1,6 @@
 {
   "_about": "Built-in channel checks (R-CH-*). Every number here was read on an official page on the date given; numbers we could not verify are left out. Brands can override any value per workspace in Brand Kit -> Channels (stored in brand.channel_targets[channel]). Score targets are brand defaults, not platform numbers.",
-  "default_target_score": 80,
+  "default_target_score": 70,
   "sources": {
     "meta_ig_media": {
       "document": "Meta for Developers: Instagram Platform, IG User Media (content publishing reference)",
