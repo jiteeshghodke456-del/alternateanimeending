@@ -19,7 +19,6 @@ from app.models import CHANNELS, ContentItem, Finding, Unit, Version
 from app.pipeline import run as pipeline_run
 from app.pipeline.units import UploadError
 from app.schemas import (
-    AudienceOut,
     FindingDismissIn,
     FindingEditIn,
     FindingOut,
@@ -316,19 +315,3 @@ def dismiss_finding(finding_id: int, body: FindingDismissIn, session: SessionDep
     f.dismiss_note = (body.note or "").strip() or None
     f.edited_text = None
     return _save_finding(session, f, item, user, "finding_dismissed", {"rule_code": f.rule_code, "reason": body.reason})
-
-
-# ------------------------------------------------------------------ P1: audience preview
-# OWNER: pipeline-agent
-@router.post("/versions/{version_id}/audience", response_model=AudienceOut)
-async def start_audience(version_id: int, session: SessionDep, user: CurrentUser) -> AudienceOut:
-    raise HTTPException(status_code=501, detail="Audience Preview isn't available yet.")
-
-
-# OWNER: pipeline-agent
-@router.get("/versions/{version_id}/audience", response_model=AudienceOut)
-def get_audience(version_id: int, session: SessionDep, user: CurrentUser) -> AudienceOut:
-    v = get_version_or_404(session, version_id)
-    item = session.get(ContentItem, v.item_id)
-    status = "unavailable" if item and item.confidential else "none"
-    return AudienceOut(version_id=v.id, status=status)

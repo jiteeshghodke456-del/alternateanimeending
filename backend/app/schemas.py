@@ -437,12 +437,109 @@ class AIUsageOut(_Out):
 
 
 # ---------------------------------------------------------------- audience (P1)
-class AudienceOut(_Out):
+AUDIENCE_LABEL = "Simulated audience, directional signal, not a survey"
+AUDIENCE_ATTRIBUTION = "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)"
+AudienceSignal = Literal["distrust", "confused", "unsure", "ok"]
+
+
+class AudiencePersona(_Out):
+    id: str
+    idx: int
+    segment: str
+    bio: str  # short: "34, Shop owner, Nagpur, Maharashtra"
+    detail: str  # the dataset's one-line persona
+    distrust: Optional[float]  # Jev p, 0..1 (null = not answered: its request failed)
+    confused: Optional[float]
+    signal: Optional[AudienceSignal]  # dot colour, decided in code: distrust > 0.7 red; confused > 0.7 or 0.3-0.7 amber
+
+
+class AudienceTotals(_Out):
+    n: int
+    answered: int
+    distrust_pct: float  # 0..1, share with distrust p > 0.70
+    confused_pct: float  # share with confused p > 0.70
+    unsure_pct: float  # share with distrust p in 0.30..0.70
+    mean_distrust: float  # mean p (smoother than the thresholded shares; use it for small differences)
+    mean_confused: float
+
+
+class AudienceSegment(AudienceTotals):
+    key: str
+    label: str
+    worst: list[AudiencePersona]  # the 3 most negative personas
+    why: Optional[str] = None  # one LLM-written sentence for the worst segments (an AI guess)
+    why_source: Optional[Literal["llm"]] = None
+
+
+class AudienceParagraphP(_Out):
+    index: int
+    p: float
+
+
+class AudienceCulprit(_Out):
+    index: int  # paragraph index in the version text
+    text: str
+    char_start: Optional[int]  # offsets into VersionOut.text, for highlighting
+    char_end: Optional[int]
+    probability: float  # Jev Choice probability of this paragraph
+    any_distrust: float  # companion Noul: does any part reduce trust?
+    certain: bool  # any_distrust >= 0.70; otherwise show as "possibly"
+    probabilities: list[AudienceParagraphP]
+
+
+class AudienceDelta(_Out):
+    distrust_pct: float  # this version minus the compared one (negative = trusted more)
+    confused_pct: float
+    unsure_pct: float
+    mean_distrust: float
+    mean_confused: float
+
+
+class AudienceSegmentDelta(_Out):
+    key: str
+    label: str
+    previous: AudienceTotals
+    delta: AudienceDelta
+
+
+class AudienceCompare(_Out):
     version_id: int
+    version_n: Optional[int]
+    run_id: int
+    created_at: Optional[str]
+    overall: AudienceTotals
+    delta: AudienceDelta
+    segments: list[AudienceSegmentDelta]
+    culprit_paragraph: Optional[AudienceCulprit] = None
+
+
+class AudienceProgress(_Out):
+    done: int
+    total: int
+
+
+class AudienceOut(_Out):
+    """GET/POST /versions/{id}/audience. Poll GET (or GET .../audience/events, SSE) while `running`;
+    `personas` fill in as each batch of 20 finishes."""
+
+    version_id: int
+    run_id: Optional[int] = None
     status: Literal["none", "running", "done", "error", "unavailable"]
-    label: str = "Simulated audience, directional signal, not a survey"
-    results: dict[str, Any] = Field(default_factory=dict)
+    label: str = AUDIENCE_LABEL
+    attribution: str = AUDIENCE_ATTRIBUTION
+    message: Optional[str] = None  # human message for error / unavailable
+    progress: Optional[AudienceProgress] = None
+    overall: Optional[AudienceTotals] = None
+    segments: list[AudienceSegment] = Field(default_factory=list)
+    personas: list[AudiencePersona] = Field(default_factory=list)
+    culprit_paragraph: Optional[AudienceCulprit] = None
+    compare_to_previous_version: Optional[AudienceCompare] = None
+    warnings: list[str] = Field(default_factory=list)
+    elapsed_ms: Optional[int] = None
+    judgments: Optional[int] = None
+    cost_usd: Optional[float] = None
     created_at: Optional[UtcDatetime] = None
+    updated_at: Optional[UtcDatetime] = None
 
 
 # ---------------------------------------------------------------- insights

@@ -227,3 +227,63 @@ def multi_cta_question(sentence: str) -> Noul:
 def question_text(q: Any) -> dict[str, Any]:
     """Plain dict view of a question (for docs, DECISIONS.md and tests)."""
     return q.model_dump() if hasattr(q, "model_dump") else dict(q)
+
+
+# ------------------------------------------------------------------ P1-1 audience preview
+# Simulated readers (NVIDIA Nemotron-Personas-India, CC-BY-4.0). Each persona is written into its own
+# question (skill: "put each item into its own question" rather than an id into a shared list).
+# State: {"content": masked post text} or, for an image post, {"image": Image, "caption": masked caption}.
+# High = problem. Code turns the probabilities into percentages and dots (audience.py).
+AUDIENCE_DISTRUST_AT = 0.70  # p above this: this simulated reader distrusts / is confused
+AUDIENCE_UNSURE_AT = 0.30  # 0.30..0.70: unsure
+AUDIENCE_CULPRIT_AT = 0.70  # `any_distrust` companion: report the culprit paragraph above this ...
+AUDIENCE_CULPRIT_MAYBE_AT = 0.30  # ... as "possible" between the two, and not at all below
+
+
+def audience_subject(is_image: bool) -> str:
+    return "the post (`image` with its `caption`)" if is_image else "`content`"
+
+
+def audience_distrust_question(bio: str, is_image: bool = False) -> Noul:
+    subj = audience_subject(is_image)
+    return Noul(
+        instructions=f"Would this person find {subj} misleading or hard to trust? Person: {bio}",
+        criteria={
+            "true": f"This person would doubt {subj}: a claim sounds too good to be true to them, the numbers or "
+                    "promises seem made up, or the pressure to buy makes them suspicious.",
+            "false": f"This person would take {subj} at face value, like a plain note that a product costs Rs 495 "
+                     "including taxes or that a shop opens at 8 am.",
+        },
+    )
+
+
+def audience_confused_question(bio: str, is_image: bool = False) -> Noul:
+    subj = audience_subject(is_image)
+    return Noul(
+        instructions=f"Would this person misunderstand the main message of {subj}? Person: {bio}",
+        criteria={
+            "true": f"After reading {subj}, this person could not say what is being offered or what they are asked "
+                    "to do, for example because of slang, codes, mixed messages or English they find hard.",
+            "false": f"After reading {subj}, this person could say in one sentence what is offered and what to do "
+                     "next, like “a new product is out and I can order it online”.",
+        },
+    )
+
+
+# Which paragraph hurts trust most: a Choice over the paragraphs (options named by their opening
+# words, criteria = the paragraph), plus its companion Noul for the "none of them" case.
+AUDIENCE_ANY_DISTRUST = Noul(
+    instructions="Does any part of `content` make a typical reader less likely to trust the brand?",
+    criteria={
+        "true": "Some part of `content` makes a reader doubt the brand, such as an unbelievable claim, a made-up "
+                "looking number, or pressure to buy now.",
+        "false": "Every part of `content` reads as honest and plain, like an opening time, a price with taxes or "
+                 "a friendly invitation to visit.",
+    },
+)
+
+
+def audience_culprit_question(options: dict[str, str]) -> Choice:
+    """`options`: {descriptive option name: paragraph text}."""
+    return Choice(instructions="Which paragraph of `content` would most reduce a reader's trust in the brand?",
+                  criteria=dict(options))

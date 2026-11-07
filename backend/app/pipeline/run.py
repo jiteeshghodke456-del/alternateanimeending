@@ -91,6 +91,11 @@ def start_check(version_id: int) -> bool:
         return False
 
 
+def schedule(coro: Any) -> None:
+    """Run a coroutine in the background on the server loop (also from sync code). Used by P1 audience."""
+    _schedule(coro)
+
+
 def _schedule(coro: Any) -> None:
     try:
         loop = asyncio.get_running_loop()

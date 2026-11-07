@@ -1,0 +1,238 @@
+"""P1 innovations: Audience Preview (P1-1) and guideline PDF import (P1-3). OWNER: AI/ML (Jiteesh).
+P1-2 logo fidelity has no endpoint: it runs inside every image check (pipeline/engine.py).
+
+Audience Preview
+    POST /versions/{id}/audience          start a run (202), or return the one already running
+    GET  /versions/{id}/audience          latest run; ?compare_to=<version_id> compares with any version
+                                          (default: the item's previous version that has a finished run)
+    GET  /versions/{id}/audience/events   SSE: `progress` events (AudienceOut JSON), then `done` | `error`
+    Refused for confidential items (409) and without a Jev key (503).
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from sqlmodel import Session, select
+from sse_starlette.sse import EventSourceResponse
+
+from app.config import get_settings
+from app.db import get_engine
+from app.deps import CurrentUser, SessionDep
+from app.models import AICall, AudienceRun, ContentItem, Unit, Version, utcnow
+from app.pipeline import audience as A
+from app.pipeline import jev
+from app.pipeline import run as pipeline_run
+from app.pipeline.privacy import mask_pii_map
+from app.pipeline.units import split_text
+from app.schemas import AudienceCompare, AudienceOut
+
+log = logging.getLogger("brandgate.innovations")
+router = APIRouter(tags=["innovations"])
+
+CONFIDENTIAL_MESSAGE = ("Audience Preview sends the content to Jev, an external service, so it isn't available for "
+                        "confidential items.")
+NO_JEV_MESSAGE = "Audience Preview needs Jev, and Jev isn't configured on this server."
+STALE_MESSAGE = "The server restarted while this audience run was in progress. Start it again."
+FAILED_MESSAGE = "The audience run failed. Try again in a moment."
+
+_active: set[int] = set()  # version ids with an audience run in progress (this process)
+
+
+# ------------------------------------------------------------------ helpers
+def _version_item(session: Session, version_id: int) -> tuple[Version, ContentItem]:
+    v = session.get(Version, version_id)
+    item = session.get(ContentItem, v.item_id) if v else None
+    if v is None or item is None:
+        raise HTTPException(status_code=404, detail="That version doesn't exist (the demo may have been reset).")
+    return v, item
+
+
+def _latest_run(session: Session, version_id: int, *, done_only: bool = False) -> Optional[AudienceRun]:
+    q = select(AudienceRun).where(AudienceRun.version_id == version_id)
+    if done_only:
+        q = q.where(AudienceRun.status == "done")
+    return session.exec(q.order_by(AudienceRun.id.desc())).first()  # type: ignore[union-attr]
+
+
+def _mark_stale(session: Session, run: AudienceRun) -> None:
+    if run.status == "running" and run.version_id not in _active:
+        run.status, run.error, run.updated_at = "error", STALE_MESSAGE, utcnow()
+        session.add(run)
+        session.commit()
+        session.refresh(run)
+
+
+def _compare_target(session: Session, v: Version, compare_to: Optional[int]) -> Optional[tuple[Version, AudienceRun]]:
+    if compare_to is not None:
+        other = session.get(Version, compare_to)
+        run = _latest_run(session, compare_to, done_only=True) if other else None
+        return (other, run) if other and run else None
+    prev = session.exec(select(Version).where(Version.item_id == v.item_id, Version.n < v.n)
+                        .order_by(Version.n.desc())).all()  # type: ignore[union-attr]
+    for pv in prev:
+        run = _latest_run(session, pv.id, done_only=True)
+        if run:
+            return pv, run
+    return None
+
+
+def audience_out(session: Session, v: Version, item: ContentItem, compare_to: Optional[int] = None) -> AudienceOut:
+    if item.confidential:
+        return AudienceOut(version_id=v.id, status="unavailable", message=CONFIDENTIAL_MESSAGE)
+    run = _latest_run(session, v.id)
+    if run is None:
+        if not get_settings().jev_configured:
+            return AudienceOut(version_id=v.id, status="unavailable", message=NO_JEV_MESSAGE)
+        return AudienceOut(version_id=v.id, status="none")
+    _mark_stale(session, run)
+    res = dict(run.results or {})
+    out = AudienceOut(version_id=v.id, run_id=run.id, status=run.status, message=run.error,  # type: ignore[arg-type]
+                      created_at=run.created_at, updated_at=run.updated_at, **res)
+    if run.status == "done":
+        tgt = _compare_target(session, v, compare_to)
+        if tgt and tgt[1].id != run.id:
+            pv, prun = tgt
+            cmp = A.compare(res, dict(prun.results or {}), version_id=pv.id, version_n=pv.n, run_id=prun.id,
+                            created_at=prun.created_at.isoformat() + "Z" if prun.created_at else None)
+            if cmp:
+                out = out.model_copy(update={"compare_to_previous_version": AudienceCompare.model_validate(cmp)})
+    return out
+
+
+def _content(session: Session, v: Version) -> tuple[str, list[dict], Optional[str], int]:
+    """Masked content, paragraphs [{text (masked), char_start, char_end}] with offsets into the
+    original Version.text, the image path for image versions, and how many PII items were masked."""
+    image = session.exec(select(Unit).where(Unit.version_id == v.id, Unit.kind == "image")).first()
+    text = v.text or ""
+    masked, mapping = mask_pii_map(text)
+    if image is not None and image.image_path:
+        return masked, [], image.image_path, len(mapping)
+    originals = split_text(text)
+    masked_paras = split_text(masked)
+    if len(masked_paras) != len(originals):  # masking changed the paragraph structure: mask one by one
+        masked_paras = [type(o)(kind=o.kind, idx=o.idx, text=mask_pii_map(o.text)[0], char_start=o.char_start,
+                                char_end=o.char_end) for o in originals]
+    paras = [{"text": m.text, "char_start": o.char_start, "char_end": o.char_end} for o, m in zip(originals, masked_paras)]
+    return masked, paras, None, len(mapping)
+
+
+def _save_calls(calls: jev.CallLog, saved: int) -> int:
+    with Session(get_engine()) as s:
+        for r in calls.records[saved:]:
+            s.add(AICall(version_id=r.version_id, unit_id=r.unit_id, provider=r.provider, model=r.model,
+                         purpose=r.purpose, input_tokens=r.input_tokens, latency_ms=r.latency_ms, cost_usd=r.cost_usd,
+                         ok=r.ok))
+        s.commit()
+    return len(calls.records)
+
+
+async def run_audience(run_id: int) -> None:
+    """Background task: own DB sessions; never raises."""
+    calls = jev.CallLog()
+    version_id = None
+    try:
+        with Session(get_engine()) as s:
+            run = s.get(AudienceRun, run_id)
+            if run is None:
+                return
+            version_id = run.version_id
+            calls.version_id = version_id
+            v = s.get(Version, version_id)
+            content, paragraphs, image_path, _pii = _content(s, v)
+
+        def on_progress(partial: dict) -> None:
+            with Session(get_engine()) as s2:
+                r = s2.get(AudienceRun, run_id)
+                if r is not None and r.status == "running":
+                    r.results = {**(r.results or {}), **partial}
+                    r.updated_at = utcnow()
+                    s2.add(r)
+                    s2.commit()
+
+        results = await A.simulate(content, paragraphs, image_path=image_path, calls=calls, on_progress=on_progress)
+        _save_calls(calls, 0)
+        with Session(get_engine()) as s:
+            run = s.get(AudienceRun, run_id)
+            run.results, run.status, run.error, run.updated_at = results, "done", None, utcnow()
+            s.add(run)
+            s.commit()
+    except Exception as exc:  # noqa: BLE001
+        log.exception("audience run %s failed", run_id)
+        msg = str(exc) if isinstance(exc, RuntimeError) and str(exc) else FAILED_MESSAGE
+        try:
+            _save_calls(calls, 0)
+            with Session(get_engine()) as s:
+                run = s.get(AudienceRun, run_id)
+                if run is not None:
+                    run.status, run.error, run.updated_at = "error", msg, utcnow()
+                    s.add(run)
+                    s.commit()
+        except Exception:  # noqa: BLE001
+            log.exception("could not record the failed audience run %s", run_id)
+    finally:
+        if version_id is not None:
+            _active.discard(version_id)
+
+
+# ------------------------------------------------------------------ audience endpoints
+@router.post("/versions/{version_id}/audience", response_model=AudienceOut, status_code=202)
+async def start_audience(version_id: int, session: SessionDep, user: CurrentUser) -> AudienceOut:
+    v, item = _version_item(session, version_id)
+    if item.confidential:
+        raise HTTPException(status_code=409, detail=CONFIDENTIAL_MESSAGE)
+    if not jev.available():
+        raise HTTPException(status_code=503, detail=NO_JEV_MESSAGE)
+    if version_id in _active:
+        return audience_out(session, v, item)
+    if not (v.text or "").strip() and not session.exec(select(Unit).where(Unit.version_id == v.id, Unit.kind == "image")).first():
+        raise HTTPException(status_code=422, detail="This version has no text or image to show the audience.")
+    run = AudienceRun(version_id=v.id, status="running",
+                      results={"progress": {"done": 0, "total": len(A.load_personas())}})
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+    _active.add(version_id)
+    try:
+        pipeline_run.schedule(run_audience(run.id))
+    except Exception:  # noqa: BLE001
+        _active.discard(version_id)
+        run.status, run.error = "error", FAILED_MESSAGE
+        session.add(run)
+        session.commit()
+    return audience_out(session, v, item)
+
+
+@router.get("/versions/{version_id}/audience", response_model=AudienceOut)
+def get_audience(version_id: int, session: SessionDep, user: CurrentUser,
+                 compare_to: Optional[int] = Query(default=None, description="Compare with this version's latest run")) -> AudienceOut:
+    v, item = _version_item(session, version_id)
+    return audience_out(session, v, item, compare_to)
+
+
+@router.get("/versions/{version_id}/audience/events")
+async def audience_events(version_id: int, session: SessionDep, user: CurrentUser) -> EventSourceResponse:
+    """SSE: `progress` (AudienceOut JSON) whenever more personas have answered, then `done` or `error`
+    (also AudienceOut). Pass `?token=` if cookies are blocked."""
+    _version_item(session, version_id)
+
+    async def gen():  # noqa: ANN202
+        last = None
+        for _ in range(600):  # ~2 minutes at most
+            with Session(get_engine()) as s:
+                v, item = _version_item(s, version_id)
+                out = audience_out(s, v, item)
+            key = (out.status, out.progress.done if out.progress else None, out.updated_at)
+            if out.status != "running":
+                yield {"event": "done" if out.status == "done" else "error", "data": out.model_dump_json()}
+                return
+            if key != last:
+                last = key
+                yield {"event": "progress", "data": out.model_dump_json()}
+            await asyncio.sleep(0.2)
+        yield {"event": "error", "data": AudienceOut(version_id=version_id, status="error",
+                                                     message="Timed out waiting for the audience run.").model_dump_json()}
+
+    return EventSourceResponse(gen(), ping=15)

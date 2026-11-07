@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.routers import auth, brand, content, eval as eval_router, insights, review
+from app.routers import auth, brand, content, eval as eval_router, innovations, insights, review
 from app.schemas import HealthOut
 
 APP_VERSION = "0.1.0"
@@ -78,7 +78,7 @@ def health() -> HealthOut:
                      llm_configured=s.llm_configured, demo_mode=s.demo_mode)
 
 
-for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router):
+for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router):
     api.include_router(r)
 
 
