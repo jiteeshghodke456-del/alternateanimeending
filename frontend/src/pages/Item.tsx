@@ -377,7 +377,7 @@ function Item() {
   const openCount = list.filter((f) => f.status === "open").length;
   const palette = brandQ.data?.palette ?? [];
   const canReview = role === "reviewer" || role === "approver";
-  const showWorkflow = isCreator || canReview;
+  const showWorkflow = !locked && (isCreator || canReview);
   const done = version?.check_status === "done";
 
   return (
