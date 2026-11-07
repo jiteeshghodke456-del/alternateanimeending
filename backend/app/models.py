@@ -180,6 +180,10 @@ class Finding(SQLModel, table=True):
     hit_end: Optional[int] = None
     fix_group: Optional[str] = None
     created_at: datetime = Field(default_factory=utcnow)
+    # Precedent memory (app/pipeline/precedent.py): the precedent that matched this finding at check time and
+    # the band the rules gave before the precedent lowered it (None = not lowered / no precedent).
+    precedent_id: Optional[int] = Field(default=None, index=True)
+    band_before: Optional[str] = None
 
 
 class ClaimRecord(SQLModel, table=True):
@@ -288,3 +292,37 @@ class RuleClarity(SQLModel, table=True):
     latency_ms: int = 0
     error: Optional[str] = None
     computed_at: Optional[datetime] = None
+
+
+# ---- Round 3: precedent memory (app/pipeline/precedent.py, app/precedents.py, routers/precedents.py) ----
+class Precedent(SQLModel, table=True):
+    """A human decision on a finding (dismissed with a reason, or a blocking finding overridden) that later
+    checks in the same workspace reuse: a matching new finding shows "Seen before" and goes down one band
+    (never below "human look" for blocking rules). Item/version/finding ids are plain ints (no FK): a
+    re-check deletes the version's findings, and the precedent must outlive them."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    brand_id: int = Field(foreign_key="brand.id", index=True)
+    rule_code: str = Field(index=True)
+    rule_version: int = 1
+    quote: str = ""  # the flagged words as written
+    quote_norm: str = ""  # normalised (pipeline.precedent.normalise)
+    context: str = ""  # the sentence around them
+    decision: str = "dismissed"  # dismissed|overridden
+    reason: str = "other"  # false_alarm|approved_exception|rule_outdated|other|override
+    note: Optional[str] = None
+    user_id: Optional[str] = None
+    user_name: str = ""
+    item_id: Optional[int] = Field(default=None, index=True)
+    item_title: str = ""
+    version_id: Optional[int] = None
+    finding_id: Optional[int] = Field(default=None, index=True)
+    channel: str = ""
+    severity: str = "minor"
+    band: str = "flag"  # band of the finding when the decision was made
+    active: bool = Field(default=True, index=True)
+    revoked_by: Optional[str] = None
+    revoked_at: Optional[datetime] = None
+    seeded: bool = False  # demo seed: linked to its finding (and that finding dismissed) by the first check
+    seed_linked: bool = False  # that first link happened (a re-check never dismisses again)
+    created_at: datetime = Field(default_factory=utcnow)

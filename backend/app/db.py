@@ -65,6 +65,9 @@ def add_missing_columns() -> list[str]:
 
     eng = get_engine()
     added: list[str] = []
+    from app import models  # noqa: F401  (register tables)
+
+    SQLModel.metadata.create_all(eng)  # new tables (e.g. precedent) in a DB from an older build; existing ones untouched
     insp = inspect(eng)
     with eng.begin() as conn:
         for table in SQLModel.metadata.sorted_tables:

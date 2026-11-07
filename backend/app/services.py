@@ -236,7 +236,17 @@ def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None)
                                valid_until=fa.valid_until, expired=fact_expired(fa.valid_until))
     data = f.model_dump()
     data.pop("created_at", None)
-    return FindingOut(**data, rule=rule_ref, fact=fact_ref, regulations=regulations)
+    data.pop("precedent_id", None)
+    # Precedent memory: "Seen before" + what it did to the band
+    precedent = band_note = None
+    if f.precedent_id:
+        from app import precedents
+        from app.pipeline.precedent import band_note as _band_note
+
+        precedent = precedents.ref_for(session, f, brand_id)
+        if precedent is not None:
+            band_note = _band_note(f.band_before or f.band, f.band, f.severity, precedent["decision"])
+    return FindingOut(**data, rule=rule_ref, fact=fact_ref, regulations=regulations, precedent=precedent, band_note=band_note)
 
 
 def touch(item: ContentItem) -> None:

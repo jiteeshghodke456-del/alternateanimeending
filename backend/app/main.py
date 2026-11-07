@@ -139,6 +139,9 @@ api.include_router(claims_router.router)  # Round 3: claims ledger + fact impact
 from app.routers import clarity as clarity_router  # noqa: E402
 
 api.include_router(clarity_router.router)
+from app.routers import precedents as precedents_router  # noqa: E402  (Round 3: precedent memory)
+
+api.include_router(precedents_router.router)
 
 
 @api.api_route("/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

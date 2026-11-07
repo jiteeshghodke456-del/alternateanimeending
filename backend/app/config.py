@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     prerun_delay_s: float = 15.0  # startup demo pre-run waits this long so the server is healthy first
     image_max_side: int = 1024  # images are downscaled to this before Jev (and colour work)
     sift_max_side: int = 640  # logo matching: largest piece one SIFT pass sees (~225 bytes/pixel); bigger images are tiled
+    precedent_max_age_days: int = 180  # precedent memory: older human decisions are no longer applied (0 = no limit)
     jev_concurrency: int = 8  # Jev calls in flight per process
     audience_readers: int = 240  # simulated readers per Audience Preview run (2 judgments each)
 

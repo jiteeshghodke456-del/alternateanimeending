@@ -35,12 +35,13 @@ import time
 from collections.abc import AsyncIterator
 from typing import Any, Optional
 
-from sqlmodel import Session, delete, select
+from sqlalchemy import or_
+from sqlmodel import Session, delete, select, update
 
 from app import workspaces as W
 from app.config import get_settings
 from app.db import get_engine
-from app.models import AICall, Asset, Brand, ClaimRecord, ContentItem, Fact, Finding, Override, Rule, Term, Unit, Version, utcnow
+from app.models import AICall, Asset, Brand, ClaimRecord, ContentItem, Fact, Finding, Override, Precedent, Rule, Term, Unit, Version, utcnow
 from app.pipeline import engine as E
 from app.pipeline import explain as X
 from app.pipeline import jev
@@ -332,6 +333,8 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             units_total = len(units)
             old = select(Finding.id).where(Finding.version_id == v.id)
             s.execute(delete(Override).where(Override.finding_id.in_(old)))  # type: ignore[attr-defined]
+            # precedent memory: SQLite reuses deleted ids, so a precedent must forget the finding it came from
+            s.execute(update(Precedent).where(Precedent.finding_id.in_(old)).values(finding_id=None))  # type: ignore[attr-defined]
             s.execute(delete(Finding).where(Finding.version_id == v.id))  # a re-run replaces earlier findings
             v.check_status = "running"
             v.stats = {"units_total": units_total, "units_done": 0, "judgments": 0, "elapsed_ms": 0, "cost_usd": 0.0}
@@ -340,6 +343,11 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             s.add(v)
             s.commit()
             brand_id = item.brand_id
+            # Precedent memory: earlier human decisions in this workspace (app/precedents.py)
+            from app import precedents as PR
+            from app.pipeline import precedent as PM
+
+            applier = PR.Applier(PR.load_specs(s, brand_id), {r.code: r.version for r in ctx.rules}, v.text or "", v.id)
             _publish(version_id, _event("queued", started, None, calls, units_total))
             _publish(version_id, _event("units", started, None, calls, units_total))
 
@@ -348,6 +356,10 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
 
             async def on_finding(d: E.FindingDraft) -> None:
                 row = _finding_row(version_id, d)
+                seen = applier.apply(d)
+                if seen is not None:  # code decides: one band down, blocking never below "human"
+                    row.precedent_id, row.band_before = seen.id, d.band
+                    row.band = PM.lower_band(d.band, d.severity)
                 s.add(row)
                 s.commit()
                 s.refresh(row)
@@ -375,6 +387,7 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
             s.execute(delete(ClaimRecord).where(ClaimRecord.version_id == v.id))
             for rec in claim_records(v.id, item.id, res):
                 s.add(rec)
+            PR.link_seeded(s, v.id, rows)  # demo seed: the seeded dismissal finds its finding
             v.check_status = "done"
             if item.state == "checking":
                 item.state = "findings_ready"
@@ -430,7 +443,8 @@ def _stored(version_id: int) -> tuple[Optional[str], dict, list[Any]]:
         if v is None:
             return None, {}, []
         item = s.get(ContentItem, v.item_id)
-        rows = s.exec(select(Finding).where(Finding.version_id == version_id, Finding.band != "pass")
+        rows = s.exec(select(Finding).where(Finding.version_id == version_id,
+                                            or_(Finding.band != "pass", Finding.precedent_id != None))  # noqa: E711
                       .order_by(Finding.span_start, Finding.id)).all()
         return v.check_status, dict(v.stats or {}), [to_finding_out(s, f, item.brand_id if item else None) for f in rows]
 
