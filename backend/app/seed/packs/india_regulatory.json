@@ -204,7 +204,7 @@
       "category": "legal",
       "severity": "major",
       "check_method": "jev",
-      "statement": "Don't dress an ad up as news, an independent review or a customer's own post; say clearly that it is an ad (disguised advertisement).",
+      "statement": "Don't make an ad look like a news story, an independent review or a customer's own post (disguised advertisement).",
       "citation": {
         "source": "ccpa_dark_patterns_2023",
         "clause": "Annexure 1 (9): Disguised Advertisement",
@@ -220,14 +220,16 @@
           "clause": "Section 2(28): misleading advertisement"
         }
       ],
-      "params": {},
+      "params": {
+        "flag_only": true
+      },
       "examples_violating": [
         "BREAKING: Pune's coffee lovers can't stop talking about this new roast. Order yours at saffronsteam.in.",
         "Honest review from a regular customer (not sponsored): this is the only coffee I buy now."
       ],
       "examples_ok": [
-        "Ad: Our new monsoon roast is out. Order at saffronsteam.in.",
-        "We roast every Tuesday and Friday, so your bag is always fresh."
+        "Rated 4.6 by 1,200 customers on our app. Try the monsoon roast today.",
+        "Ad: Our new monsoon roast is out. Order at saffronsteam.in."
       ]
     },
     {
@@ -266,7 +268,7 @@
       "category": "legal",
       "severity": "major",
       "check_method": "jev",
-      "statement": "A creator's or partner's paid, gifted or affiliate post must carry a clear label (Ad, Sponsored, Collaboration, Partnership, Free gift, Affiliate) at the start, not hidden at the end or among hashtags.",
+      "statement": "A post in which a creator or customer personally recommends a brand (\"my favourite\", \"use my code\", \"thanks for the gift\") must start with a label such as Ad, Sponsored, Collaboration or Free gift, not hide it at the end or among hashtags.",
       "citation": {
         "source": "asci_influencer",
         "clause": "Guideline 1, 1.2 and 1.3: Disclosure (upfront and prominent; permitted labels)",
@@ -276,15 +278,16 @@
         "channels": [
           "instagram",
           "linkedin"
-        ]
+        ],
+        "flag_only": true
       },
       "examples_violating": [
         "Loving my morning brew from @saffronsteam, use my code PRIYA10! #coffee #pune #mornings #ad",
         "Thanks @saffronsteam for the gift box, my new favourite roast! #coffeelover #gifted"
       ],
       "examples_ok": [
-        "#Ad Loving my morning brew from @saffronsteam, use my code PRIYA10!",
-        "Our new roast is out today. Come taste it at the cafe."
+        "Flat 20% off with code MONSOON20 at all our cafes. Order now.",
+        "#Ad Loving my morning brew from @saffronsteam, use my code PRIYA10!"
       ]
     },
     {
@@ -336,7 +339,9 @@
           "clause": "Rules 2(1)(wa) and 3(3)(a)(ii): label for synthetically generated information (a platform duty)"
         }
       ],
-      "params": {},
+      "params": {
+        "flag_only": true
+      },
       "examples_violating": [
         "Meet Aanya, our new brand ambassador (we created her with AI)! She tried the monsoon roast and loved it.",
         "Our AI avatar Kabir answers your DMs personally every evening, just like a real barista."

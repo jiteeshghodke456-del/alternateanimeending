@@ -161,6 +161,10 @@ class _Run:
         probabilities still appear in the rule scan; rewriting them is Round 3 (unclear-rule detection)."""
         if (rule.params or {}).get("vague"):
             return "pass"
+        # Rule packs: a regulation the text alone rarely settles (is this a creator's post? an AI avatar?)
+        # only raises a finding when Jev is confident; "needs a human look" would be mostly noise.
+        if (rule.params or {}).get("flag_only") and b == "human":
+            return "pass"
         return b
 
     @staticmethod

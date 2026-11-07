@@ -71,7 +71,8 @@ def _pack_specs(linked: dict[str, list[str]] | None = None) -> list[RuleSpec]:
     for r in pack.rules:
         f = P._fields(pack, r, (linked or {}).get(r.code, []))
         out.append(RuleSpec(code=r.code, category=f["category"], severity=f["severity"], statement=f["statement"],
-                            check_method=f["check_method"], params=f["params"]))
+                            check_method=f["check_method"], params=f["params"],
+                            examples_violating=f["examples_violating"], examples_ok=f["examples_ok"]))
     return out
 
 
@@ -271,3 +272,22 @@ def test_pack_is_per_workspace_and_works_in_a_blank_brand(ws_clients: list[TestC
     cit = by["IN-CCPA-01"]["rule"]["citation"]
     assert by["IN-CCPA-01"]["rule"]["pack_id"] == "india_regulatory" and "False Urgency" in cit["clause"]
     assert "Annexure 1 (1)" in by["IN-CCPA-01"]["rule"]["source_quote"]
+
+
+def test_flag_only_pack_rules_drop_the_human_band() -> None:
+    from app.pipeline.engine import _Run
+
+    weak = next(s for s in _pack_specs() if s.code == "IN-ASCI-01")
+    strong = next(s for s in _pack_specs() if s.code == "IN-CCPA-03")
+    assert weak.params.get("flag_only") is True and not strong.params.get("flag_only")
+    assert _Run.cap_band(None, weak, "human") == "pass"  # type: ignore[arg-type]
+    assert _Run.cap_band(None, weak, "flag") == "flag"  # type: ignore[arg-type]
+    assert _Run.cap_band(None, strong, "human") == "human"  # type: ignore[arg-type]
+
+
+def test_pack_jev_rules_are_asked_as_advertising_rules() -> None:
+    from app.pipeline.questions import rule_question
+
+    q = rule_question(next(s for s in _pack_specs() if s.code == "IN-CCPA-03"))
+    assert q.instructions.startswith("Does `text` break this advertising rule:")
+    assert "silly to skip" in q.criteria["true"]
