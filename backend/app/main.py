@@ -124,12 +124,17 @@ def health() -> HealthOut:
 def features() -> FeaturesOut:
     from app import workspaces
 
-    return FeaturesOut(workspaces=workspaces.enabled(), pdf_import=get_settings().feature_pdf_import)
+    return FeaturesOut(workspaces=workspaces.enabled(), pdf_import=get_settings().feature_pdf_import, rule_clarity=True)
 
 
 for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router,
           workspace.router):
     api.include_router(r)
+
+# Round 3: unclear-rule detection (routers/clarity.py). Its /rules/clarity paths don't overlap brand.py's /rules/{id}.
+from app.routers import clarity as clarity_router  # noqa: E402
+
+api.include_router(clarity_router.router)
 
 
 @api.api_route("/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

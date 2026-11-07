@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { FileUp, Loader2, Pencil, Plus, Power, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
 import { onPdfImportRequest, takePdfImport } from "@/lib/tourBus";
+import { RuleClarityPanel } from "@/components/RuleClarityPanel"; // Round 3: unclear-rule detection
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -407,6 +408,7 @@ export default function BrandKit() {
   const { user } = useSession();
   const admin = user?.role === "admin";
   const brand = useAsync(() => api.brand(), []);
+  const [params] = useSearchParams(); // ?tab=clarity (dashboard "Unclear guidelines" card)
   return (
     <>
       <PageHeader
@@ -414,17 +416,19 @@ export default function BrandKit() {
         subtitle={`${brand.data?.name ? `${brand.data.name}. ` : ""}Rules, words, palette and approved facts.${admin ? "" : " You're viewing read-only; brand admins can edit."}`}
         actions={admin ? <Button asChild variant="secondary" className="rounded-full"><Link to="/setup"><Wand2 strokeWidth={1.75} /> Setup guide</Link></Button> : undefined}
       />
-      <Tabs defaultValue="rules">
+      <Tabs defaultValue={params.get("tab") ?? "rules"}>
         <TabsList className="mb-5 h-11 flex-wrap rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
           <TabsTrigger value="rules" className={tabCls}>Rules{brand.data ? ` (${brand.data.rule_count})` : ""}</TabsTrigger>
           <TabsTrigger value="words" className={tabCls}>Words</TabsTrigger>
           <TabsTrigger value="palette" className={tabCls}>Palette &amp; Logo</TabsTrigger>
           <TabsTrigger value="facts" className={tabCls}>Facts</TabsTrigger>
+          <TabsTrigger value="clarity" className={tabCls}>Rule clarity</TabsTrigger>
         </TabsList>
         <TabsContent value="rules"><RulesTab admin={admin} /></TabsContent>
         <TabsContent value="words"><WordsTab admin={admin} /></TabsContent>
         <TabsContent value="palette"><PaletteTab /></TabsContent>
         <TabsContent value="facts"><FactsTab admin={admin} /></TabsContent>
+        <TabsContent value="clarity"><RuleClarityPanel admin={admin} /></TabsContent>
       </Tabs>
     </>
   );

@@ -381,3 +381,47 @@ def audience_culprit_question(options: dict[str, str]) -> Choice:
     """`options`: {descriptive option name: paragraph text}."""
     return Choice(instructions="Which paragraph of `content` would most reduce a reader's trust in the brand?",
                   criteria=dict(options))
+
+
+# ------------------------------------------------------------------ Round 3: unclear-rule detection (pipeline/clarity.py)
+# Jev is asked the SAME rule question in 2-3 wordings of the rule (the original + paraphrases) about one
+# probe text, all in one call. Code measures how much the answers move between wordings: a clear rule
+# gets the same answer whichever way it is phrased; an unclear one doesn't. Code decides the score.
+# High = problem (the probe breaks the rule). One condition per question; only the rule wording varies.
+CLARITY_FIELD_TEXT = "text"  # state {"text": probe}: a short post, caption or email line
+CLARITY_FIELD_IMAGE = "image_description"  # visual rules: state {"image_description": probe}
+CLARITY_INTENT_CHANGED_AT = 0.70  # rewrite intent check: above this the rewrite "may ask for something else"
+
+
+def clarity_state(probe: str, field: str = CLARITY_FIELD_TEXT) -> dict[str, Any]:
+    return {field: probe}
+
+
+def clarity_rule_question(wording: str, field: str = CLARITY_FIELD_TEXT) -> Noul:
+    """The rule question with no examples in the criteria: we measure the wording alone, as a writer reads it."""
+    subject = f"`{field}`" if field == CLARITY_FIELD_TEXT else f"The image described in `{field}`"
+    return Noul(
+        instructions=f"Does `{field}` break this brand rule: {wording}",
+        criteria={
+            "true": f"{subject} goes against the rule as it is written.",
+            "false": f"{subject} is something a brand reviewer would pass under this rule.",
+        },
+    )
+
+
+def clarity_questions(wordings: list[str], field: str = CLARITY_FIELD_TEXT) -> dict[str, Noul]:
+    """{w0: original, w1..: paraphrases}. Question ids are not sent to the model."""
+    return {f"w{i}": clarity_rule_question(w, field) for i, w in enumerate(wordings)}
+
+
+# Rewrite check (high = problem): does the suggested wording ask for something the original rule does not?
+# State: {"original": old statement, "revised": suggested statement}.
+CLARITY_INTENT_CHANGED = Noul(
+    instructions="Does `revised` ask writers to do something that `original` does not ask for?",
+    criteria={
+        "true": "`revised` adds a new requirement or drops one, such as banning all humour when `original` "
+                "only bans hurtful jokes.",
+        "false": "`revised` asks for the same thing as `original`, only spelled out more concretely, such as "
+                 "naming the kinds of jokes that count as hurtful.",
+    },
+)
