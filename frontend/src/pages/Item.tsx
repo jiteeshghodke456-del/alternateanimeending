@@ -343,14 +343,14 @@ export default function Item() {
         <ErrorState title="Can't load this version" message={loadError.message} onRetry={() => setAttempt((a) => a + 1)} />
       ) : (
         <>
-          <LiveMeter
-            paragraphs={unitsDone} paragraphsTotal={unitsTotal}
+          {!version ? <Skeleton className="h-[132px]" /> : <LiveMeter
+            paragraphs={running ? unitsDone : (unitsTotal ?? unitsDone)} paragraphsTotal={unitsTotal}
             judgments={judgments}
             judgmentsPerSec={elapsedMs > 0 ? judgments / (elapsedMs / 1000) : 0}
             seconds={elapsedMs / 1000}
             costUsd={ev?.cost_usd ?? stats.cost_usd ?? 0}
             running={running}
-          />
+          />}
 
           {streamError && (
             <div className="mt-4"><ErrorState title="The live check stopped" message={streamError.message} onRetry={() => setAttempt((a) => a + 1)} className="!py-8" /></div>
@@ -392,7 +392,7 @@ export default function Item() {
           )}
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
-            <div className="space-y-6">
+            <div className="space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
               <section className="glass-strong p-5 md:p-6" aria-label="Content">
                 <h2 className="mb-3 text-headline">Content{version ? ` · v${version.n}` : ""}</h2>
                 {version ? (

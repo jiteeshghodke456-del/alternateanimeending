@@ -34,7 +34,7 @@ function RoleSwitcher() {
         } catch (e) { reportError(e); }
       }}
     >
-      <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 backdrop-blur-xl sm:min-w-[190px]">
+      <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full [&>span]:!flex [&>span]:!items-center border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 backdrop-blur-xl sm:min-w-[190px]">
         {user ? (
           <span className="flex min-w-0 items-center gap-2">
             <UserAvatar id={user.id} name={user.name} className="size-7 text-footnote" />

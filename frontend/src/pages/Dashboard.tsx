@@ -19,11 +19,11 @@ export function SimpleBar({ data, horizontal }: { data: Row[]; horizontal?: bool
         {horizontal ? (
           <>
             <XAxis type="number" allowDecimals={false} {...chartTheme.axis} />
-            <YAxis type="category" dataKey="name" width={96} {...chartTheme.axis} />
+            <YAxis type="category" dataKey="name" width={96} interval={0} {...chartTheme.axis} />
           </>
         ) : (
           <>
-            <XAxis dataKey="name" {...chartTheme.axis} />
+            <XAxis dataKey="name" interval={0} {...chartTheme.axis} />
             <YAxis allowDecimals={false} {...chartTheme.axis} />
           </>
         )}
@@ -38,7 +38,7 @@ export function SimpleBar({ data, horizontal }: { data: Row[]; horizontal?: bool
   );
 }
 
-const rows = (b: CountBucket[]): Row[] => b.map((x) => ({ name: x.key, count: x.count, label: x.label }));
+const rows = (b: CountBucket[]): Row[] => b.map((x) => ({ name: x.key || "other", count: x.count, label: x.label }));
 
 export default function Dashboard() {
   const q = useAsync(() => api.insights(), []);
