@@ -29,7 +29,7 @@ import json
 import logging
 import re
 import shutil
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,11 +46,14 @@ from app.models import (
     TERM_KINDS,
     Asset,
     Brand,
+    Comment,
     ContentItem,
     Fact,
     Rule,
     Term,
     User,
+    Version,
+    utcnow,
 )
 
 log = logging.getLogger("brandgate.seed")
@@ -267,7 +270,7 @@ def load_seed(session: Session) -> str:
             session.delete(item)
             session.flush()
             continue
-        audit(session, "created", item_id=item.id, version_id=v.id, user_id=creator.id, detail={"seeded": True})
+        _seed_history(session, item, v, creator, users)
         n_items += 1
 
     audit(session, "seeded", detail={"seed_dir": d.name, "placeholder": is_placeholder()})
@@ -275,6 +278,34 @@ def load_seed(session: Session) -> str:
     summary = f"{len(users)} users, {n_rules} rules, {n_terms} terms, {n_facts} facts, {n_items} items ({'placeholder' if is_placeholder() else 'demo'} seed)"
     log.info("seed: %s", summary)
     return summary
+
+
+
+def _seed_history(session: Session, item: ContentItem, v: Version, creator: User, users: dict) -> None:
+    """Audit trail (and reviewer comment) consistent with the seeded state, oldest first, ending in the past."""
+    from app.services import audit
+
+    reviewer = next((u for u in users.values() if u.role == "reviewer"), None)
+    approver = next((u for u in users.values() if u.role == "approver"), None)
+    steps: list[tuple[str, User, dict]] = [("created", creator, {"seeded": True})]
+    if item.state in ("in_review", "changes_requested", "approved", "rejected"):
+        steps.append(("submitted", creator, {"from": "findings_ready", "to": "in_review", "version": v.n, "seeded": True}))
+    if item.state == "changes_requested" and reviewer:
+        steps.append(("changes_requested", reviewer, {"from": "in_review", "to": "changes_requested", "version": v.n, "seeded": True,
+                                                      "note": "Please check the claims against the approved facts and resubmit."}))
+    if item.state == "approved" and approver and approver.id != creator.id:
+        steps.append(("approved", approver, {"from": "in_review", "to": "approved", "version": v.n, "seeded": True}))
+    if item.state == "rejected" and reviewer:
+        steps.append(("rejected", reviewer, {"from": "in_review", "to": "rejected", "version": v.n, "seeded": True, "note": "Not on brand."}))
+    t0 = utcnow() - timedelta(hours=len(steps) + 1)
+    for i, (action, who, detail) in enumerate(steps):
+        ev = audit(session, action, item_id=item.id, version_id=v.id, user_id=who.id, detail=detail)
+        ev.created_at = t0 + timedelta(hours=i)
+        if action == "changes_requested":
+            session.add(Comment(item_id=item.id, user_id=who.id, body=f"Changes requested: {detail['note']}", created_at=ev.created_at))
+    item.created_at = t0
+    item.updated_at = t0 + timedelta(hours=len(steps) - 1)
+    session.add(item)
 
 
 def seed_if_empty() -> Optional[str]:
