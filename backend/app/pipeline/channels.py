@@ -129,6 +129,11 @@ def count_mentions(text: str) -> int:
     return sum(1 for _ in MENTION.finditer(text))
 
 
+def _cut(text: str, limit: int) -> str:
+    """The first words past the limit (what the platform would cut), marked as an excerpt."""
+    return "…" + text[limit:limit + 60].strip() + ("…" if len(text) > limit + 60 else "")
+
+
 def text_length(text: str) -> int:
     """Characters as people count them: code points, with Windows line breaks counted once."""
     return len((text or "").replace("\r\n", "\n"))
@@ -155,7 +160,7 @@ def check_text(channel: str, text: str, limits: dict[str, Any]) -> list[ChannelI
         if lim and n > lim:
             out.append(_issue("R-CH-IG-CAPTION", f"This caption is {_fmt(n)} characters; Instagram allows {_fmt(lim)}, "
                               f"so {_fmt(n - lim)} characters would be cut.", lim, channel,
-                              quote=text[int(lim):int(lim) + 60], extra={"length": n, "limit": lim}))
+                              quote=_cut(text, int(lim)), extra={"length": n, "limit": lim}))
         lim = limits.get("hashtags_max")
         tags = count_hashtags(text)
         if lim and tags > lim:
@@ -171,7 +176,7 @@ def check_text(channel: str, text: str, limits: dict[str, Any]) -> list[ChannelI
         if lim and n > lim:
             out.append(_issue("R-CH-LI-LENGTH", f"This post is {_fmt(n)} characters; LinkedIn allows {_fmt(lim)}, "
                               f"so {_fmt(n - lim)} characters would be cut.", lim, channel,
-                              quote=text[int(lim):int(lim) + 60], extra={"length": n, "limit": lim}))
+                              quote=_cut(text, int(lim)), extra={"length": n, "limit": lim}))
     elif channel == "email":
         lim = limits.get("subject_max_chars")
         sub = email_subject(text)
