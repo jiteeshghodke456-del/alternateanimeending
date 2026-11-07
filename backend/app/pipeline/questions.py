@@ -107,6 +107,13 @@ BRAND_MARK = Noul(
     instructions="Does `image` show a company logo or brand mark?",
     criteria={"true": "`image` shows a logo: a brand symbol, an app icon or a brand name set as a wordmark.",
               "false": "`image` shows no logo: only photos, products, people, scenery or ordinary text."})
+# Type rules ("Set headlines in Gilroy") are about the copy set in an image, not the letters of a logo: a
+# logo-only image passed "has_text" (its wordmark is words) and was flagged at 0.84 for its headline typeface.
+HAS_COPY = Noul(
+    instructions="Does `image` contain written words outside of any logo?",
+    criteria={"true": "`image` shows copy set in type apart from the logo, such as a headline, a price, an offer or a slogan.",
+              "false": "`image` has no words, or every word in it is part of a logo: a wordmark, or the brand name and "
+                       "line around a badge."})
 _LOGO_WORDS = re.compile(r"\b(logo|logotype|wordmark|word mark|brand mark|s-pin|squircle|lockup|emblem)\b", re.IGNORECASE)
 _TYPE_WORDS = re.compile(r"\b(headlines?|typeface|font|type size|body copy|sub-?heads?|typography|sentence case|title case)\b",
                          re.IGNORECASE)
@@ -127,7 +134,7 @@ def image_precondition(rule: RuleSpec) -> Optional[tuple[str, Noul]]:
     if _LOGO_WORDS.search(rule.statement):
         return ("brand_mark", BRAND_MARK)
     if _TYPE_WORDS.search(rule.statement):
-        return IMAGE_PRECONDITIONS["min_contrast"]
+        return ("has_copy", HAS_COPY)
     return None
 
 
