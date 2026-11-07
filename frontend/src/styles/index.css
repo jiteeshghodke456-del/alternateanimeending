@@ -1,0 +1,184 @@
+@import "@fontsource-variable/inter";
+@import "tailwindcss";
+@import "tw-animate-css";
+@config "../../tailwind.config.ts";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ------------------------------------------------------------------
+   Brand Gate design system: glassmorphism, Apple-like.
+   Tokens are HSL triplets so shadcn/ui utilities work.
+   Light is the default; dark follows prefers-color-scheme unless the
+   user picks a theme (html[data-theme]).
+------------------------------------------------------------------- */
+:root {
+  --background: 240 20% 97%;
+  --foreground: 240 10% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 8%;
+  --primary: 211 100% 48%;            /* #0A7AF5-ish, AA with white text */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 10% 94%;
+  --secondary-foreground: 240 10% 12%;
+  --muted: 240 10% 94%;
+  --muted-foreground: 240 5% 36%;     /* >= 6.5:1 on white */
+  --accent: 240 10% 93%;
+  --accent-foreground: 240 10% 10%;
+  --destructive: 3 100% 59%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 10% 85%;
+  --input: 240 10% 85%;
+  --ring: 211 100% 52%;
+  --radius: 1rem;
+
+  --flag-text: #C4261D;    /* AA on light glass */
+  --human-text: #8A5200;
+  --pass-text: #167A34;
+  --accent-text: #0060D0;
+
+  --glass-bg: rgba(255, 255, 255, 0.55);
+  --glass-strong-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+  --blob-1: #9cc8ff;
+  --blob-2: #d3c4ff;
+  --blob-3: #ffd9b8;
+  --bg-base: #f2f2f7;
+}
+
+:root.dark,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+}
+
+/* dark token set, applied by media query (unless forced light) or by data-theme */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: 240 8% 7%;
+    --foreground: 0 0% 96%;
+    --card: 240 8% 11%;
+    --card-foreground: 0 0% 96%;
+    --popover: 240 8% 12%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 211 100% 58%;
+    --primary-foreground: 240 10% 6%;
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 6% 16%;
+    --muted-foreground: 240 5% 70%;
+    --accent: 240 6% 18%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 3 100% 64%;
+    --destructive-foreground: 240 10% 6%;
+    --border: 240 6% 22%;
+    --input: 240 6% 22%;
+    --flag-text: #FF7A72;
+    --human-text: #FFB84D;
+    --pass-text: #4BE07A;
+    --accent-text: #5AB0FF;
+    --glass-bg: rgba(255, 255, 255, 0.07);
+    --glass-strong-bg: rgba(28, 28, 32, 0.78);
+    --glass-border: rgba(255, 255, 255, 0.11);
+    --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+    --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --blob-1: #123b73;
+    --blob-2: #3a2a73;
+    --blob-3: #5a3a1f;
+    --bg-base: #0b0b0f;
+  }
+}
+:root[data-theme="dark"] {
+  --background: 240 8% 7%;
+  --foreground: 0 0% 96%;
+  --card: 240 8% 11%;
+  --card-foreground: 0 0% 96%;
+  --popover: 240 8% 12%;
+  --popover-foreground: 0 0% 96%;
+  --primary: 211 100% 58%;
+  --primary-foreground: 240 10% 6%;
+  --secondary: 240 6% 16%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 240 6% 16%;
+  --muted-foreground: 240 5% 70%;
+  --accent: 240 6% 18%;
+  --accent-foreground: 0 0% 96%;
+  --destructive: 3 100% 64%;
+  --destructive-foreground: 240 10% 6%;
+  --border: 240 6% 22%;
+  --input: 240 6% 22%;
+  --flag-text: #FF7A72;
+  --human-text: #FFB84D;
+  --pass-text: #4BE07A;
+  --accent-text: #5AB0FF;
+  --glass-bg: rgba(255, 255, 255, 0.07);
+  --glass-strong-bg: rgba(28, 28, 32, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.11);
+  --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --blob-1: #123b73;
+  --blob-2: #3a2a73;
+  --blob-3: #5a3a1f;
+  --bg-base: #0b0b0f;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply font-sans text-body text-foreground antialiased;
+    background-color: var(--bg-base);
+    font-feature-settings: "cv11", "ss03";
+    min-height: 100dvh;
+  }
+  h1, h2, h3, h4 { @apply tracking-tight font-semibold; }
+  :focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; border-radius: 8px; }
+}
+
+@layer components {
+  /* Glass surface: decorative / chrome */
+  .glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    backdrop-filter: blur(40px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    @apply rounded-3xl;
+  }
+  /* Readable surface: any panel with body text or lists of findings */
+  .glass-strong {
+    background: var(--glass-strong-bg);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    backdrop-filter: blur(40px) saturate(1.5);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow), var(--glass-inset);
+    @apply rounded-3xl;
+  }
+  .text-caption-muted { @apply text-caption text-muted-foreground; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+/* Animated mesh gradient: 3 blurred, low-saturation blobs */
+.mesh-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg-base); }
+.mesh-bg .blob { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: 0.75; will-change: transform; }
+.mesh-bg .blob-1 { width: 55vw; height: 55vw; max-width: 760px; max-height: 760px; left: -8vw; top: -12vh; background: var(--blob-1); animation: blob-a 38s ease-in-out infinite; }
+.mesh-bg .blob-2 { width: 50vw; height: 50vw; max-width: 700px; max-height: 700px; right: -10vw; top: 8vh; background: var(--blob-2); animation: blob-b 46s ease-in-out infinite; }
+.mesh-bg .blob-3 { width: 45vw; height: 45vw; max-width: 640px; max-height: 640px; left: 25vw; bottom: -18vh; background: var(--blob-3); animation: blob-c 54s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-bg .blob { animation: none !important; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
+
+/* Scrollbars, quiet */
+* { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
+
+@keyframes blob-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(6vw,4vh,0) scale(1.12); } }
+@keyframes blob-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-5vw,6vh,0) scale(1.08); } }
+@keyframes blob-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(4vw,-5vh,0) scale(1.15); } }
