@@ -49,7 +49,7 @@ If a P1 item isn't reliable by 06:00, hide it behind a flag and list it in "What
 
 **Accept when:** a private window can enter every role in one click, and a reset restores the seeded state.
 
-### P0-2 Demo brand ("Saffron & Steam Coffee Co.", clearly labelled fictional)
+### P0-2 Demo brand ("Saffron & Steam Coffee Co.", clearly labelled fictional; any judge can also start a blank brand)
 Seed files in `backend/app/seed/`:
 - `guideline.pdf`: an 8–10 page brand guide, written by Samiksha. It includes **5 deliberately vague rules** for Round 3's unclear-rule detection.
 - `rules.json`: about 25 rules. Each rule has:
@@ -292,6 +292,18 @@ response that had to create a workspace returns the new token in the `X-BG-Works
 A blank workspace has four users (admin "Admin", writer "Writer" (creator), reviewer "Reviewer",
 approver "Approver") and an empty brand "Your brand". Checks there still run the built-in checks
 (banned words, facts, an uploaded logo) and add the note "Add rules first" while the brand has no rules.
+
+Startup, limits and lifecycle (added 7 Nov after the audit):
+```
+GET   /health    → {ok, ready, stage, version, ...}; ready=false while the templates are being built
+any other /api   → 503 + Retry-After: 2 + X-BG-Starting: 1 until ready (the UI shows "Starting the server…")
+GET   /features  → which optional endpoints this server has (the UI reads it after first render)
+POST  /demo/reset → 409 while a check, audience run or PDF import of this workspace is running
+any request      → X-BG-Workspace-Reset: 1 when the caller's workspace had expired and a fresh demo was opened
+```
+- A cookie-less visitor's GET requests are answered read-only from the demo template; a workspace is created on sign-in, POST /workspaces, GET /workspace or any write.
+- MAX_WORKSPACES 200 (least recently used evicted first; one-off visits before others), MAX_WORKSPACES_HARD 300 (only then can a workspace signed in to within the last hour be evicted), WORKSPACE_TTL_H 12.
+- Images: ≤ 10 MB; JPEG ≤ 40 MP, PNG/WEBP ≤ 24 MP (checked from the header before decoding, 413 otherwise). Every accepted image is stored once at ≤ 2048 px on the long side, upright, RGB/RGBA.
 
 ## 6. Jev question templates
 ```python

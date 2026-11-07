@@ -317,3 +317,13 @@ uploads, so 40 workspaces + templates took 11 MB. The checks cost $0.0023 in tot
 or the HF iframe before the frontend sends the header); each one costs ~5 ms and ~1 MB of disk and is
 evicted first. A reset while one of that workspace's checks is still running can leave the check writing
 into the fresh copy (same as the old global reset).
+
+## Audit fixes (7 Nov, evening)
+- **Image memory.** One 24 MP photo peaked at ~643 MiB and could OOM the 512 MiB server, wiping every visitor's workspace. Every image is now checked from its header (JPEG ≤ 40 MP; PNG/WEBP ≤ 24 MP because they can't be decoded at reduced scale; a 40 MP RGBA PNG alone peaked at 692 MiB) and stored once at ≤ 2048 px. Measured after: 12 MP 265–288 MiB, 24 MP 254–301 MiB, three uploads at once 305 MiB.
+- **Lazy workspaces.** Landing-page views and bots no longer create workspaces (read-only answers from the demo template). Limits 200 / hard 300; recently signed-in workspaces are protected; an expired workspace is replaced by a fresh demo with a notice.
+- **Reset lock.** Reset during a running check produced duplicate findings in the fresh copy; it now returns 409 until the work finishes.
+- **Background startup.** The server listens at once and builds templates in the background; /api/health reports ready/stage and other calls get 503 + X-BG-Starting, which the UI shows as "Starting the server…" instead of an error. A static splash in index.html paints before any JS.
+- **Keyboard.** Landing CTAs are single real buttons (an extra focusable motion wrapper swallowed Enter/Space).
+- **Docker env.** .env.example keeps comments on their own lines so `docker run --env-file` works.
+- **Confidential items.** Kept as zero external calls: the brief asks to "protect confidential brand materials and clearly disclose the use of AI or external services"; masking alone would still send confidential copy to two providers. A self-hosted model for confidential items is on the roadmap.
+
