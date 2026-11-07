@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Coffee, Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { Logo } from "@/components/Logo";
@@ -9,25 +8,59 @@ import { MeshBackground } from "@/components/MeshBackground";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAvatar } from "@/components/UserAvatar";
 import { HighlightedText } from "@/components/HighlightedText";
-import { DEMO_USERS } from "@/lib/mock";
+import { api, ROLE_LABELS, type RuleOut } from "@/lib/api";
+import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 
 const LANDING_HOME: Record<string, string> = { asha: "/brand", rohan: "/content/new?demo=1", meera: "/review", kabir: "/review" };
+const BLURB: Record<string, string> = {
+  admin: "Owns the guidelines, facts and palette.",
+  creator: "Writes the posts and sends them for review.",
+  reviewer: "Reads every flagged line before it moves on.",
+  approver: "Gives the final yes. Never on his own work.",
+};
 
 const SAMPLE = "Meet our new blend, the #1 coffee in India. Fresh every morning.";
+const SPAN = "the #1 coffee in India";
+
+/** The real "#1 / superlatives" rule from the brand kit, so the example never drifts from the guideline. */
+function pickClaimRule(rules: RuleOut[]): RuleOut | undefined {
+  return (
+    rules.find((r) => r.code === "R-CLAIM-01") ??
+    rules.find((r) => r.category === "claims" && /#\s?1|superlative|number one|best/i.test(`${r.statement} ${r.source_quote}`))
+  );
+}
 
 export default function Landing() {
-  const { login } = useSession();
+  const { user, users, ready, demoMode, login } = useSession();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
+  const [rule, setRule] = useState<RuleOut | null | undefined>(undefined); // undefined = loading, null = unavailable
+
+  // The brand kit needs a session. In demo mode we open a quiet preview session so the example quotes a real rule.
+  useEffect(() => {
+    if (!ready) return;
+    let alive = true;
+    (async () => {
+      try {
+        if (!user && demoMode && users.length) await login(users.find((u) => u.role === "creator")?.id ?? users[0].id);
+        const rules = await api.rules();
+        if (alive) setRule(pickClaimRule(rules) ?? null);
+      } catch {
+        if (alive) setRule(null);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   async function enter(id: string, to: string) {
     setBusy(id);
     try {
       await login(id);
       navigate(to);
-    } catch {
-      toast.error("We could not start the demo. Please try again.");
+    } catch (e) {
+      reportError(e, "We could not start the demo. Please try again.");
     } finally {
       setBusy(null);
     }
@@ -81,10 +114,23 @@ export default function Landing() {
                 <span>Example check</span>
                 <span className="rounded-full bg-flag/12 px-2.5 py-1 font-medium text-flag-text">1 finding</span>
               </div>
-              <HighlightedText text={SAMPLE} spans={[{ start: SAMPLE.indexOf("the #1"), end: SAMPLE.indexOf(" Fresh") - 1, band: "flag" }]} />
-              <p className="mt-3 border-t border-border pt-3 text-footnote text-muted-foreground">
-                <span className="font-mono text-caption">R-CLAIM-02</span> · Guideline p.4: no ranking claims without an approved fact.
-              </p>
+              <HighlightedText text={SAMPLE} spans={[{ start: SAMPLE.indexOf(SPAN), end: SAMPLE.indexOf(SPAN) + SPAN.length, band: "flag" }]} />
+              <div className="mt-3 border-t border-border pt-3 text-footnote text-muted-foreground">
+                {rule === undefined ? (
+                  <div className="space-y-2" aria-hidden><div className="h-3 w-3/4 animate-pulse rounded bg-foreground/8" /><div className="h-3 w-1/2 animate-pulse rounded bg-foreground/8" /></div>
+                ) : rule ? (
+                  <>
+                    <p>
+                      <span className="font-mono text-caption">{rule.code}</span>
+                      {rule.page != null && <> · Guideline p.{rule.page}</>}
+                      {" · "}{rule.severity}
+                    </p>
+                    <p className="mt-1 italic text-foreground/80">&ldquo;{rule.source_quote || rule.statement}&rdquo;</p>
+                  </>
+                ) : (
+                  <p>Every finding cites the exact guideline rule and page it comes from.</p>
+                )}
+              </div>
             </div>
           </BlurFade>
         </section>
@@ -95,18 +141,18 @@ export default function Landing() {
             <p className="mb-8 text-center text-body text-muted-foreground">Four people, one workflow. Pick one and look around.</p>
           </BlurFade>
           <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {DEMO_USERS.map((u, i) => (
+            {users.map((u, i) => (
               <li key={u.id}>
                 <BlurFade inView delay={0.05 * i} className="h-full">
                   <button
-                    onClick={() => enter(u.id, LANDING_HOME[u.id])}
+                    onClick={() => enter(u.id, LANDING_HOME[u.id] ?? "/dashboard")}
                     disabled={busy !== null}
                     className="glass group flex h-full w-full flex-col items-start p-4 text-left sm:p-6 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:-translate-y-0.5 disabled:opacity-70"
                   >
                     <UserAvatar id={u.id} name={u.name} className="size-11 text-title3 sm:size-12" />
                     <span className="mt-4 text-headline">{u.name}</span>
-                    <span className="text-footnote font-medium text-[var(--accent-text)]">{u.role}</span>
-                    <span className="mt-2 text-footnote text-muted-foreground">{u.blurb}</span>
+                    <span className="text-footnote font-medium text-[var(--accent-text)]">{ROLE_LABELS[u.role]}</span>
+                    <span className="mt-2 text-footnote text-muted-foreground">{BLURB[u.role]}</span>
                     <span className="mt-4 inline-flex items-center gap-1 text-footnote font-medium text-foreground/80 transition-transform group-hover:translate-x-0.5">
                       {busy === u.id ? <Loader2 className="size-4 animate-spin" /> : <>Continue as {u.name} <ArrowRight className="size-4" strokeWidth={1.75} /></>}
                     </span>
