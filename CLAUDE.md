@@ -17,7 +17,7 @@ Built for **CodeNexus India 2026, problem statement by Inkloom AI** (brand-gover
 ## Stack (fixed for Round 2; don't swap without a team decision)
 - **Backend:** Python 3.12, FastAPI, SQLModel on SQLite, `sse-starlette` for live progress, `uvicorn`.
 - **Judge model:** Jev via `typesafe-sdk` (Python, v0.7.x). It handles all yes/no, choice and score decisions.
-- **Writer model:** any OpenAI-compatible endpoint via the `openai` package. Default: Groq with an open-weight model. It is used only for explanations, fixes and rule extraction.
+- **Writer model:** DeepSeek through its OpenAI-compatible API (`LLM_BASE_URL=https://api.deepseek.com`, `LLM_MODEL=deepseek-chat`, which is the fast non-thinking mode), called with the `openai` package. Any other OpenAI-compatible provider can be swapped in through env. It is used only for explanations, fixes and rule extraction.
 - **Files:** `pdfplumber` (PDF text with page numbers), Pillow + numpy (colours), `opencv-python-headless` (logo fidelity), `textstat` (readability), `rapidfuzz` (quote verification, fact matching).
 - **Frontend:** React 18 + Vite + TypeScript, Tailwind CSS, shadcn/ui, Magic UI components, framer-motion, recharts, lucide-react. Built to static files and served by FastAPI, so there is **one container and one URL**.
 - **Deploy:** Docker on Hugging Face Spaces (port 7860). Render is the backup.
@@ -71,15 +71,23 @@ Never commit keys, never print them in logs, never paste them in chat. `.env.exa
 ```
 TYPESAFE_API_KEY=            # Jev (the SDK reads this automatically)
 TYPESAFE_DEFAULT_MODEL=jev-latest
-LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_BASE_URL=https://api.deepseek.com
 LLM_API_KEY=
-LLM_MODEL=openai/gpt-oss-120b    # any open-weight model the provider serves
+LLM_MODEL=deepseek-chat
 JEV_USD_PER_M_INPUT=0.042        # for the cost meter; vendor list price, update if it changes
 DEMO_MODE=1                      # role picker, seeded brand, reset endpoint
 ```
 If `TYPESAFE_API_KEY` is missing, the app still runs: Tier 0 checks work, and the UI shows a clear "Jev not configured" notice. If the LLM key is missing, findings still show, with template explanations and no rewrite.
 
 ## Jev usage rules (pipeline/jev.py)
+- **Follow the official TypeSafe skill in `.claude/skills/typesafe-ai/SKILL.md`** (MIT, vendored from typesafe-ai/skills). It wins over anything below if they conflict. Its key points:
+  - Jev makes the judgments and code makes the decisions (truth tables live in code).
+  - Keep all question wording in `pipeline/questions.py`.
+  - Pair a companion Noul with any Choice or Box that might have no right answer.
+  - Keep colours, dates and counting in code.
+  - A failed call is an error, never a "no".
+- Images and Box need the header `TypeSafe-Danger-Zone-Images: true`. Images must be PNG or JPEG. `jev-latest` is jev-1.14.0, and it supports Box.
+- Measured live (7 Nov): a text call takes ~0.5 s and ~430 tokens; a 1080px image takes ~0.5 s and ~3.4k tokens.
 - Use `AsyncTypeSafeClient` and run calls in parallel with a semaphore (start at 8).
 - **One call per unit (paragraph or image), many questions.** Questions are a dict `{name: Noul|Choice|Score|Box}`. Latency barely grows with the number of questions.
 - Read answers like this:
