@@ -90,20 +90,36 @@ def test_sse_replay_after_finish_is_summary_findings_done(client: TestClient) ->
     assert len(middle) == len(findings(client, ids["version_id"]))
 
 
-def test_live_sse_event_order(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
-    install(monkeypatch, FakeJev(sleep=0.2), FakeLLM(sleep=0.1))
-    ids = create(client, "India's #1 coffee is cheap.\n\nVisit us today.")
-    events = sse(client, ids["version_id"])
-    names = [n for n, _ in events]
-    assert names[0] in ("queued", "units", "tier0") and names[-1] == "done"
+def test_event_order_from_the_start(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+    install(monkeypatch, FakeJev(sleep=0.05), FakeLLM(sleep=0.02))
+    monkeypatch.setattr(R, "start_check", lambda vid: True)  # run it ourselves, from the first event
+    ids = create(client, "India's #1 coffee is cheap and lovely.\n\nVisit us at any of our cafes today.")
+    events: list = []
+    monkeypatch.setattr(R, "_publish", lambda vid, ev: events.append(ev) if vid == ids["version_id"] else None)
+    asyncio.run(R.run_check(ids["version_id"]))
+    names = [e.stage for e in events]
+    assert names[:3] == ["queued", "units", "tier0"] and names[-1] == "done"
     order = ["queued", "units", "tier0", "jev", "claims", "explain", "selfcheck", "done"]
-    first_seen = [order.index(n) for i, n in enumerate(names) if n in order and n not in names[:i]]
+    first_seen = [order.index(n) for i, n in enumerate(names) if n not in names[:i]]
     assert first_seen == sorted(first_seen)
-    with_finding = [e for _, e in events if e.get("finding")]
-    assert with_finding and len({e["finding"]["id"] for e in with_finding}) == len(with_finding)
-    for key in ("units_done", "units_total", "judgments", "elapsed_ms", "cost_usd"):
+    with_finding = [e for e in events if e.finding]
+    assert with_finding and all(e.stage == "selfcheck" for e in with_finding)
+    assert len({e.finding.id for e in with_finding}) == len(with_finding)
+    assert events[-1].judgments > 0 and events[-1].units_done == events[-1].units_total == 2
+    counters = [e.units_done for e in events]
+    assert counters == sorted(counters)
+
+
+def test_live_sse_stream_ends_with_done(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+    install(monkeypatch, FakeJev(sleep=0.3), FakeLLM(sleep=0.1))
+    ids = create(client, "India's #1 coffee is cheap and lovely.\n\nVisit us at any of our cafes today.")
+    events = sse(client, ids["version_id"])
+    assert events[-1][0] == "done"
+    ids_seen = [e["finding"]["id"] for _, e in events if e.get("finding")]
+    assert ids_seen and len(set(ids_seen)) == len(ids_seen)
+    assert len(ids_seen) == len(findings(client, ids["version_id"]))
+    for key in ("units_done", "units_total", "judgments", "elapsed_ms", "cost_usd", "finding", "message"):
         assert key in events[-1][1]
-    assert events[-1][1]["judgments"] > 0 and events[-1][1]["units_done"] == 2
 
 
 def test_non_confidential_logs_ai_calls_without_content(client: TestClient, monkeypatch) -> None:  # noqa: ANN001

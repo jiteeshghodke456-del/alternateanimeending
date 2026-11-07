@@ -374,6 +374,7 @@ export interface InsightsOut {
 // ------------------------------------------------------------------ eval
 export interface EvalLatestOut {
   available: boolean;
+  status: "ok" | "not_run" | "running"; // not_run: no results file yet; running: an admin re-run is in progress
   run_at: IsoDateTime | null;
   split: string | null;
   models: Record<string, string>;

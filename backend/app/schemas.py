@@ -469,6 +469,8 @@ class InsightsOut(_Out):
 # ---------------------------------------------------------------- eval
 class EvalLatestOut(_Out):
     available: bool
+    # "not_run": no results file yet; "running": an admin re-run is in progress (older results, if any, are shown)
+    status: Literal["ok", "not_run", "running"] = "ok"
     run_at: Optional[UtcDatetime] = None
     split: Optional[str] = None
     models: dict[str, str] = Field(default_factory=dict)

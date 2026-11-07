@@ -145,11 +145,11 @@ class _Run:
                 and not any(k in (r.params or {}) for k in Q.IMAGE_RULES_IN_CODE)]
 
     def cap_band(self, rule: RuleSpec, b: str) -> str:
-        """Deliberately vague rules (params.vague, e.g. "Posts should feel premium") never flag on their
-        own: Jev rates most copy high on them. They ask a human only when p reaches the flag
-        threshold, get no generated fix, and always appear in the rule scan."""
+        """Deliberately vague rules (params.vague, e.g. "Posts should feel premium") create no findings:
+        on the dev split Jev rated most on-brand copy high on them (32 false alarms vs 2 hits). Their
+        probabilities still appear in the rule scan; rewriting them is Round 3 (unclear-rule detection)."""
         if (rule.params or {}).get("vague"):
-            return "human" if b == "flag" else "pass"
+            return "pass"
         return b
 
     @staticmethod
@@ -165,8 +165,8 @@ class _Run:
         found = C.extract_claims(u.text, self.ctx, covered=hits)
         claim_tasks = [asyncio.ensure_future(self.check_claim(u, cl)) for cl in found]
         has_claim, claim_type = None, None
-        if self.use_jev:
-            qs: dict[str, Any] = {r.code: Q.rule_question(r) for r in self.text_rules()}
+        if self.use_jev and len(u.text.split()) >= Q.MIN_WORDS_FOR_JEV:
+            qs: dict[str, Any] = {r.code: Q.rule_question(r) for r in self.text_rules() if not Q.uses_tone_choice(r)}
             if self.ctx.tone_labels:
                 qs["tone"] = Q.tone_question(self.ctx.tone_labels)
             qs["has_claim"] = Q.HAS_CLAIM
@@ -176,13 +176,21 @@ class _Run:
                 self.res.warnings.append(f"Jev rule check failed for paragraph {u.idx + 1} ({res.error}); "
                                          "Tier 0 findings are shown, the Jev rules were not checked.")
             else:
+                tone = res.choices.get("tone")
                 for r in self.text_rules():
-                    p = res.nouls[r.code]
+                    if Q.uses_tone_choice(r):
+                        if tone is None:
+                            continue
+                        p = Q.tone_violation(r, tone.probabilities, Q.forbidden_tones(self.text_rules()))
+                    else:
+                        p = res.nouls[r.code]
                     b = self.cap_band(r, to_band(p, r.category))
                     self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "rule", 0, len(u.text)))
                     if b != "pass" and r.code not in tier0_rules:
-                        out.append(self.draft(u, r, band=b, tier="jev", p=round(p, 4), start=0, end=len(u.text),
-                                              problem=f"Jev estimates a {p:.0%} chance that this paragraph breaks {r.code}."))
+                        problem = (f"Jev reads the tone as “{tone.choice}”; the rule allows {', '.join(Q.allowed_tones(r))}."
+                                   if Q.uses_tone_choice(r) and tone else
+                                   f"Jev estimates a {p:.0%} chance that this paragraph breaks {r.code}.")
+                        out.append(self.draft(u, r, band=b, tier="jev", p=round(p, 4), start=0, end=len(u.text), problem=problem))
                 if "tone" in res.choices:
                     t = res.choices["tone"]
                     self.res.tones.append({"unit_idx": u.idx, "tone": t.choice,
@@ -191,7 +199,7 @@ class _Run:
                 if has_claim is not None and has_claim > Q.HAS_CLAIM_AT and "claim_type" in res.choices:
                     claim_type = res.choices["claim_type"].choice
         await self.on_progress("jev", self.res)
-        if not found and claim_type in ("objective", "comparative"):
+        if not found and not hits and claim_type in ("objective", "comparative"):
             claim_tasks.append(asyncio.ensure_future(self.check_claim(u, C.unit_claim(u.text, self.ctx, claim_type))))
         for cr in await asyncio.gather(*claim_tasks):
             if cr.is_finding:
@@ -278,13 +286,10 @@ class _Run:
         lo = int(rule.params.get("min_ctas", 0) or 0)
         hi = rule.params.get("max_ctas")
         if len(counted) < lo:
-            p = 1 - max(p_cta)
-            self.res.judgments.append(Judgment(None, rule.code, rule.category, p, "cta"))
-            b = to_band(p, rule.category)
-            if b == "pass":
-                return []
-            return [self.draft(None, rule, band=b, tier="jev", p=round(p, 4), start=None, end=None,
-                               detail="The post has no clear call to action.", problem="The post has no clear call to action.")]
+            # A missing call to action is recorded for the rule scan only: on the dev split it was
+            # never labelled as a problem (20 false alarms), while "too many" was.
+            self.res.judgments.append(Judgment(None, rule.code, rule.category, 1 - max(p_cta), "cta"))
+            return []
         if hi is not None and len(counted) > int(hi):
             p = counted[int(hi)]
             self.res.judgments.append(Judgment(None, rule.code, rule.category, p, "cta"))

@@ -136,29 +136,33 @@ def _unregister(version_id: int, entry: tuple) -> None:
 
 
 # ------------------------------------------------------------------ DB -> pipeline inputs
-def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContext, list[UnitIn]]:
-    brand = s.get(Brand, item.brand_id)
+def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckContext:
+    """Rules, terms, facts, palette and brand settings as plain specs (also used by the eval runner)."""
+    brand = s.get(Brand, brand_id)
     rules = [RuleSpec(code=r.code, category=r.category, severity=r.severity, statement=r.statement,
                       check_method=r.check_method, params=dict(r.params or {}), source_quote=r.source_quote,
                       page=r.page, version=r.version, examples_violating=list(r.examples_violating or []),
                       examples_ok=list(r.examples_ok or []), enabled=r.enabled)
-             for r in s.exec(select(Rule).where(Rule.brand_id == item.brand_id).order_by(Rule.id)).all()]
-    terms = [TermSpec(t.kind, t.value, t.replacement) for t in s.exec(select(Term).where(Term.brand_id == item.brand_id)).all()]
+             for r in s.exec(select(Rule).where(Rule.brand_id == brand_id).order_by(Rule.id)).all()]
+    terms = [TermSpec(t.kind, t.value, t.replacement) for t in s.exec(select(Term).where(Term.brand_id == brand_id)).all()]
     facts = [FactSpec(f.code, f.statement, f.value, f.source, f.valid_until)
-             for f in s.exec(select(Fact).where(Fact.brand_id == item.brand_id)).all()]
+             for f in s.exec(select(Fact).where(Fact.brand_id == brand_id)).all()]
     palette = [(str(a.meta.get("name", "")), str(a.meta.get("hex", "")))
-               for a in s.exec(select(Asset).where(Asset.brand_id == item.brand_id, Asset.kind == "palette")).all()
+               for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "palette")).all()
                if (a.meta or {}).get("hex")]
+    return CheckContext(
+        channel=channel, rules=rules, terms=terms, facts=facts, palette=palette,
+        tone_labels=list(brand.tone_labels or []) if brand else [],
+        channel_targets=dict(brand.channel_targets or {}) if brand else {}, **kw,
+    )
+
+
+def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContext, list[UnitIn]]:
     units = [UnitIn(id=u.id, kind=u.kind, idx=u.idx, text=u.text or "", char_start=u.char_start,
                     image_path=u.image_path, page=u.page)
              for u in s.exec(select(Unit).where(Unit.version_id == v.id).order_by(Unit.idx)).all()]
-    ctx = CheckContext(
-        channel=item.channel, rules=rules, terms=terms, facts=facts, palette=palette,
-        tone_labels=list(brand.tone_labels or []) if brand else [],
-        channel_targets=dict(brand.channel_targets or {}) if brand else {},
-        version_kind=v.kind, alt_text=v.alt_text, post_text=v.text or "", confidential=item.confidential,
-        version_id=v.id,
-    )
+    ctx = brand_context(s, item.brand_id, item.channel, version_kind=v.kind, alt_text=v.alt_text, post_text=v.text or "",
+                        confidential=item.confidential, version_id=v.id)
     return ctx, units
 
 

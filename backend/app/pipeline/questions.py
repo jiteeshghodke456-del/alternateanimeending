@@ -27,6 +27,7 @@ MEANING_OK_AT = 0.70  # a fix is acceptable only when meaning_kept >= this
 SELFCHECK_RULE_MAX = HUMAN_AT  # after a fix, the rule's Noul must be below this ("pass")
 PRECONDITION_AT = 0.70  # image companion Nouls (e.g. "is there a logo?") must be above this
 CTA_AT = 0.70  # a sentence counts as a call to action above this
+MIN_WORDS_FOR_JEV = 5  # shorter units (subject lines, "Order now.") get no rule/tone judgments: too little to judge
 
 IMAGE_HEADERS = {"TypeSafe-Danger-Zone-Images": "true"}  # every request that carries an image or a Box
 
@@ -107,6 +108,28 @@ TONE_DESCRIPTIONS = {
     "pushy": "Pressures the reader to buy now or makes them feel guilty for waiting.",
     "sarcastic": "Says the opposite of what it means to mock someone or something.",
 }
+
+
+def allowed_tones(rule: RuleSpec) -> list[str]:
+    return [str(t) for t in (rule.params or {}).get("tone_labels_allowed", [])]
+
+
+def uses_tone_choice(rule: RuleSpec) -> bool:
+    """Rules like "must sound warm and confident" (params.tone_labels_allowed) are judged with the
+    `tone` Choice instead of a Noul: a literal "must" question flags any neutral sentence."""
+    return bool(allowed_tones(rule))
+
+
+def tone_violation(rule: RuleSpec, probabilities: dict[str, float], reported_elsewhere: set[str] | None = None) -> float:
+    """Probability that the tone is outside the allowed labels (code, from the Choice distribution).
+    Tones that another rule forbids (e.g. "pushy" -> R-TONE-02) are left to that rule, so one
+    pushy line isn't reported twice."""
+    ok = set(allowed_tones(rule)) | set(reported_elsewhere or ())
+    return max(0.0, min(1.0, 1.0 - sum(p for label, p in probabilities.items() if label in ok)))
+
+
+def forbidden_tones(rules: list[RuleSpec]) -> set[str]:
+    return {str(t) for r in rules for t in (r.params or {}).get("tone_labels_forbidden", [])}
 
 
 def tone_question(labels: list[str]) -> Choice:

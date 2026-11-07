@@ -1,0 +1,212 @@
+{
+  "run_at": "2026-11-07T10:04:49.421172Z",
+  "split": "test",
+  "models": {
+    "jev": "jev-latest",
+    "llm": "not used (detection only)"
+  },
+  "metrics": {
+    "precision": 0.636,
+    "recall": 1.0,
+    "f1": 0.778,
+    "n_findings": 22,
+    "n_labels": 13,
+    "bands_counted": [
+      "flag",
+      "human"
+    ],
+    "flag_only": {
+      "precision": 0.737,
+      "recall": 1.0,
+      "f1": 0.848,
+      "n_findings": 19,
+      "n_labels": 13
+    },
+    "per_category": {
+      "claims": {
+        "precision": 0.7,
+        "recall": 1.0,
+        "f1": 0.824,
+        "n_findings": 10,
+        "n_labels": 7
+      },
+      "legal": {
+        "precision": 0.8,
+        "recall": 1.0,
+        "f1": 0.889,
+        "n_findings": 5,
+        "n_labels": 3
+      },
+      "terminology": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "n_findings": 2,
+        "n_labels": 2
+      },
+      "tone": {
+        "precision": 0.2,
+        "recall": 1.0,
+        "f1": 0.333,
+        "n_findings": 5,
+        "n_labels": 1
+      }
+    },
+    "claim_accuracy": 0.786,
+    "claim_n": 14,
+    "claim_confusion": {
+      "unsupported->unsupported": 5,
+      "supported->unsupported": 3,
+      "outdated->outdated": 1,
+      "supported->supported": 5
+    },
+    "calibration": [
+      {
+        "bin": "0.0-0.1",
+        "predicted": 0.039,
+        "observed": 0.0,
+        "n": 77
+      },
+      {
+        "bin": "0.1-0.2",
+        "predicted": 0.144,
+        "observed": 0.0,
+        "n": 24
+      },
+      {
+        "bin": "0.2-0.3",
+        "predicted": 0.229,
+        "observed": 0.0,
+        "n": 11
+      },
+      {
+        "bin": "0.3-0.4",
+        "predicted": 0.339,
+        "observed": 0.0,
+        "n": 8
+      },
+      {
+        "bin": "0.4-0.5",
+        "predicted": 0.445,
+        "observed": 0.0,
+        "n": 4
+      },
+      {
+        "bin": "0.5-0.6",
+        "predicted": 0.55,
+        "observed": 0.111,
+        "n": 9
+      },
+      {
+        "bin": "0.6-0.7",
+        "predicted": 0.633,
+        "observed": 0.0,
+        "n": 7
+      },
+      {
+        "bin": "0.7-0.8",
+        "predicted": 0.76,
+        "observed": 0.0,
+        "n": 6
+      },
+      {
+        "bin": "0.8-0.9",
+        "predicted": 0.842,
+        "observed": 0.0,
+        "n": 5
+      },
+      {
+        "bin": "0.9-1.0",
+        "predicted": 0.961,
+        "observed": 0.3,
+        "n": 20
+      }
+    ],
+    "latency_ms": {
+      "median": 122,
+      "p95": 332
+    },
+    "latency_median_ms": 122,
+    "latency_p95_ms": 332,
+    "cost_per_item_usd": 0.000109,
+    "total_cost_usd": 0.001966,
+    "jev_calls": 52,
+    "judgments": 286,
+    "n_items": 18,
+    "stage": "detection (tier0 + Jev + claims)",
+    "thresholds": {
+      "default": {
+        "flag": 0.7,
+        "human": 0.3
+      },
+      "file": true
+    },
+    "warnings": 0
+  },
+  "misses": [
+    {
+      "item": "E-045",
+      "type": "false_positive",
+      "code": "R-CLAIM-02",
+      "quote": "250",
+      "band": "flag",
+      "p": 0.98
+    },
+    {
+      "item": "E-046",
+      "type": "false_positive",
+      "code": "R-TONE-01",
+      "quote": "A bargain brew for your budget.",
+      "band": "human",
+      "p": 0.73
+    },
+    {
+      "item": "E-048",
+      "type": "false_positive",
+      "code": "R-TONE-02",
+      "quote": "Last chance! Our Diwali gift box is nearly gone. Order today.",
+      "band": "human",
+      "p": 0.84
+    },
+    {
+      "item": "E-049",
+      "type": "false_positive",
+      "code": "R-CLAIM-02",
+      "quote": "25%",
+      "band": "flag",
+      "p": 0.99
+    },
+    {
+      "item": "E-050",
+      "type": "false_positive",
+      "code": "R-CLAIM-02",
+      "quote": "25",
+      "band": "flag",
+      "p": 0.97
+    },
+    {
+      "item": "E-053",
+      "type": "false_positive",
+      "code": "R-TONE-01",
+      "quote": "Drink our cold brew to cure your Monday headache.",
+      "band": "human",
+      "p": 0.87
+    },
+    {
+      "item": "E-054",
+      "type": "false_positive",
+      "code": "R-LEGAL-02",
+      "quote": "win a",
+      "band": "flag",
+      "p": 1.0
+    },
+    {
+      "item": "E-054",
+      "type": "false_positive",
+      "code": "R-TONE-01",
+      "quote": "Giveaway time! Share this post for a chance to win a gift box.",
+      "band": "flag",
+      "p": 0.92
+    }
+  ]
+}

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -13,7 +14,7 @@ from app.config import APP_DIR
 from app.pipeline.questions import FLAG_AT, HUMAN_AT
 
 log = logging.getLogger("brandgate.bands")
-THRESHOLDS_FILE = APP_DIR / "eval" / "results" / "thresholds.json"
+THRESHOLDS_FILE = Path(os.environ.get("BRANDGATE_THRESHOLDS") or APP_DIR / "eval" / "results" / "thresholds.json")
 
 _cache: dict[str, Any] = {"mtime": None, "data": {}}
 

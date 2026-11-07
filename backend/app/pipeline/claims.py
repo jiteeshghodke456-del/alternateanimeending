@@ -13,6 +13,8 @@ excluding dates):
    if a number is only covered by an expired fact
 4. otherwise                                                            -> unsupported, problem p = 1 - max current p
 No candidate fact at all (token-set ratio < 40)                         -> unsupported, p = 1.0 (code)
+Eco claims ("sustainable", "organic") only consider facts that mention the same term.
+Claims Jev found without a trigger word: partial support (p >= HUMAN_AT) counts, at most "human".
 Without Jev (no key, confidential, or a failed call): rule 3 runs on number matching alone
 (candidates with ratio >= 50); everything else is "unsupported (no Jev)" in the human band.
 Expiry is always compared in code.
@@ -54,6 +56,7 @@ class Claim:
     end: int
     text: str  # the clause sent to Jev and used for fact matching
     triggers: list[ClaimTrigger] = field(default_factory=list)
+    from_jev: bool = False  # found by has_claim/claim_type, not by a trigger
 
 
 @dataclass
@@ -134,6 +137,8 @@ def extract_claims(text: str, ctx: CheckContext, covered: list[Tier0Hit] | None 
                 ts = ts_meaningful
             if not ts:
                 continue
+            if group == "factual" and all(t.group == "award" for t in ts) and any(t.group == "eco" for t in inside):
+                continue  # "certified organic": the eco claim covers it
             code = codes["price"] if group == "factual" and any(t.group == "price" for t in ts) else codes[group]
             out.append(Claim(group=group, rule_code=code, start=min(t.start for t in ts), end=max(t.end for t in ts),
                              text=text[cs:ce].strip(), triggers=ts))
@@ -146,10 +151,10 @@ def _award_is_claim(text: str, t: ClaimTrigger) -> bool:
 
 
 def unit_claim(text: str, ctx: CheckContext, claim_type: str) -> Claim:
-    """A claim Jev found in a unit with no trigger: the whole unit."""
+    """A claim Jev found in a unit with no trigger: the whole unit (decided more leniently, see decide)."""
     codes = claim_rule_codes(ctx.enabled_rules())
     group = "superlative" if claim_type == "comparative" else "factual"
-    return Claim(group=group, rule_code=codes[group], start=0, end=len(text), text=text.strip())
+    return Claim(group=group, rule_code=codes[group], start=0, end=len(text), text=text.strip(), from_jev=True)
 
 
 # ------------------------------------------------------------------ fact matching
@@ -222,8 +227,14 @@ def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], c
             p = next((p for f, _, p in cands if f is cov[1]), None)
             return outdated(cov[1], p, "numbers")
         p_problem = 1 - (best_cur[1] if best_cur else 0.0)
+        b = to_band(p_problem, "claims")
+        if claim.from_jev:
+            # No trigger word: partial support (>= HUMAN_AT) counts, and it can only ask a human.
+            if best_cur and best_cur[1] >= Q.HUMAN_AT:
+                return ClaimResult(status="supported", rule_code=None, probability=round(p_problem, 4), band="pass", via="jev", **base)
+            b = "human" if b == "flag" else b
         return ClaimResult(status="unsupported", rule_code=claim.rule_code, probability=round(p_problem, 4),
-                           band=to_band(p_problem, "claims"), via="jev", **base)
+                           band=b, via="jev", **base)
 
     # no Jev: numbers only, everything else needs a human
     strong = [(f, s, p) for f, s, p in cands if s >= NO_JEV_FACT_SCORE]
@@ -239,7 +250,11 @@ def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], c
 async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: Optional[jev.CallLog] = None,
                       unit_id: Optional[int] = None, masked_text: Optional[str] = None, purpose: str = "claims") -> ClaimResult:
     """One Jev call per claim: state {"text": claim}, one support Noul per candidate fact."""
-    found = top_facts(claim.text, ctx.facts)
+    facts = ctx.facts
+    if claim.group == "eco":  # only facts about the same term can support "organic", "sustainable", ...
+        terms = [t.text.lower() for t in claim.triggers]
+        facts = [f for f in facts if any(t in _fact_text(f).lower() for t in terms)]
+    found = top_facts(claim.text, facts)
     if not found:
         return decide(claim, [], ctx, jev_ok=use_jev)
     if not use_jev:

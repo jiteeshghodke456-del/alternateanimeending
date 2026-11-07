@@ -15,6 +15,7 @@ os.environ["DEMO_MODE"] = "1"
 # and unit tests must never call the real APIs. Live tests (-m live) read the .env themselves.
 os.environ["TYPESAFE_API_KEY"] = ""
 os.environ["LLM_API_KEY"] = ""
+os.environ["BRANDGATE_THRESHOLDS"] = os.path.join(_TMP, "no-thresholds.json")  # unit tests use the default bands
 
 from fastapi.testclient import TestClient  # noqa: E402
 
