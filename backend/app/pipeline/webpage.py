@@ -38,6 +38,7 @@ _BLOCK = {"p", "div", "section", "article", "main", "header", "footer", "nav", "
           "address", "details", "summary", "h1", "h2", "h3", "h4", "h5", "h6", "form", "fieldset", "legend", "hr",
           "body", "html", "center", "picture", "video", "audio", "label", "dialog"}
 _VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
+_SEPARATED = {"span", "a", "button", "label", "img", "input", "li", "div", "small", "time", "svg", "picture", "figure"}
 _HEADINGS = {"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6}
 _AUTO_CLOSE_P = _BLOCK - {"label", "picture", "video", "audio"}
 
@@ -152,6 +153,7 @@ class _Parser(HTMLParser):
         self.buttons: list[dict] = []  # open <button> elements
         self.svg_depth = 0
         self.svg_title = False
+        self.boundary = False  # an element edge since the last text (flex/grid items often have no space between)
 
     # ------------------------------------------------------------ helpers
     def _block_tag(self) -> str:
@@ -176,12 +178,17 @@ class _Parser(HTMLParser):
             return
         if not self.buf or not "".join(self.buf).strip():
             self.buf_tag = self._block_tag()
+        elif self.boundary and data[:1].isalnum() and self.buf[-1][-1:].isalnum():
+            data = " " + data  # "<span>Project</span><span>Assets</span>" -> "Project Assets"
+        self.boundary = False
         self.buf.append(data)
         if self.links:
             self.buf_link_chars += len(data.strip())
 
     # ------------------------------------------------------------ parser callbacks
     def handle_starttag(self, tag: str, attrs_list: list[tuple[str, Optional[str]]]) -> None:  # noqa: C901
+        if tag in _SEPARATED:
+            self.boundary = True
         a = {k.lower(): (v if v is not None else "") for k, v in attrs_list}
         if tag == "html":
             self.page.lang = clean(a.get("lang", "") or a.get("xml:lang", ""))
@@ -336,6 +343,8 @@ class _Parser(HTMLParser):
                 self.page.unnamed_buttons.append(el["desc"])
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in _SEPARATED:
+            self.boundary = True
         if tag == "title" and self.in_title:
             self.in_title = False
             self.page.title = clean("".join(self.title_parts))[:200]

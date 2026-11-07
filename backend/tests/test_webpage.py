@@ -407,3 +407,10 @@ def test_api_from_url_errors(client: TestClient, server: _Server) -> None:
     assert r.status_code == 422 and "JavaScript" in r.json()["detail"]
     login(client, "reviewer")
     assert client.post("/api/items/from-url", json={"url": server.base + "/page"}).status_code == 403
+
+
+def test_adjacent_inline_elements_get_a_space_but_words_stay_whole() -> None:
+    html = ('<main><p><span>Website Redesign Project</span><span>Project Assets</span> are <b>B</b>old and '
+            '<a href="/x">linked</a>. Done here today.</p></main>')
+    assert P.parse_page(html, "https://x.example/").blocks[0].text == (
+        "Website Redesign Project Project Assets are Bold and linked. Done here today.")
