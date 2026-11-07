@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # Storage
     db_path: str = "/tmp/brandgate.db"
     upload_dir: str = "/tmp/brandgate_uploads"
-    seed_dir: str = ""  # optional override; default = backend/app/seed (or its _placeholder)
+    seed_dir: str = ""  # optional brand kit folder; files missing there fall back to backend/app/seed (or its _placeholder)
 
     # Auth
     session_secret: str = "dev-only-insecure-session-secret-change-me"

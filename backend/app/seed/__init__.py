@@ -1,10 +1,12 @@
 """Demo seed loader. OWNER: backend (scaffold agent).
 
 Seed directory resolution (first match wins):
-1. env SEED_DIR, if set;
+1. env SEED_DIR, if set (a brand kit kept outside the repo, e.g. for a private demo);
 2. backend/app/seed/ if it contains BOTH users.json and rules.json (the real demo brand);
 3. backend/app/seed/_placeholder/ (tiny stand-in so the app runs before the real files land).
-We never mix the two directories, so ids referenced across files stay consistent.
+We never mix 2 and 3, so ids referenced across files stay consistent. With SEED_DIR set, each file
+missing there falls back to the default directory (2 or 3) and the fallback is logged; this is
+mainly for brand-neutral files such as personas.json.
 
 Every file is optional except users.json; missing files are skipped. Accepted formats:
 - brand.json      {name, tone_labels[], channel_targets{channel:{max_grade:int}}}
@@ -64,13 +66,21 @@ PLACEHOLDER_DIR = SEED_ROOT / "_placeholder"
 _ROLE_ALIASES = {"brand admin": "admin", "brand_admin": "admin", "administrator": "admin"}
 
 
-def seed_dir() -> Path:
-    override = get_settings().seed_dir.strip()
-    if override:
-        return Path(override)
+def default_seed_dir() -> Path:
+    """The seed shipped with the app: backend/app/seed, or its _placeholder before the real files land."""
     if (SEED_ROOT / "users.json").is_file() and (SEED_ROOT / "rules.json").is_file():
         return SEED_ROOT
     return PLACEHOLDER_DIR
+
+
+def override_dir() -> Optional[Path]:
+    """SEED_DIR, if set (expanded, e.g. ~ on any OS)."""
+    override = get_settings().seed_dir.strip()
+    return Path(override).expanduser() if override else None
+
+
+def seed_dir() -> Path:
+    return override_dir() or default_seed_dir()
 
 
 def is_placeholder() -> bool:
@@ -78,9 +88,17 @@ def is_placeholder() -> bool:
 
 
 def seed_file(name: str) -> Optional[Path]:
-    """Path to a file in the active seed dir, or None if absent."""
+    """Path to a file in the active seed dir, or None if absent. With SEED_DIR set, a file missing
+    there falls back to the default seed dir (logged), e.g. personas.json for a custom brand kit."""
     p = seed_dir() / name
-    return p if p.is_file() else None
+    if p.is_file():
+        return p
+    if override_dir() is not None:
+        fb = default_seed_dir() / name
+        if fb.is_file():
+            log.info("seed: %s not in SEED_DIR; using %s", name, fb)
+            return fb
+    return None
 
 
 def _json(name: str, default: Any) -> Any:
@@ -254,11 +272,11 @@ def load_seed(session: Session) -> str:
         session.flush()
         file_bytes, filename = None, ""
         if it.get("file"):
-            fpath = content_dir / str(it["file"])
-            if fpath.is_file():
+            fpath = seed_file(f"content/{it['file']}")
+            if fpath is not None:
                 file_bytes, filename = fpath.read_bytes(), fpath.name
             else:
-                log.warning("seed: content file %s missing", fpath)
+                log.warning("seed: content file %s missing", content_dir / str(it["file"]))
         try:
             v = create_version(
                 session, item, n=1, text=it.get("text") or "", file_bytes=file_bytes, filename=filename,
