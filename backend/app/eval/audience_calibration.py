@@ -32,6 +32,18 @@ def load(path: Path = DATASET) -> list[dict[str, Any]]:
     return json.loads(path.read_text(encoding="utf-8"))["posts"]
 
 
+async def resolve_text(post: dict[str, Any]) -> str:
+    """Posts from a real brand's site are not stored (third-party text): fetch the page at run time and keep the
+    first `blocks` text blocks, the same extraction the Web page source uses."""
+    if post.get("text", "").strip() or not post.get("url"):
+        return post["text"]
+    from app.pipeline import webfetch, webpage
+
+    page = webpage.parse_page((await webfetch.fetch_page(post["url"])).html, post["url"])
+    units = webpage.to_units(page, max_chars=20_000, max_blocks=int(post.get("blocks", 40)))
+    return units.text
+
+
 def paragraphs(text: str) -> list[dict[str, Any]]:
     from app.pipeline.units import split_text
 
@@ -41,7 +53,8 @@ def paragraphs(text: str) -> list[dict[str, Any]]:
 async def run_post(post: dict[str, Any], readers: list[dict]) -> dict[str, Any]:
     from app.pipeline import audience as A
 
-    res = await A.simulate(post["text"], paragraphs(post["text"]), personas=readers, use_llm=False,
+    text = await resolve_text(post)
+    res = await A.simulate(text, paragraphs(text), personas=readers, use_llm=False,
                            channel=post.get("channel"))
     o = res["overall"]
     lo, hi = EXPECT_RANGE.get(post.get("expect", ""), (1.0, 5.0))

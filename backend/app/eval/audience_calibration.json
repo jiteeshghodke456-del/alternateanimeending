@@ -8,8 +8,10 @@
    "channel": "website",
    "expect": "believe_or_mixed",
    "tune": true,
-   "source": "Swiggy Instamart press note 'How India Instamarted 2025' (22 Dec 2025), as the webpage import extracts it (40 blocks, truncated)",
+   "source": "Swiggy Instamart press note 'How India Instamarted 2025' (22 Dec 2025). Third-party text is not stored here; the runner fetches the page and keeps the first 40 blocks, as the web-page import does.",
    "text": "",
+   "url": "https://blog.swiggy.com/instamart/tiny-%e2%82%b910-carts-and-massive-%e2%82%b94-3-lakh-single-orders-how-india-instamarted-in-2025/",
+   "blocks": 40
   },
   {
    "id": "swiggy_short",
@@ -17,8 +19,10 @@
    "channel": "website",
    "expect": "believe_or_mixed",
    "tune": true,
-   "source": "Same press note, headline and first two paragraphs only (social-post length)",
+   "source": "Same press note, headline and first two paragraphs only (fetched at run time, not stored).",
    "text": "",
+   "url": "https://blog.swiggy.com/instamart/tiny-%e2%82%b910-carts-and-massive-%e2%82%b94-3-lakh-single-orders-how-india-instamarted-in-2025/",
+   "blocks": 3
   },
   {
    "id": "dairy_wrapped",

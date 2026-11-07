@@ -210,7 +210,7 @@ def test_calibration_set_is_labelled_drafts_with_held_out_posts() -> None:
 
     posts = C.load()
     assert len(posts) >= 12 and len({p["id"] for p in posts}) == len(posts)
-    assert all(p["expect"] in C.EXPECT_RANGE and p["text"].strip() and p["channel"] in Q.AUDIENCE_SOURCE_BY_CHANNEL
+    assert all(p["expect"] in C.EXPECT_RANGE and (p["text"].strip() or p.get("url")) and p["channel"] in Q.AUDIENCE_SOURCE_BY_CHANNEL
                for p in posts)
     assert any(p["tune"] for p in posts) and any(not p["tune"] for p in posts)  # some posts were never tuned on
     assert json.loads(C.DATASET.read_text(encoding="utf-8"))["labelled_by"] == "draft-ai"
