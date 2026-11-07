@@ -339,17 +339,30 @@ class FindingDismissIn(BaseModel):
 
 
 class OverrideIn(BaseModel):
-    reason: str = Field(min_length=3, max_length=1000)
+    reason: str = Field(max_length=1000)  # >= 10 chars, checked in the handler for a human message
 
 
 class NoteIn(BaseModel):
     note: str = Field(default="", max_length=2000)
 
 
+class DiffSegment(_Out):
+    op: Literal["equal", "insert", "delete"]
+    text: str
+
+
+class SkippedFix(_Out):
+    finding_id: int
+    reason: str
+
+
 class ResubmitOut(_Out):
     item_id: int
     version_id: int
     n: int
+    diff: list[DiffSegment]  # word-level, previous text -> new text
+    applied: list[int]  # finding ids whose fix/edit went into the new text
+    skipped: list[SkippedFix]  # e.g. overlapping spans
 
 
 class CheckEvent(_Out):
@@ -407,7 +420,8 @@ class AIUsageOut(_Out):
     external_calls: int
     pii_masked: int
     total_cost_usd: float
-    groups: list[AIUsageGroup]
+    summary: str  # plain-language line, e.g. "No external services used ..."
+    groups: list[AIUsageGroup]  # grouped by provider + purpose (model = distinct models joined by ", ")
 
 
 # ---------------------------------------------------------------- audience (P1)
@@ -432,6 +446,7 @@ class InsightsKpis(_Out):
 class CountBucket(_Out):
     key: str
     count: int
+    label: Optional[str] = None  # top_rules: the rule statement
 
 
 class DismissalRate(_Out):
@@ -439,7 +454,8 @@ class DismissalRate(_Out):
     findings: int
     dismissed: int
     rate: float
-    possibly_unclear: bool  # rate > 0.40
+    possibly_unclear: bool  # rate > 0.40 and findings >= 3
+    statement: Optional[str] = None
 
 
 class InsightsOut(_Out):

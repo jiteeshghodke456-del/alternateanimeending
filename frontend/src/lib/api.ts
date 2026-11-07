@@ -271,7 +271,16 @@ export interface FindingEditIn { text: string }
 export interface FindingDismissIn { reason: DismissReason; note?: string | null }
 export interface OverrideIn { reason: string }
 export interface NoteIn { note: string }
-export interface ResubmitOut { item_id: number; version_id: number; n: number }
+export interface DiffSegment { op: "equal" | "insert" | "delete"; text: string }
+export interface SkippedFix { finding_id: number; reason: string }
+export interface ResubmitOut {
+  item_id: number;
+  version_id: number;
+  n: number;
+  diff: DiffSegment[]; // word-level, previous text -> new text
+  applied: number[]; // finding ids applied
+  skipped: SkippedFix[]; // e.g. overlapping spans
+}
 
 /** One SSE message on /api/versions/{id}/events. */
 export interface CheckEvent {
@@ -323,7 +332,8 @@ export interface AIUsageOut {
   external_calls: number;
   pii_masked: number;
   total_cost_usd: number;
-  groups: AIUsageGroup[];
+  summary: string; // plain-language line
+  groups: AIUsageGroup[]; // grouped by provider + purpose
 }
 
 // ------------------------------------------------------------------ audience (P1)
@@ -344,13 +354,14 @@ export interface InsightsKpis {
   jev_judgments: number;
   total_cost_usd: number;
 }
-export interface CountBucket { key: string; count: number }
+export interface CountBucket { key: string; count: number; label?: string | null } // top_rules: label = rule statement
 export interface DismissalRate {
   rule_code: string;
   findings: number;
   dismissed: number;
   rate: number;
-  possibly_unclear: boolean;
+  possibly_unclear: boolean; // rate > 0.4 and findings >= 3
+  statement?: string | null;
 }
 export interface InsightsOut {
   kpis: InsightsKpis;
