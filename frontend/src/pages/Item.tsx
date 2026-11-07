@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { LiveMeter } from "@/components/LiveMeter";
 import { RuleScanPanel, type RuleScanRow } from "@/components/RuleScanPanel";
-import { FindingCard } from "@/components/FindingCard";
+import { FindingCard, type FixGroupInfo } from "@/components/FindingCard";
 import { HighlightedText, type HighlightSpan } from "@/components/HighlightedText";
 import { AudiencePanel } from "@/components/audience/AudiencePanel";
 import { ImageWithLogo, logoShapes } from "@/components/LogoOverlay";
@@ -48,9 +48,24 @@ function ContentPanel({ version, findings, active, onSelect, palette, culprit }:
   palette: { name: string; hex: string }[]; culprit?: AudienceCulprit | null;
 }) {
   const live = findings.filter((f) => f.band !== "pass" && f.status !== "dismissed" && f.span_start != null && f.span_end != null);
-  const spansFor = (from: number, to: number): HighlightSpan[] =>
-    live.filter((f) => f.span_start! >= from && f.span_end! <= to)
-      .map((f) => ({ start: f.span_start! - from, end: f.span_end! - from, band: f.band, id: String(f.id), label: f.rule_code ?? f.fact_code ?? undefined }));
+  // Findings that share a region (same span) become one highlight: the wide span is tinted lightly and each
+  // finding's exact problem words (hit_start..hit_end) are marked inside it.
+  const spansFor = (from: number, to: number): HighlightSpan[] => {
+    const groups = new Map<string, FindingOut[]>();
+    for (const f of live.filter((f) => f.span_start! >= from && f.span_end! <= to)) {
+      const k = `${f.span_start}:${f.span_end}`;
+      groups.set(k, [...(groups.get(k) ?? []), f]);
+    }
+    return [...groups.values()].map((fs) => {
+      const lead = fs.find((f) => f.band === "flag") ?? fs[0];
+      const hits = fs.filter((f) => f.hit_start != null && f.hit_end != null && f.hit_end > f.hit_start && f.hit_start! >= f.span_start! && f.hit_end! <= f.span_end!)
+        .map((f) => ({ start: f.hit_start! - from, end: f.hit_end! - from }));
+      return {
+        start: lead.span_start! - from, end: lead.span_end! - from, band: lead.band, id: String(lead.id), ids: fs.map((f) => String(f.id)),
+        label: fs.map((f) => f.rule_code ?? f.fact_code).filter(Boolean).join(", ") || undefined, hits,
+      };
+    });
+  };
 
   if (version.kind === "image") {
     const alt = version.units.find((u) => u.kind === "alt_text")?.text ?? version.alt_text;
@@ -277,7 +292,11 @@ export default function Item() {
     : serverWhy("override");
 
   /* ---------------------------------------------------------------- actions */
-  const upsert = (f: FindingOut) => setFindings((cur) => ({ ...cur, [f.id]: f }));
+  // A fix covers a whole region, so siblings change too: always refetch the version's findings afterwards.
+  const upsert = (f: FindingOut) => {
+    setFindings((cur) => ({ ...cur, [f.id]: f }));
+    if (vid != null) void refreshVersion(vid).catch(() => undefined);
+  };
   const run = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
     try { await fn(); } catch (e) { reportError(e); throw e; } finally { setBusy(null); }
@@ -327,6 +346,17 @@ export default function Item() {
       ? lastDiff?.vid === version.id && lastDiff.segments.length ? lastDiff.segments
         : prevText?.vid === version.id ? diffSegments(prevText.text, version.text) : null
       : null;
+  const groupOf = new Map<number, FixGroupInfo>();
+  {
+    const byGroup = new Map<string, FindingOut[]>();
+    for (const f of list) if (f.fix_group) byGroup.set(f.fix_group, [...(byGroup.get(f.fix_group) ?? []), f]);
+    for (const members of byGroup.values()) {
+      if (members.length < 2) continue;
+      const lead = members.find((f) => f.status === "open") ?? members[0];
+      for (const f of members) groupOf.set(f.id, { lead, others: members.filter((o) => o.id !== lead.id), isLead: f.id === lead.id });
+    }
+  }
+  const jumpTo = (fid: number) => { setActive(fid); document.getElementById(`finding-${fid}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); };
   const openCount = list.filter((f) => f.status === "open").length;
   const palette = brandQ.data?.palette ?? [];
   const canReview = role === "reviewer" || role === "approver";
@@ -464,7 +494,7 @@ export default function Item() {
                       <AnimatedListItem key={f.id}>
                         <div id={`finding-${f.id}`}>
                           <FindingCard
-                            finding={f} active={active === f.id} onSelect={setActive}
+                            finding={f} group={groupOf.get(f.id) ?? null} onJump={jumpTo} active={active === f.id} onSelect={setActive}
                             canAct={!locked && isLatest && !checking && (isCreator || canReview)}
                             canOverride={canReview}
                             overrideDisabledReason={overrideWhy}

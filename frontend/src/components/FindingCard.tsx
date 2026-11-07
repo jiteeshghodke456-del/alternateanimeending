@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BadgeCheck, Check, Gavel, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
+import { BadgeCheck, Check, Gavel, Link2, Loader2, Pencil, TriangleAlert, X } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { BAND, SEVERITY_LABEL, SEVERITY_STYLE } from "@/lib/bands";
@@ -37,8 +37,13 @@ const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted", edited: "Edited", dismissed: "Dismissed", overridden: "Overridden",
 };
 
+/** Findings that share a `fix_group` share one rewrite of one region. The lead card carries the fix; the others link to it. */
+export interface FixGroupInfo { lead: FindingOut; others: FindingOut[]; isLead: boolean }
+
 export interface FindingCardProps {
   finding: FindingOut;
+  group?: FixGroupInfo | null;
+  onJump?: (id: number) => void;
   active?: boolean;
   /** false once the item is locked (approved / rejected) */
   canAct?: boolean;
@@ -52,7 +57,7 @@ export interface FindingCardProps {
   onOverride?: (f: FindingOut) => void;
 }
 
-export function FindingCard({ finding: f, active, canAct = true, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
+export function FindingCard({ finding: f, group, onJump, active, canAct = true, canOverride, overrideDisabledReason, onSelect, onAccept, onEdit, onDismiss, onOverride }: FindingCardProps) {
   const band = BAND[f.band];
   const BandIcon = band.icon;
   const [editing, setEditing] = useState(false);
@@ -61,6 +66,8 @@ export function FindingCard({ finding: f, active, canAct = true, canOverride, ov
   const shownFix = f.status === "edited" && f.edited_text ? f.edited_text : f.fix;
   const diff = shownFix && f.quote ? wordDiff(f.quote, shownFix) : null;
   const closed = f.status !== "open";
+  const linked = !!group && !group.isLead; // fix lives on the lead card of its group
+  const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? "finding";
   const locked = !canAct;
   const code = f.rule_code ?? f.fact_code ?? "Finding";
 
@@ -138,6 +145,23 @@ export function FindingCard({ finding: f, active, canAct = true, canOverride, ov
 
       <p className="mt-4 text-body">{f.explanation}</p>
 
+      {group && group.isLead && group.others.length > 0 && (
+        <p data-testid="fix-group-lead" className="mt-3 flex items-start gap-2 rounded-xl bg-[#0A84FF]/10 px-3 py-2 text-footnote">
+          <Link2 className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.75} aria-hidden />
+          <span>This fix also resolves {group.others.length} other finding{group.others.length === 1 ? "" : "s"}:{" "}
+            {group.others.map((o, i) => (
+              <span key={o.id}>{i > 0 && ", "}<button type="button" onClick={(e) => { e.stopPropagation(); onJump?.(o.id); }} className="font-mono text-caption underline underline-offset-2">{codeOf(o)}</button></span>
+            ))}.</span>
+        </p>
+      )}
+      {linked && (
+        <p data-testid="fix-group-linked" className="mt-3 flex items-start gap-2 rounded-xl bg-[#0A84FF]/10 px-3 py-2 text-footnote">
+          <Link2 className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.75} aria-hidden />
+          <span>Same sentence as <button type="button" onClick={(e) => { e.stopPropagation(); onJump?.(group!.lead.id); }} className="font-mono text-caption underline underline-offset-2">{codeOf(group!.lead)}</button>.{" "}
+            {f.status === "open" ? "One rewrite covers both, so accepting the fix there resolves this finding too." : "Resolved together with it."}</span>
+        </p>
+      )}
+
       {f.status === "dismissed" && (
         <p className="mt-3 rounded-xl bg-foreground/5 p-3 text-footnote text-muted-foreground">
           Dismissed as <span className="font-medium text-foreground">{(f.dismiss_reason ?? "other").replace(/_/g, " ")}</span>
@@ -156,7 +180,7 @@ export function FindingCard({ finding: f, active, canAct = true, canOverride, ov
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="rounded-full">Cancel</Button>
           </div>
         </div>
-      ) : diff ? (
+      ) : linked ? null : diff ? (
         <div className="mt-4 overflow-hidden rounded-2xl bg-foreground/5">
           <div className="grid gap-px bg-border/60 sm:grid-cols-2">
             <div className="bg-[var(--glass-strong-bg)] p-3.5">
@@ -179,15 +203,17 @@ export function FindingCard({ finding: f, active, canAct = true, canOverride, ov
           </div>
         </div>
       ) : f.status === "open" || f.status === "dismissed" ? (
-        f.status === "open" && <p className="mt-4 rounded-2xl bg-human/12 p-3.5 text-footnote text-human-text">Manual fix needed. We could not produce a safe rewrite, so use Edit to write your own.</p>
+        f.status === "open" && <p role="status" data-testid="manual-fix" className="mt-4 flex items-start gap-2 rounded-2xl bg-human/12 p-3.5 text-footnote text-human-text"><TriangleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden /><span><span className="font-semibold">Manual fix needed.</span> We could not produce a safe rewrite for this, so use Edit to write your own.</span></p>
       ) : null}
 
       {!editing && f.status === "open" && (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
-            {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} Accept fix
-          </Button>
-          <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>
+          {!linked && (
+            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+              {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} {group && group.others.length > 0 ? `Accept fix for ${group.others.length + 1} findings` : "Accept fix"}
+            </Button>
+          )}
+          {!linked && <Button size="sm" variant="secondary" disabled={locked} onClick={(e) => { e.stopPropagation(); setDraft(f.fix ?? f.quote); setEditing(true); }} className="rounded-full"><Pencil strokeWidth={1.75} /> Edit</Button>}
           <Button size="sm" variant="ghost" disabled={locked} onClick={(e) => { e.stopPropagation(); onDismiss?.(f); }} className="rounded-full text-muted-foreground"><X strokeWidth={1.75} /> Dismiss</Button>
           {canOverride && f.severity === "blocking" && (
             <TipButton

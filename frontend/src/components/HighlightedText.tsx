@@ -3,7 +3,11 @@ import { BAND } from "@/lib/bands";
 import type { Band } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export interface HighlightSpan { start: number; end: number; band: Band; id?: string; label?: string; noIcon?: boolean }
+/** `hits` are the exact problem words inside a wider span (offsets relative to the same text as start/end). `ids` lists every finding sharing the span. */
+export interface HighlightSpan {
+  start: number; end: number; band: Band; id?: string; ids?: string[]; label?: string; noIcon?: boolean;
+  hits?: { start: number; end: number }[];
+}
 
 /** A highlight that crosses a paragraph break is split per paragraph, so no empty pill is left on the blank line. Only the last piece gets the icon. */
 function splitAtBreaks(text: string, spans: HighlightSpan[]): HighlightSpan[] {
@@ -19,6 +23,7 @@ function splitAtBreaks(text: string, spans: HighlightSpan[]): HighlightSpan[] {
       from = sp.start + m.index + m[0].length;
     }
     pieces.push({ ...sp, start: from, end });
+    if (pieces.length > 1) pieces.forEach((q) => { q.hits = (sp.hits ?? []).filter((h) => h.start >= q.start && h.end <= q.end); });
     const kept = pieces.filter((q) => text.slice(q.start, q.end).trim() !== "");
     kept.forEach((q, i) => out.push({ ...q, noIcon: i < kept.length - 1 }));
   }
@@ -38,26 +43,48 @@ export function HighlightedText({ text, spans, activeId, onSelect, className }: 
     const end = Math.min(s.end, text.length);
     const b = BAND[s.band];
     const Icon = b.icon;
-    const active = s.id && s.id === activeId;
+    const active = !!activeId && (s.id === activeId || !!s.ids?.includes(activeId));
+    const hits = (s.hits ?? []).filter((h) => h.start >= s.start && h.end <= end && h.end > h.start).sort((a, b) => a.start - b.start);
+    const wide = hits.length > 0;
     parts.push(
       <mark
         key={`m${i}`}
         onClick={() => s.id && onSelect?.(s.id)}
         className={cn(
-          "rounded-md px-1 py-0.5 text-foreground ring-1 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
-          b.bg, b.ring, onSelect && "cursor-pointer", active && "ring-2",
+          "rounded-md px-1 py-0.5 text-foreground [box-decoration-break:clone] [-webkit-box-decoration-break:clone]",
+          wide ? cn("bg-foreground/[0.04] ring-1 ring-foreground/15", active && b.ring + " ring-2") : cn("ring-1", b.bg, b.ring, active && "ring-2"),
+          onSelect && "cursor-pointer",
         )}
         title={s.label ?? b.label}
       >
         {(() => {
           // Keep the icon glued to the last word. Trailing whitespace/newlines go after it, otherwise a
           // wrapped highlight ends in an empty pill next to the icon.
-          const [, head, word, tail] = /^([\s\S]*?)(\S*)(\s*)$/.exec(text.slice(s.start, end)) ?? ["", "", "", ""];
+          const raw = text.slice(s.start, end);
+          const [, head, word, tail] = /^([\s\S]*?)(\S*)(\s*)$/.exec(raw) ?? ["", "", "", ""];
+          const lastStart = s.start + head.length; // the last word (+ icon) stays glued together
+          const hitMark = (a: number, z: number, k: string) => (
+            <span key={k} data-hit className={cn("rounded px-0.5 font-medium underline decoration-wavy decoration-1 underline-offset-4", b.bg, b.text)}>{text.slice(a, z)}</span>
+          );
+          const body = (from: number, to: number, key: string) => {
+            // render [from,to) with the hit words emphasised
+            const out: React.ReactNode[] = [];
+            let cur = from;
+            hits.forEach((h, hi) => {
+              const a = Math.max(h.start, from), z = Math.min(h.end, to);
+              if (z <= a || a < cur) return;
+              if (a > cur) out.push(<Fragment key={`${key}p${hi}`}>{text.slice(cur, a)}</Fragment>);
+              out.push(hitMark(a, z, `${key}h${hi}`));
+              cur = z;
+            });
+            if (cur < to) out.push(<Fragment key={`${key}e`}>{text.slice(cur, to)}</Fragment>);
+            return out;
+          };
           return (
             <>
-              {head}
+              {wide ? body(s.start, lastStart, "a") : head}
               <span className="whitespace-nowrap">
-                {word}
+                {wide ? body(lastStart, lastStart + word.length, "b") : word}
                 {!s.noIcon && <Icon className={cn("ml-1 inline size-3.5 -translate-y-px", b.text)} strokeWidth={2} aria-label={b.label} />}
               </span>
               {tail}
