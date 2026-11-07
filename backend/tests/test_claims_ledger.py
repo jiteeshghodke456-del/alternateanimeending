@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app.clock import local_today
 from app import ledger as L
 from app.db import get_engine
 from app.models import AuditEvent, ClaimRecord, Comment, ContentItem, Fact
@@ -183,7 +184,7 @@ def test_expire_fact_impact_and_send_back(client: TestClient, monkeypatch, resto
     fid = fact_id("F-21")
 
     login(client, "admin")
-    r = client.patch(f"/api/facts/{fid}", json={"valid_until": (date.today() - timedelta(days=1)).isoformat()})
+    r = client.patch(f"/api/facts/{fid}", json={"valid_until": (local_today() - timedelta(days=1)).isoformat()})
     assert r.status_code == 200 and r.json()["expired"] and r.json()["used_by"] >= 2
     imp = client.get(f"/api/facts/{fid}/impact").json()
     assert imp["reason"] == "expired" and imp["approved"] >= 1
@@ -244,7 +245,7 @@ def test_expiring_soon_lists_facts_with_affected_items(client: TestClient, monke
     wait_done(client, ids["version_id"])
     login(client, "admin")
     fid = fact_id("F-07")
-    client.patch(f"/api/facts/{fid}", json={"valid_until": (date.today() + timedelta(days=5)).isoformat()})
+    client.patch(f"/api/facts/{fid}", json={"valid_until": (local_today() + timedelta(days=5)).isoformat()})
     out = client.get("/api/claims/expiring").json()
     row = next(x for x in out["expiring"] if x["fact"]["code"] == "F-07")
     assert row["fact"]["days_left"] == 5 and row["items_approved"] + row["items_in_progress"] >= 1
