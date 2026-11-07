@@ -54,6 +54,7 @@ GENERIC_ALT = {"image", "img", "photo", "picture", "pic", "graphic", "banner", "
 VAGUE_LINK_TEXT = {"click here", "here", "click", "read more", "more", "learn more", "link", "this link",
                    "click this", "more info", "find out more", "go", "continue", "details", "this", "tap here"}
 _WS = re.compile(r"\s+")
+_HIDDEN_STYLE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden", re.I)
 
 
 @dataclass
@@ -232,10 +233,11 @@ class _Parser(HTMLParser):
                 self._pop_to("li")
         skips = tag in _SKIP_CONTENT
         role = (a.get("role") or "").lower()
+        style = a.get("style")
         hidden = ("hidden" in a or (a.get("aria-hidden") or "").lower() == "true"
-                  or re.search(r"display\s*:\s*none|visibility\s*:\s*hidden", a.get("style", "") or "", re.I) is not None)
-        cls = f"{a.get('class', '')} {a.get('id', '')}"
-        boiler = (tag in _BOILERPLATE or role in _BOILER_ROLES or hidden or bool(_BOILER_CLASS.search(cls))) and not skips
+                  or (bool(style) and _HIDDEN_STYLE.search(style) is not None))
+        cls = f"{a.get('class', '')} {a.get('id', '')}" if ("class" in a or "id" in a) else ""
+        boiler = (tag in _BOILERPLATE or role in _BOILER_ROLES or hidden or (bool(cls) and bool(_BOILER_CLASS.search(cls)))) and not skips
         if tag in ("main", "article") or role in ("main", "article"):
             self.page.has_main = True
             self.main_depth += 1
