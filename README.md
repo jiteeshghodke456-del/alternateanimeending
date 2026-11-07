@@ -194,7 +194,7 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 - **Evaluation labels are drafts.** All 60 evaluation items were labelled as drafts with AI help and are being reviewed by the team, and recall on the test split rests on 13 positive labels. Treat the Evaluation numbers as provisional.
 - **Keyword triggers are blunt.** Code flags urgency and claim words even when the wording is correct in context.
 - **Own-site detection matches the brand name.** A brand's press note is recognised as its own when the page's host contains the brand name (blog.swiggy.com for Swiggy). A brand whose domain doesn't match its name still gets the disguised-ad check per paragraph, though as one finding per post.
-- **Imported brand-book rules are judged from pixels.** Design-system rules about fonts, kerning, leading and print colour codes are not judged from images; logo rules only apply to images that show a logo. Rules Jev is unsure about on one image are grouped into one "needs a human look" card.
+- **Some brand-book rules can't be judged from an image.** Design-system rules about fonts, kerning, leading and print colour codes are not judged from images; logo rules only apply to images that show a logo. Rules Jev is unsure about on one image are grouped into one "needs a human look" card.
 
 ## Team
 
