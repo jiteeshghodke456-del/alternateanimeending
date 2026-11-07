@@ -22,6 +22,8 @@ Every file is optional except users.json; missing files are skipped. Accepted fo
                   creator = user id or user name; file relative to <seed>/content/
 - logo.png, logo_alt_wrong.png, guideline.pdf -> Asset rows (path points into the seed dir)
 - personas.json   not loaded into the DB; read it with seed_file("personas.json") (240, each has `segment`)
+- audiences.json  optional brand reader groups for the Audience Preview; read from the active seed dir only
+                  (no fallback to the default brand's file). Format in pipeline/audience.py and DECISIONS.md.
 Rule params are stored verbatim (e.g. params.vague=true marks the 5 planted vague rules).
 """
 from __future__ import annotations

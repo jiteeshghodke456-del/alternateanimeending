@@ -194,6 +194,7 @@ Runs per version and streams SSE events to `GET /api/versions/{id}/events`.
 
 ### P1-1 Audience Preview (MiroFish-style idea, built on Jev; no MiroFish code)
 - Data: 240 personas sampled from **NVIDIA Nemotron-Personas-India** (en_IN split, CC-BY-4.0). Preprocess once into `seed/personas.json`, keeping age, sex, state, urban/rural, occupation and a short persona text. Stratify the sample across 6 segments: 18–24 urban, 25–40 urban, 25–40 tier-2/3, 41–60, students, small-business owners.
+- **Changed 7 Nov (Audience Preview v2, see DECISIONS.md):** each reader now gets a reader-first 1-5 reaction Score plus the `confused` Noul; reader groups can come from the brand's `audiences.json`; per-group mean, spread and shares are computed in code. The original plan follows.
 - Per run, chunk the personas into groups of 20. Each Jev call has `state = {content, personas: [...20]}` and 2 Nouls per persona:
   - `p{i}_distrust`: "Would persona i find this misleading or untrustworthy?"
   - `p{i}_confused`: "Would persona i misunderstand the main message?"
