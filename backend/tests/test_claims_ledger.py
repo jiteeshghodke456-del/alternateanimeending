@@ -102,6 +102,25 @@ def test_partly_supported_jev_claim_relies_on_its_best_current_fact(monkeypatch)
     assert cr.status == "supported" and cr.fact_code is None and C.relied_facts(cr, ctx) == ["F-03"]
 
 
+def test_supported_by_one_fact_also_relies_on_the_fact_holding_its_other_numbers(monkeypatch) -> None:  # noqa: ANN001
+    install(monkeypatch, FakeJev(support={"F-18": 0.74, "F-04": 0.2}))
+    ctx = seed_ctx()
+    [cl] = C.extract_claims("We run 12 cafes across Pune, Mumbai and Bengaluru, open from 8 am to 10 pm every day.", ctx)
+    cr = asyncio.run(C.check_claim(cl, ctx, use_jev=True))
+    assert cr.status == "supported" and cr.fact_code == "F-18" and C.relied_facts(cr, ctx) == ["F-18", "F-04"]
+
+
+def test_number_from_an_expired_fact_makes_a_supported_claim_outdated(monkeypatch) -> None:  # noqa: ANN001
+    from dataclasses import replace
+
+    install(monkeypatch, FakeJev(support={"F-18": 0.74, "F-04": 0.2}))
+    ctx = seed_ctx()
+    ctx.facts = [replace(f, valid_until=date(2020, 1, 1)) if f.code == "F-04" else f for f in ctx.facts]
+    [cl] = C.extract_claims("We run 12 cafes across Pune, Mumbai and Bengaluru, open from 8 am to 10 pm every day.", ctx)
+    cr = asyncio.run(C.check_claim(cl, ctx, use_jev=True))
+    assert (cr.status, cr.fact_code, cr.band, cr.via) == ("outdated", "F-04", "human", "numbers") and cr.is_finding
+
+
 def test_expiry_helpers() -> None:
     t = date(2026, 11, 7)
     assert L.days_left(date(2026, 11, 15), t) == 8 and L.days_left(None, t) is None
@@ -270,3 +289,21 @@ def test_ledger_is_per_workspace(tmp_path_factory: pytest.TempPathFactory) -> No
         W.clear_for_tests()
         s.workspaces_enabled, s.workspaces_dir = saved
         run._main_loop, run._prerun_started = saved_loop, saved_prerun
+
+
+def test_failed_recheck_keeps_the_previous_ledger_rows(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
+    from app.pipeline import engine as E
+    from app.pipeline import run as R
+
+    install(monkeypatch, FakeJev(support={"F-05": 0.95}))
+    ids = create(client, "Saffron & Steam was founded in Pune in 2019.", "keeps rows")
+    wait_done(client, ids["version_id"])
+    before = [(r.status, r.fact_code) for r in records(ids["version_id"])]
+    assert before
+
+    async def boom(*a, **kw):  # noqa: ANN002, ANN003, ANN202
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(E, "analyze", boom)
+    asyncio.run(R.run_check(ids["version_id"]))
+    assert [(r.status, r.fact_code) for r in records(ids["version_id"])] == before
