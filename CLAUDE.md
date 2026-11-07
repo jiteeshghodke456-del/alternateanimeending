@@ -113,7 +113,7 @@ If `TYPESAFE_API_KEY` is missing, the app still runs: Tier 0 checks work, and th
 - For non-confidential items, `privacy.mask_pii()` masks emails, phone numbers and long digit strings before any external call.
 
 ## UI design system: glassmorphism, Apple-like, premium
-- **Background:** a lava lamp: seven wax blobs (metaballs) that rise, sink, merge and split, computed per pixel into a canvas 1/5 of the viewport (about 2 ms a frame), upscaled by the browser, under a static film-grain frost. 30 redraws a second, 12 if the page drops below 40 fps; still under `prefers-reduced-motion`; stopped while the tab is hidden. See `components/MeshBackground.tsx`.
+- **Background:** a lava lamp: six slow wax blobs (metaballs) in muted jewel tones under a vignette that rise, sink, merge and split, computed per pixel into a canvas 1/5 of the viewport (about 2 ms a frame), upscaled by the browser, under a static film-grain frost. 30 redraws a second, 12 if the page drops below 40 fps; still under `prefers-reduced-motion`; stopped while the tab is hidden. See `components/MeshBackground.tsx`.
 - **Glass surfaces:** `.glass` / `.glass-strong` in `styles/index.css`: frosted (`backdrop-filter: blur(22px) saturate(1.5)`) translucent tint, a top sheen, a 1px light edge and layered shadows.
 - **Readability beats glass.** Text panels and the findings list use a more opaque surface (`bg-white/80`, `dark:bg-neutral-900/70`). Body text must reach WCAG AA (4.5:1) contrast. This product checks accessibility, so it can't fail its own test.
 - **Type:** Inter (variable) at 15px body. Headings use semibold with tight tracking (`tracking-tight`). Use SF-style hierarchy: large title, then section title, then body, then caption.

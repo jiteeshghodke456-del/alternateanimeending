@@ -55,13 +55,14 @@
   --chrome-bg: rgba(255, 255, 255, 0.78);
 
   /* Lava lamp (components/MeshBackground.tsx): soft pastels; colours shift as blobs breathe and overlap. */
-  --lava-1: #b77dff;
-  --lava-2: #ffa25e;
-  --lava-3: #f58cc4;
-  --lava-4: #9d6bff;
-  --lava-5: #ffbe7a;
-  --lava-opacity: 0.62;
-  --frost-wash: rgba(255, 255, 255, 0.16);
+  --lava-1: #c3a0f5;
+  --lava-2: #f6b892;
+  --lava-3: #eeb0d4;
+  --lava-4: #ae9af0;
+  --lava-5: #f7cfa6;
+  --lava-opacity: 0.5;
+  --frost-wash: rgba(255, 255, 255, 0.2);
+  --vignette: rgba(90, 70, 130, 0.10);
 
   --blob-1: #9cc8ff;
   --blob-2: #d3c4ff;
@@ -112,17 +113,18 @@
     --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
     --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
     --chrome-bg: rgba(22, 22, 28, 0.72);
-    --lava-1: #951efc;
-    --lava-2: #fe7204;
-    --lava-3: #d6338a;
-    --lava-4: #6a1bd1;
-    --lava-5: #ff8a1f;
-    --lava-opacity: 0.78;
-    --frost-wash: rgba(6, 4, 10, 0.14);
+    --lava-1: #7b2ee6;
+    --lava-2: #d9681c;
+    --lava-3: #9c3a86;
+    --lava-4: #3f2a9e;
+    --lava-5: #b8622a;
+    --lava-opacity: 0.52;
+    --frost-wash: rgba(6, 4, 10, 0.18);
+    --vignette: rgba(0, 0, 0, 0.55);
     --blob-1: #123b73;
     --blob-2: #3a2a73;
     --blob-3: #5a3a1f;
-    --bg-base: #07050c;
+    --bg-base: #060409;
   }
 }
 :root[data-theme="dark"] {
@@ -157,17 +159,18 @@
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
   --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
   --chrome-bg: rgba(22, 22, 28, 0.72);
-  --lava-1: #951efc;
-  --lava-2: #fe7204;
-  --lava-3: #d6338a;
-  --lava-4: #6a1bd1;
-  --lava-5: #ff8a1f;
-  --lava-opacity: 0.78;
-  --frost-wash: rgba(6, 4, 10, 0.14);
+  --lava-1: #7b2ee6;
+  --lava-2: #d9681c;
+  --lava-3: #9c3a86;
+  --lava-4: #3f2a9e;
+  --lava-5: #b8622a;
+  --lava-opacity: 0.52;
+  --frost-wash: rgba(6, 4, 10, 0.18);
+    --vignette: rgba(0, 0, 0, 0.55);
   --blob-1: #123b73;
   --blob-2: #3a2a73;
   --blob-3: #5a3a1f;
-  --bg-base: #07050c;
+  --bg-base: #060409;
 }
 
 @layer base {
@@ -226,7 +229,9 @@
 .lava-frost {
   /* One static full-screen layer: film grain over a soft wash. No backdrop-filter. */
   position: absolute; inset: 0;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 .035'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px repeat, var(--frost-wash);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 .035'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px repeat,
+    radial-gradient(ellipse 120% 90% at 50% 38%, transparent 52%, var(--vignette, transparent) 100%),
+    var(--frost-wash);
 }
 
 @media (prefers-reduced-motion: reduce) {

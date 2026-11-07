@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Lava-lamp background: seven wax blobs rise, sink, merge and split (metaballs), under a static frost layer.
+ * Lava-lamp background: six slow wax blobs rise, sink, merge and split (metaballs), under a static frost layer.
  *
  * How it stays cheap: the field is computed per pixel into a small canvas (1/5 of the viewport, about
  * 256x160 on a laptop, ~2 ms a frame) and the browser upscales it, which softens the edges just enough.
@@ -16,13 +16,12 @@ type Blob = { x: number; amp: number; py: number; px: number; sway: number; r: n
 // x: column (fraction of width); amp: how far it rises/sinks (fraction of height); py/px: vertical / sideways
 // periods in seconds; r: radius as a fraction of the shorter side; c: colour token index (0-4).
 const BLOBS: Blob[] = [
-  { x: 0.16, amp: 0.46, py: 38, px: 23, sway: 0.05, r: 0.20, c: 0, ph: 0.0 },
-  { x: 0.84, amp: 0.44, py: 33, px: 29, sway: 0.06, r: 0.19, c: 1, ph: 2.4 },
-  { x: 0.50, amp: 0.50, py: 46, px: 31, sway: 0.10, r: 0.15, c: 2, ph: 4.1 },
-  { x: 0.30, amp: 0.42, py: 29, px: 21, sway: 0.07, r: 0.12, c: 3, ph: 1.2 },
-  { x: 0.70, amp: 0.48, py: 41, px: 26, sway: 0.08, r: 0.13, c: 4, ph: 3.3 },
-  { x: 0.06, amp: 0.30, py: 52, px: 35, sway: 0.04, r: 0.16, c: 1, ph: 5.0 },
-  { x: 0.95, amp: 0.30, py: 49, px: 33, sway: 0.04, r: 0.16, c: 0, ph: 0.7 },
+  { x: 0.14, amp: 0.40, py: 58, px: 37, sway: 0.05, r: 0.24, c: 0, ph: 0.0 },
+  { x: 0.86, amp: 0.38, py: 52, px: 43, sway: 0.05, r: 0.22, c: 1, ph: 2.4 },
+  { x: 0.52, amp: 0.44, py: 66, px: 47, sway: 0.08, r: 0.17, c: 2, ph: 4.1 },
+  { x: 0.30, amp: 0.36, py: 47, px: 33, sway: 0.06, r: 0.14, c: 3, ph: 1.2 },
+  { x: 0.72, amp: 0.42, py: 61, px: 39, sway: 0.06, r: 0.15, c: 4, ph: 3.3 },
+  { x: 0.95, amp: 0.26, py: 74, px: 51, sway: 0.03, r: 0.18, c: 3, ph: 0.7 },
 ];
 const SCALE = 1 / 5;
 const FRAME_MS = 1000 / 30;
@@ -109,9 +108,9 @@ export function MeshBackground() {
           let R = r0, G = g0, B = b0;
           if (f > 0.02) {
             cr /= f; cg /= f; cb /= f;
-            const body = smooth(0.82, 1.08, f);          // the wax edge
-            const halo = smooth(0.25, 0.82, f) * 0.22;    // faint glow just outside it
-            const core = smooth(1.4, 4.5, f) * 0.28;      // lighter centre: reads as 3D wax
+            const body = smooth(0.7, 1.25, f);           // the wax edge (soft, but still a shape)
+            const halo = smooth(0.25, 0.7, f) * 0.14;     // faint glow just outside it
+            const core = smooth(1.6, 5, f) * 0.16;        // slightly lighter centre: reads as 3D wax
             cr += (255 - cr) * core; cg += (255 - cg) * core; cb += (255 - cb) * core;
             const a = Math.max(body, halo) * A;
             R = r0 + (cr - r0) * a; G = g0 + (cg - g0) * a; B = b0 + (cb - b0) * a;
