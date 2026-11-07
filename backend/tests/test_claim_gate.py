@@ -107,3 +107,18 @@ def test_record_noul_turns_a_ranking_shaped_record_into_a_reminder(monkeypatch) 
     assert ds and all((d.band, d.rule_code) == ("human", "R-CLAIM-02") for d in ds)
     ds, _, _ = _run(text, monkeypatch, kind=Q.KIND_HEALTH, rules={"claim_record": 0.9})  # health always needs evidence
     assert ds and all((d.band, d.rule_code) == ("flag", "R-CLAIM-02") for d in ds)
+
+
+def test_first_party_figure_that_disagrees_with_a_related_fact_keeps_its_rule() -> None:
+    """Eval E-050 (8 Nov): "we now run 25 cafes" was demoted to a reminder although F-04 says 12 cafes
+    (ratio 59, just under CONTRADICT_SCORE)."""
+    from app.pipeline import claims as C
+    from app.pipeline import questions as Q
+    from pipeline_helpers import seed_ctx
+
+    ctx = seed_ctx("Hello, we now run 25 cafes across five cities.")
+    claim = C.Claim(group="factual", rule_code="R-CLAIM-02", start=0, end=10, text="Hello, we now run 25 cafes across five cities.")
+    cr = C.ClaimResult(status="unsupported", rule_code="R-CLAIM-02", probability=0.96, band="flag", via="jev", claim=claim,
+                       candidates=[{"code": "F-04", "score": 58.9, "p": 0.04, "expired": False}])
+    out = C.gate(cr, Q.KIND_FIRST_PARTY if hasattr(Q, "KIND_FIRST_PARTY") else "first_party_statistic", 0.95, ctx, p_record=0.9)
+    assert out.rule_code == "R-CLAIM-02" and out.band == "flag"

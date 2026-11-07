@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-07T16:56:50.272557Z",
+  "run_at": "2026-11-07T21:27:48.174147Z",
   "split": "test",
   "models": {
     "jev": "jev-latest",
@@ -63,75 +63,75 @@
     "calibration": [
       {
         "bin": "0.0-0.1",
-        "predicted": 0.037,
+        "predicted": 0.038,
         "observed": 0.0,
-        "n": 76
+        "n": 77
       },
       {
         "bin": "0.1-0.2",
         "predicted": 0.14,
         "observed": 0.0,
-        "n": 24
+        "n": 22
       },
       {
         "bin": "0.2-0.3",
-        "predicted": 0.224,
+        "predicted": 0.218,
         "observed": 0.0,
         "n": 12
       },
       {
         "bin": "0.3-0.4",
-        "predicted": 0.344,
+        "predicted": 0.34,
         "observed": 0.0,
-        "n": 8
+        "n": 9
       },
       {
         "bin": "0.4-0.5",
-        "predicted": 0.435,
+        "predicted": 0.452,
         "observed": 0.0,
         "n": 4
       },
       {
         "bin": "0.5-0.6",
-        "predicted": 0.545,
+        "predicted": 0.553,
         "observed": 0.1,
         "n": 10
       },
       {
         "bin": "0.6-0.7",
-        "predicted": 0.617,
+        "predicted": 0.642,
         "observed": 0.0,
-        "n": 6
+        "n": 8
       },
       {
         "bin": "0.7-0.8",
-        "predicted": 0.755,
+        "predicted": 0.786,
         "observed": 0.0,
-        "n": 6
+        "n": 5
       },
       {
         "bin": "0.8-0.9",
-        "predicted": 0.835,
+        "predicted": 0.844,
         "observed": 0.0,
-        "n": 6
+        "n": 5
       },
       {
         "bin": "0.9-1.0",
-        "predicted": 0.959,
+        "predicted": 0.96,
         "observed": 0.3,
         "n": 20
       }
     ],
     "latency_ms": {
-      "median": 111,
-      "p95": 499
+      "median": 97,
+      "p95": 386
     },
-    "latency_median_ms": 111,
-    "latency_p95_ms": 499,
-    "cost_per_item_usd": 0.000111,
-    "total_cost_usd": 0.00199,
+    "latency_median_ms": 97,
+    "latency_p95_ms": 386,
+    "cost_per_item_usd": 0.00013,
+    "total_cost_usd": 0.002342,
     "jev_calls": 53,
-    "judgments": 289,
+    "judgments": 331,
     "n_items": 18,
     "stage": "detection (tier0 + Jev + claims)",
     "thresholds": {
@@ -158,7 +158,7 @@
       "code": "R-TONE-01",
       "quote": "A bargain brew for your budget.",
       "band": "human",
-      "p": 0.8
+      "p": 0.79
     },
     {
       "item": "E-048",
@@ -182,7 +182,7 @@
       "code": "R-CLAIM-02",
       "quote": "25",
       "band": "flag",
-      "p": 0.98
+      "p": 0.97
     },
     {
       "item": "E-053",
@@ -206,7 +206,7 @@
       "code": "R-TONE-01",
       "quote": "Giveaway time! Share this post for a chance to win a gift box.",
       "band": "flag",
-      "p": 0.91
+      "p": 0.92
     }
   ]
 }

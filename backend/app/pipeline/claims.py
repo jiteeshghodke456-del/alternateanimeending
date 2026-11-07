@@ -36,6 +36,9 @@ delivery happened in 3 minutes"; health claims never count). "named" = the words
   status outdated, or a current fact contradicts it         -> unchanged (evidence says otherwise)
   not named and claim_checkable < HUMAN_AT                  -> not_a_claim (no finding)
   not named and kind = opinion_or_puffery                   -> not_a_claim (no finding; tone rules cover it)
+  first-party, and a current candidate fact counts the same thing with another number
+                                                            -> unchanged: the brand's own record disagrees
+                                                               ("we now run 25 cafes" vs "We run 12 cafes")
   first-party (see above)                                   -> reminder: rule_code None, band "human" at most
                                                                (the brand reporting its own data is unverified,
                                                                not false; "Add as fact" clears it)
@@ -467,7 +470,7 @@ def gate(cr: ClaimResult, kind: Optional[str], p_checkable: Optional[float], ctx
         cr.status, cr.band, cr.rule_code = NOT_A_CLAIM, "pass", None
         cr.gated = "not_checkable" if p_checkable < Q.HUMAN_AT else "puffery"
         return cr
-    if is_first_party(kind, p_record):
+    if is_first_party(kind, p_record) and not related_fact_disagrees(cr, ctx):
         if cr.rule_code is not None or cr.band == "flag":
             cr.gated = "first_party"
         cr.rule_code = None  # engine.from_claim turns a rule-less unsupported claim into a minor reminder
@@ -525,6 +528,36 @@ CONTRADICT_SCORE = 60  # token-set ratio: the fact is about the same thing as th
 
 def _fact_by_code(ctx: CheckContext, code: Optional[str]) -> Optional[FactSpec]:
     return next((f for f in ctx.facts if f.code == code), None) if code else None
+
+
+_COUNTED = re.compile(r"(\d[\d,.]*)\s*\+?\s*([a-z]{3,})", re.IGNORECASE)
+
+
+def counted(text: str) -> dict[str, set[str]]:
+    """{"cafe": {"12"}} for "We run 12 cafes": numbers keyed by the word they count (plural folded)."""
+    out: dict[str, set[str]] = {}
+    for m in _COUNTED.finditer(text):
+        noun = m.group(2).lower()
+        noun = noun[:-1] if noun.endswith("s") and len(noun) > 3 else noun
+        out.setdefault(noun, set()).add(m.group(1).replace(",", ""))
+    return out
+
+
+def related_fact_disagrees(cr: ClaimResult, ctx: CheckContext) -> bool:
+    """The brand already has a current fact that counts the same thing with a different number ("we now run 25
+    cafes" vs F-04 "We run 12 cafes"). Then the brand's own figure is checkable against its own record, so the
+    first-party leniency in `gate` does not apply and its rule decides as before."""
+    mine = counted(cr.claim.text)
+    if not mine:
+        return False
+    for c in cr.candidates:
+        if c["expired"] or (c["p"] is not None and c["p"] >= Q.HUMAN_AT):
+            continue
+        f = _fact_by_code(ctx, c["code"])
+        theirs = counted(_fact_text(f)) if f else {}
+        if any(noun in theirs and not (nums & theirs[noun]) for noun, nums in mine.items()):
+            return True
+    return False
 
 
 def contradicting_fact(cr: ClaimResult, ctx: CheckContext) -> Optional[FactSpec]:
