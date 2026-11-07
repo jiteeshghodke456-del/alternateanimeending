@@ -710,8 +710,8 @@ class AudiencePersona(_Out):
     bio: str  # short: "34, Shop owner, Nagpur, Maharashtra"
     detail: str  # the group's description and trust / doubt triggers
     score: Optional[float]  # expected credibility 1 (believes it) .. 5 (thinks it is spam / misleading); null = not answered
-    level: Optional[int]  # nearest of the 5 levels (decided in code)
-    lean: Optional[AudienceLean]  # "trust" = leans to believe, "doubt", else "unsure" (bands in questions.py, decided in code)
+    level: Optional[int]  # the reader's most likely of the 5 levels (decided in code; `score` is the expected value)
+    lean: Optional[AudienceLean]  # from level: 1-2 "trust", 3 "unsure", 4-5 "doubt" (decided in code)
     confused: Optional[float]  # Jev p that this reader would misunderstand the main message
     confused_flag: Optional[bool]  # confused > 0.70
     not_for_them: Optional[float] = None  # Jev p that the post isn't relevant to this reader (never part of `score`)

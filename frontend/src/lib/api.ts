@@ -518,8 +518,8 @@ export interface AudiencePersona {
   bio: string; // short: "34, Shop owner, Nagpur, Maharashtra"
   detail: string; // the group's description and trust / doubt triggers
   score: number | null; // expected credibility 1 (believes it) .. 5 (thinks it is spam / misleading); null = not answered
-  level: 1 | 2 | 3 | 4 | 5 | null; // nearest level, decided in code
-  lean: AudienceLean | null; // "trust" = leans to believe, "doubt", else "unsure" (bands decided in code)
+  level: 1 | 2 | 3 | 4 | 5 | null; // the reader's most likely level (Jev answers can be two-peaked), decided in code
+  lean: AudienceLean | null; // from level: 1-2 "trust", 3 "unsure", 4-5 "doubt" (decided in code)
   confused: number | null; // Jev p that this reader would misunderstand the main message
   confused_flag: boolean | null; // confused > 0.70
   not_for_them?: number | null; // Jev p that the post isn't relevant to this reader (never part of score)

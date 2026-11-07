@@ -182,6 +182,8 @@ async def _run_audience(run_id: int) -> None:
             calls.version_id = version_id
             v = s.get(Version, version_id)
             content, paragraphs, image_path, _pii = _content(s, v)
+            item = s.get(ContentItem, v.item_id) if v is not None else None
+            channel = item.channel if item is not None else None
 
         def on_progress(partial: dict) -> None:
             with Session(get_engine()) as s2:
@@ -192,7 +194,8 @@ async def _run_audience(run_id: int) -> None:
                     s2.add(r)
                     s2.commit()
 
-        results = await A.simulate(content, paragraphs, image_path=image_path, calls=calls, on_progress=on_progress)
+        results = await A.simulate(content, paragraphs, image_path=image_path, calls=calls, on_progress=on_progress,
+                                   channel=channel)
         _save_calls(calls, 0)
         with Session(get_engine()) as s:
             run = s.get(AudienceRun, run_id)

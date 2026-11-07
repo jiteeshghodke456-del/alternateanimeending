@@ -126,8 +126,37 @@ def test_wording_lives_in_questions_module_and_has_no_brand_examples() -> None:
     texts = [Q.question_text(q), Q.question_text(Q.audience_credibility_question("x")), Q.question_text(Q.AUDIENCE_ANY_DISTRUST)]
     blob = json.dumps(texts)
     assert "Rs 495" not in blob and "coffee" not in blob.lower()
-    assert Q.AUDIENCE_CREDIBILITY_LEVELS[0].startswith("This reader finds the post clear and believable")
+    assert Q.AUDIENCE_CREDIBILITY_LEVELS[0].startswith("This reader believes the post")
     assert "scam" in Q.AUDIENCE_CREDIBILITY_LEVELS[4]
+
+
+def test_credibility_levels_separate_excited_wording_from_doubt() -> None:
+    """Calibration 8 Nov: a playful, honest brand year-in-review landed on "seems exaggerated" for 233 of 240
+    readers, because level 4 was about ANY part sounding too strong and no level fitted "believes it, the
+    wording is just excited". Overdone wording now sits in level 2; level 4 is about the main message."""
+    lv = Q.AUDIENCE_CREDIBILITY_LEVELS
+    assert "main message" in lv[1] and "excited wording" in lv[1]
+    assert "main message" in lv[3] and "too strong to be true" in lv[3]
+    assert "parts of the post" not in " ".join(lv)
+
+
+def test_confused_asks_what_the_post_mainly_says_not_what_it_offers() -> None:
+    """A year-in-review or news-style post offers nothing and asks nothing; the old criteria ("what is offered,
+    what to do") counted every reader of such a post as confused."""
+    q = Q.audience_confused_question("x")
+    assert "mainly telling them" in q.criteria["true"] and "mainly telling them" in q.criteria["false"]
+    assert "what is offered" not in json.dumps(Q.question_text(q))
+
+
+def test_source_line_names_the_brand_as_publisher_per_channel() -> None:
+    assert Q.audience_source("instagram") == "Published by the brand itself on its own Instagram account."
+    assert Q.audience_source("email").startswith("An email the brand itself sends")
+    assert Q.audience_source(None) == Q.AUDIENCE_SOURCE_DEFAULT == Q.audience_source("print")
+    for build in (Q.audience_credibility_question, Q.audience_confused_question, Q.audience_not_for_them_question):
+        assert "`source`" in build("x").instructions
+        assert "`source`" not in build("x", has_source=False).instructions
+    reqs = A.build_requests([_reader(0, "a")], ["One.", "Two."], is_image=False, has_source=False)
+    assert all("`source`" not in q.instructions for k, q in reqs[0][0].items() if k.startswith("p0_"))
 
 
 def test_credibility_levels_measure_only_credibility() -> None:
@@ -151,6 +180,40 @@ def test_expected_score_math() -> None:
     assert A.expected_score({"x": 1.0, "9": 1.0}, fallback=2.2) == 3.2  # unknown keys -> the API's 0-based score + 1
     assert A.expected_score({}, fallback=None) is None
     assert [A.level(x) for x in (1.0, 1.49, 1.5, 3.2, 4.6, 5.0)] == [1, 1, 2, 3, 5, 5]
+
+
+def test_most_likely_level_reads_two_peaked_answers() -> None:
+    # two peaks (0.55 "mostly believes", 0.42 "seems exaggerated"): the expected value (~2.9) would round to
+    # "Can't tell", which had 3% probability; the reader's level is the most likely one instead
+    probs = {"0": 0.0, "1": 0.55, "2": 0.03, "3": 0.42, "4": 0.0}
+    assert A.level(A.expected_score(probs)) == 3 and A.most_likely_level(probs) == 2
+    assert A.most_likely_level({"1": 0.5, "3": 0.5}) == 4  # a tie goes to the more doubtful level
+    assert A.most_likely_level({"4": 0.9, "x": 5.0, "9": 1.0}) == 5  # unknown keys are ignored
+    assert A.most_likely_level({}) is None and A.most_likely_level({"0": 0.0}) is None
+    assert [A.lean_of_level(x) for x in (1, 2, 3, 4, 5, None)] == ["trust", "trust", "unsure", "doubt", "doubt", None]
+
+
+def test_reader_level_and_lean_come_from_the_most_likely_level() -> None:
+    rs = [_reader(i, "a") for i in range(3)]
+    out = A.aggregate(rs, {0: (2.9, 0.1, 0.1, 2), 1: (3.3, 0.1, 0.1, 4), 2: (2.9, 0.1, 0.1)})
+    p0, p1, p2 = out["personas"]
+    assert (p0["level"], p0["lean"], p0["score"]) == (2, "trust", 2.9)  # the score stays the expected value
+    assert (p1["level"], p1["lean"]) == (4, "doubt")
+    assert (p2["level"], p2["lean"]) == (3, "unsure")  # no probabilities: the rounded expected value
+    o = out["overall"]
+    assert o["levels"] == [0, 1, 1, 1, 0] and o["trust_pct"] == o["doubt_pct"] == o["unsure_pct"] == round(1 / 3, 4)
+    assert abs(o["mean_score"] - (2.9 + 3.3 + 2.9) / 3) < 1e-4
+
+
+def test_calibration_set_is_labelled_drafts_with_held_out_posts() -> None:
+    from app.eval import audience_calibration as C
+
+    posts = C.load()
+    assert len(posts) >= 12 and len({p["id"] for p in posts}) == len(posts)
+    assert all(p["expect"] in C.EXPECT_RANGE and p["text"].strip() and p["channel"] in Q.AUDIENCE_SOURCE_BY_CHANNEL
+               for p in posts)
+    assert any(p["tune"] for p in posts) and any(not p["tune"] for p in posts)  # some posts were never tuned on
+    assert json.loads(C.DATASET.read_text(encoding="utf-8"))["labelled_by"] == "draft-ai"
 
 
 def test_lean_truth_table() -> None:
@@ -348,6 +411,7 @@ def test_full_run_masks_pii_logs_calls_and_labels(client: TestClient, monkeypatc
     assert out["culprit_paragraph"]["index"] == 0 and out["culprit_paragraph"]["certain"]
     assert out["progress"] == {"done": 240, "total": 240}
     assert len(fake.calls) == 12
+    assert all(c["state"]["source"] == Q.audience_source("instagram") for c in fake.calls)  # who publishes it
     assert all("98765" not in c["state"]["content"] and "[phone_1]" in c["state"]["content"] for c in fake.calls)
     with Session(get_engine()) as s:
         rows = s.exec(select(AICall).where(AICall.version_id == vid, AICall.purpose == "audience")).all()
@@ -494,12 +558,14 @@ def test_image_post_runs_with_image_state_and_no_culprit(client: TestClient, mon
     assert len(seen) == 12
     state, qs = seen[0]
     assert "9876543210" not in state["caption"]  # PII masked before the external call
+    assert state["source"] == Q.audience_source("instagram")
     assert "culprit" not in qs and "`image`" in next(iter(qs.values())).instructions
 
 
 @pytest.mark.parametrize("old", [
     {"overall": {"distrust_pct": 1.0}, "segments": []},  # the distrust/unsure model (before 7 Nov)
     {"schema": 2, "overall": {"mean_score": 4.0, "trust_pct": 0.0, "doubt_pct": 1.0}, "segments": []},  # reaction score (7 Nov)
+    {"schema": 3, "overall": {"mean_score": 4.0, "trust_pct": 0.0, "doubt_pct": 1.0}, "segments": []},  # before calibration (8 Nov)
 ])
 def test_old_shape_run_asks_for_a_rerun(client: TestClient, monkeypatch, old) -> None:  # noqa: ANN001
     install_audience(monkeypatch, AudienceJev())
