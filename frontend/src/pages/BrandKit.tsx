@@ -7,6 +7,7 @@ import { PdfImportDialog } from "@/components/PdfImportDialog";
 import { onPdfImportRequest, takePdfImport } from "@/lib/tourBus";
 import { RuleClarityPanel } from "@/components/RuleClarityPanel"; // Round 3: unclear-rule detection
 import { RulePacksCard } from "@/components/RulePacksCard"; // rule packs
+import { ChannelSettingsPanel } from "@/components/ChannelSettingsPanel"; // Brand Score targets + channel limits
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -448,12 +449,14 @@ export default function BrandKit() {
           <TabsTrigger value="words" className={tabCls}>Words</TabsTrigger>
           <TabsTrigger value="palette" className={tabCls}>Palette &amp; Logo</TabsTrigger>
           <TabsTrigger value="facts" className={tabCls}>Facts</TabsTrigger>
+          <TabsTrigger value="channels" className={tabCls}>Channels</TabsTrigger>
           <TabsTrigger value="clarity" className={tabCls}>Rule clarity</TabsTrigger>
         </TabsList>
         <TabsContent value="rules"><RulesTab admin={admin} /></TabsContent>
         <TabsContent value="words"><WordsTab admin={admin} /></TabsContent>
         <TabsContent value="palette"><PaletteTab /></TabsContent>
         <TabsContent value="facts"><FactsTab admin={admin} /></TabsContent>
+        <TabsContent value="channels"><ChannelSettingsPanel admin={admin} /></TabsContent>
         <TabsContent value="clarity"><RuleClarityPanel admin={admin} /></TabsContent>
       </Tabs>
     </>

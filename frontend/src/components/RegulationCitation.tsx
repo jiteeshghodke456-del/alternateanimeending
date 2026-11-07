@@ -14,7 +14,7 @@ export function RegulationChip({ f }: { f: FindingOut }) {
   if (!regulationsOf(f).length) return null;
   return (
     <span data-testid="regulation-chip" className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF]/12 px-2.5 py-1 text-caption font-medium text-[var(--accent-text)]">
-      <Landmark className="size-3.5" strokeWidth={1.5} aria-hidden /> Regulation
+      <Landmark className="size-3.5" strokeWidth={1.5} aria-hidden /> {regulationsOf(f)[0]?.pack_id === "platform" ? "Platform spec" : "Regulation"}
     </span>
   );
 }

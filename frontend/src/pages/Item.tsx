@@ -23,6 +23,8 @@ import { WebPagePanel } from "@/components/WebPagePanel";
 import { TipButton } from "@/components/TipButton";
 import { DismissDialog, NoteDialog } from "@/components/ReasonDialog";
 import { UserAvatar } from "@/components/UserAvatar";
+import { ScoreBadge, ScoreCard } from "@/components/BrandScore";
+import { scoreApi } from "@/lib/score";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -192,6 +194,7 @@ function Item() {
   const [dismissFor, setDismissFor] = useState<FindingOut | null>(null);
   const [overrideFor, setOverrideFor] = useState<FindingOut | null>(null);
   const [noteAction, setNoteAction] = useState<"request" | "reject" | null>(null);
+  const [reasonOpen, setReasonOpen] = useState(false); // Brand Score below target: ask why before submitting
   const unsub = useRef<() => void>(() => undefined);
 
   // default to the latest version once the item is known
@@ -338,7 +341,11 @@ function Item() {
     await run("override", async () => { upsert(await api.override(overrideFor.id, { reason })); detailQ.reload(); toast.success("Override recorded"); });
   };
   const applyDetail = (d: ItemDetail, msg: string) => { detailQ.setData(d); toast.success(msg); };
-  const onSubmit = () => swallow(run("submit", async () => applyDetail(await api.submit(id), "Sent for review")));
+  // Brand Score: below the channel target, submitting asks for a short reason (it never blocks by itself).
+  const belowTarget = item.score != null && item.target_score != null && item.score < item.target_score;
+  const onSubmit = () => belowTarget ? setReasonOpen(true)
+    : swallow(run("submit", async () => applyDetail(await api.submit(id), "Sent for review")));
+  const onSubmitWithReason = (reason: string) => run("submit", async () => applyDetail(await scoreApi.submit(id, reason), "Sent for review with your reason"));
   const onApprove = () => swallow(run("approve", async () => applyDetail(await api.approve(id), "Approved")));
   const onResubmit = () => swallow(run("resubmit", async () => {
     const out = await api.resubmit(id);
@@ -412,9 +419,10 @@ function Item() {
               key={v.id}
               aria-pressed={v.id === vid}
               onClick={() => { setVid(v.id); setActive(undefined); }}
-              className={cn("rounded-full px-3.5 py-1.5 text-footnote font-medium transition-colors", v.id === vid ? "bg-[var(--accent-fill)] text-white" : "bg-foreground/8 hover:bg-foreground/12")}
+              className={cn("inline-flex items-center rounded-full px-3.5 py-1.5 text-footnote font-medium transition-colors", v.id === vid ? "bg-[var(--accent-fill)] text-white" : "bg-foreground/8 hover:bg-foreground/12")}
             >
               v{v.n}{v.id === item.latest_version_id ? " (latest)" : ""}
+              {v.score && <ScoreBadge score={v.score.score} band={v.score.band} className="ml-1.5" />}
             </button>
           ))}
         </nav>
@@ -424,6 +432,22 @@ function Item() {
         <ErrorState title="Can't load this version" message={loadError.message} onRetry={() => setAttempt((a) => a + 1)} />
       ) : (
         <>
+          {(() => { // Brand Score of the shown version, with the previous version's for the change
+            const i = detail.versions.findIndex((x) => x.id === vid);
+            const cur = detail.versions[i]?.score;
+            const prev = i > 0 ? detail.versions[i - 1] : null;
+            return cur && !running ? (
+              <ScoreCard score={cur} target={item.target_score ?? 80} channel={item.channel}
+                previous={prev?.score ? { n: prev.n, score: prev.score.score } : null} />
+            ) : null;
+          })()}
+          {item.submit_reason && item.state === "in_review" && (
+            <div role="note" data-testid="submit-reason" className="glass-strong mt-4 flex items-start gap-3 !rounded-2xl px-4 py-3 text-footnote">
+              <Info className="mt-0.5 size-4 shrink-0 text-[var(--accent-text)]" strokeWidth={1.75} aria-hidden />
+              <p className="min-w-0"><span className="font-semibold">Submitted below the score target ({item.score} of {item.target_score}). </span>
+                {item.creator_name}&rsquo;s reason: &ldquo;{item.submit_reason}&rdquo;</p>
+            </div>
+          )}
           <div data-tour="live-meter">{!version ? <Skeleton className="h-[132px]" /> : <LiveMeter
             paragraphs={running ? unitsDone : (unitsTotal ?? unitsDone)} paragraphsTotal={unitsTotal}
             judgments={judgments}
@@ -568,6 +592,13 @@ function Item() {
 
       <DismissDialog open={!!dismissFor} onOpenChange={(o) => !o && setDismissFor(null)} onConfirm={onDismiss} />
       <NoteDialog
+        open={reasonOpen} onOpenChange={setReasonOpen}
+        title="Submit below the score target?"
+        description={`This version scores ${item.score ?? "–"}, below the ${item.channel} target of ${item.target_score ?? 80}. You can still submit: tell the reviewer why. Your reason is saved in the history.`}
+        label="Reason for the reviewer" confirmLabel="Submit with reason"
+        onConfirm={async (n) => { if (n.length < 3) { toast.error("Please add a short reason."); throw new Error("short"); } await onSubmitWithReason(n); }}
+      />
+      <NoteDialog
         open={!!overrideFor} onOpenChange={(o) => !o && setOverrideFor(null)}
         title="Override this blocking finding"
         description="The item can move on with this finding still present. Your name and reason are saved in the history."
@@ -655,6 +686,8 @@ function HistoryTab({ itemId, refreshKey }: { itemId: number; refreshKey: string
           typeof d.version === "number" ? `v${d.version}` : null,
           typeof d.reason === "string" ? `Reason: ${d.reason}` : null,
           typeof d.note === "string" ? `Note: ${d.note}` : null,
+          typeof d.score === "number" ? `Brand Score ${d.score}${typeof d.target_score === "number" ? ` (target ${d.target_score})` : ""}` : null,
+          typeof d.below_target_reason === "string" ? `Below-target reason: ${d.below_target_reason}` : null,
         ].filter(Boolean);
         return (
           <li key={e.id} className="px-4 py-3">

@@ -14,6 +14,7 @@ import { api, namesWithRole, type CountBucket } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
 import { UnclearRulesCard } from "@/components/RuleClarityPanel"; // Round 3: unclear-rule detection
 import { ExpiringFactsCard } from "@/components/claims"; // Round 3: claims ledger
+import { ScoreTrendCard } from "@/components/ScoreTrendCard"; // Brand Score
 
 type Row = { name: string; count: number; label?: string | null };
 
@@ -107,6 +108,7 @@ export default function Dashboard() {
         <KpiTile label="Jev judgments" value={k.jev_judgments} icon={Scale} />
         <KpiTile label="Total cost" value={k.total_cost_usd} decimals={4} prefix="$" icon={Coins} />
       </div>
+      {!empty && <ScoreTrendCard data={d} className="mt-6" />}
       <div className="mt-6"><UnclearRulesCard /></div>
       {!empty && <ExpiringFactsCard className="mt-6" />}
       {empty ? (
