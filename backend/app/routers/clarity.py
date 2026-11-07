@@ -30,7 +30,7 @@ from sqlmodel import Session, select
 from app import workspaces as W
 from app.db import get_engine
 from app.deps import AdminUser, CurrentUser, SessionDep
-from app.models import AICall, Finding, Rule, RuleClarity, utcnow
+from app.models import AICall, Finding, Precedent, Rule, RuleClarity, utcnow
 from app.pipeline import clarity as C
 from app.pipeline import explain, jev
 from app.pipeline import questions as Q
@@ -146,9 +146,13 @@ def _has_examples(rule: Rule) -> bool:
 
 
 def _people(session: Session, rule: Rule) -> C.PeopleResult:
-    q = select(Finding.status, Finding.dismiss_reason, Finding.band, Finding.rule_version).where(Finding.rule_code == rule.code)
-    rows = [(s, r, b) for s, r, b, v in session.exec(q).all() if (v or 1) == rule.version]
-    return C.people_signal(rows)
+    q = select(Finding.id, Finding.status, Finding.dismiss_reason, Finding.band, Finding.band_before, Finding.rule_version
+               ).where(Finding.rule_code == rule.code)
+    rows = [(i, s, r, b, bb) for i, s, r, b, bb, v in session.exec(q).all() if (v or 1) == rule.version]
+    # precedent memory: decisions whose finding a re-check replaced still count (once)
+    pq = select(Precedent.finding_id, Precedent.decision, Precedent.reason, Precedent.band).where(
+        Precedent.rule_code == rule.code, Precedent.brand_id == rule.brand_id, Precedent.rule_version == rule.version)
+    return C.people_signal(C.people_rows(rows, [tuple(x) for x in session.exec(pq).all()]))
 
 
 def _current_disagreement(rule: Rule, row: Optional[RuleClarity]) -> Optional[dict[str, Any]]:

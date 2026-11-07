@@ -159,6 +159,9 @@ def override_finding(finding_id: int, body: OverrideIn, session: SessionDep, use
     f.status = "overridden"
     session.add(f)
     session.add(Override(finding_id=f.id, user_id=user.id, reason=reason))
+    from app import precedents  # precedent memory: this decision teaches the next check
+
+    precedents.record(session, f, item, user, "overridden", "override", reason)
     touch(item)
     session.add(item)
     audit(session, "override", item_id=item.id, version_id=v.id, user_id=user.id,

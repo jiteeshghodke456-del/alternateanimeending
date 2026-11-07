@@ -8,6 +8,7 @@ import { onPdfImportRequest, takePdfImport } from "@/lib/tourBus";
 import { RuleClarityPanel } from "@/components/RuleClarityPanel"; // Round 3: unclear-rule detection
 import { RulePacksCard } from "@/components/RulePacksCard"; // rule packs
 import { ChannelSettingsPanel } from "@/components/ChannelSettingsPanel"; // Brand Score targets + channel limits
+import { PrecedentsPanel } from "@/components/PrecedentsPanel"; // precedent memory
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -451,6 +452,7 @@ export default function BrandKit() {
           <TabsTrigger value="facts" className={tabCls}>Facts</TabsTrigger>
           <TabsTrigger value="channels" className={tabCls}>Channels</TabsTrigger>
           <TabsTrigger value="clarity" className={tabCls}>Rule clarity</TabsTrigger>
+          <TabsTrigger value="precedents" className={tabCls}>Precedents</TabsTrigger>
         </TabsList>
         <TabsContent value="rules"><RulesTab admin={admin} /></TabsContent>
         <TabsContent value="words"><WordsTab admin={admin} /></TabsContent>
@@ -458,6 +460,7 @@ export default function BrandKit() {
         <TabsContent value="facts"><FactsTab admin={admin} /></TabsContent>
         <TabsContent value="channels"><ChannelSettingsPanel admin={admin} /></TabsContent>
         <TabsContent value="clarity"><RuleClarityPanel admin={admin} /></TabsContent>
+        <TabsContent value="precedents"><PrecedentsPanel admin={admin} /></TabsContent>
       </Tabs>
     </>
   );

@@ -291,6 +291,7 @@ def load_seed(session: Session) -> str:
             session.flush()
             continue
         _seed_history(session, item, v, creator, users)
+        _seed_precedents(session, item, v, it.get("precedents"), users, by_name)
         n_items += 1
 
     audit(session, "seeded", detail={"seed_dir": d.name, "placeholder": is_placeholder()})
@@ -299,6 +300,31 @@ def load_seed(session: Session) -> str:
     log.info("seed: %s", summary)
     return summary
 
+
+
+def _seed_precedents(session: Session, item: ContentItem, v: Version, specs: Any, users: dict, by_name: dict) -> None:
+    """Demo data (labelled `seeded`): an earlier human dismissal on this item. The first check of the
+    version links it to its finding and marks that finding dismissed (app/precedents.link_seeded)."""
+    from app.models import Precedent
+    from app.pipeline import precedent as P
+
+    for sp in _list(specs):
+        if not isinstance(sp, dict) or not sp.get("rule") or not sp.get("quote"):
+            continue
+        quote = str(sp["quote"])
+        text = v.text or ""
+        at = text.find(quote)
+        who = users.get(str(sp.get("by") or "")) or by_name.get(str(sp.get("by") or "").lower())
+        session.add(Precedent(
+            brand_id=item.brand_id, rule_code=str(sp["rule"]), rule_version=_int(sp.get("rule_version")) or 1,
+            quote=quote, quote_norm=P.normalise(quote),
+            context=(P.context_window(text, at, at + len(quote)) if at >= 0 else "") or quote,
+            decision="overridden" if sp.get("decision") == "overridden" else "dismissed",
+            reason=str(sp.get("reason") or "other"), note=(str(sp["note"]) if sp.get("note") else None),
+            user_id=who.id if who else None, user_name=who.name if who else str(sp.get("by") or ""),
+            item_id=item.id, item_title=item.title, version_id=v.id, channel=item.channel, seeded=True,
+            created_at=utcnow() - timedelta(hours=float(sp.get("hours_ago") or 20)),
+        ))
 
 
 def _seed_history(session: Session, item: ContentItem, v: Version, creator: User, users: dict) -> None:

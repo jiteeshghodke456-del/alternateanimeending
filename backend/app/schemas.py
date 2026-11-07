@@ -543,6 +543,20 @@ class ImageBox(_Out):
     right: float
 
 
+class PrecedentRef(_Out):
+    """Precedent memory: the earlier human decision a finding matched ("Seen before")."""
+
+    id: int
+    decision: Literal["dismissed", "overridden"]
+    reason: str  # false_alarm|approved_exception|rule_outdated|other|override
+    note: Optional[str]
+    by: str  # display name
+    at: datetime
+    item_id: Optional[int]
+    item_title: str = ""
+    rule_changed: bool  # the rule has been rewritten (version bump) since the decision
+
+
 class FindingOut(_Out):
     id: int
     version_id: int
@@ -580,6 +594,11 @@ class FindingOut(_Out):
     # Rule packs: regulations that back the brand rule this finding cites (the pack rule is linked to it
     # instead of flagging the same words twice). Empty for pack findings: their own `rule.citation` says it.
     regulations: list[RuleRef] = Field(default_factory=list)
+    # Precedent memory: the earlier decision this finding matched, the band before it was lowered, and a
+    # plain-words note on what the precedent changed. All None when no precedent applied.
+    precedent: Optional[PrecedentRef] = None
+    band_before: Optional[Band] = None
+    band_note: Optional[str] = None
 
 
 class FindingEditIn(BaseModel):
@@ -1040,3 +1059,35 @@ class PackRemoveOut(_Out):
 
 RuleRef.model_rebuild()
 FindingOut.model_rebuild()
+
+
+# ---------------------------------------------------------------- precedent memory (routers/precedents.py)
+class PrecedentOut(_Out):
+    id: int
+    rule_code: str
+    rule_version: int
+    rule_current_version: Optional[int]  # None = the rule no longer exists
+    rule_statement: str = ""
+    quote: str
+    context: str
+    decision: Literal["dismissed", "overridden"]
+    reason: str
+    note: Optional[str]
+    by: str
+    at: datetime
+    item_id: Optional[int]
+    item_title: str
+    channel: str
+    severity: str
+    active: bool
+    applies: bool  # active and not excluded by age / rule rewritten
+    excluded_why: Optional[str] = None
+    uses: int  # later findings it touched
+    seeded: bool = False
+    revoked_by: Optional[str] = None
+    revoked_at: Optional[datetime] = None
+
+
+class PrecedentListOut(_Out):
+    precedents: list[PrecedentOut]
+    max_age_days: int

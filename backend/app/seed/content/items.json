@@ -88,6 +88,17 @@
     "state": "draft",
     "confidential": false,
     "text": "Free shipping on online orders above Rs 599. The roast date is printed on every bag.",
-    "file": null
+    "file": null,
+    "precedents": [
+      {
+        "rule": "R-CLAIM-04",
+        "quote": "Free shipping",
+        "decision": "dismissed",
+        "reason": "approved_exception",
+        "note": "Free shipping above Rs 599 is our standing policy, not a time-limited offer, so it has no end date.",
+        "by": "Meera",
+        "hours_ago": 20
+      }
+    ]
   }
 ]

@@ -10,6 +10,7 @@ from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from sqlalchemy import or_
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
@@ -252,8 +253,8 @@ async def version_events(version_id: int, session: SessionDep, user: CurrentUser
 def list_findings(version_id: int, session: SessionDep, user: CurrentUser, include_pass: bool = False) -> list[FindingOut]:
     v = get_version_or_404(session, version_id)
     q = select(Finding).where(Finding.version_id == v.id)
-    if not include_pass:
-        q = q.where(Finding.band != "pass")
+    if not include_pass:  # "Previously accepted" findings (lowered to pass by a precedent) stay listed
+        q = q.where(or_(Finding.band != "pass", Finding.precedent_id != None))  # noqa: E711
     item = session.get(ContentItem, v.item_id)
     brand_id = item.brand_id if item else None
     return [to_finding_out(session, f, brand_id) for f in session.exec(q.order_by(Finding.span_start, Finding.id)).all()]
@@ -291,6 +292,10 @@ def accept_finding(finding_id: int, session: SessionDep, user: CurrentUser) -> F
         raise HTTPException(status_code=409, detail="This finding has no suggested fix. Use Edit to write your own.")
     if f.span_start is None or f.span_end is None:
         raise HTTPException(status_code=409, detail="This finding isn't tied to a piece of text, so a fix can't be applied automatically. Dismiss it or edit the content.")
+    if f.status == "dismissed":  # precedent memory: the earlier dismissal no longer holds
+        from app import precedents
+
+        precedents.deactivate_for_finding(session, f.id, user.id)
     f.status = "accepted"
     f.edited_text = f.dismiss_reason = f.dismiss_note = None
     # Edit region: the other open findings that share this fix are handled by it too (applied once on resubmit).
@@ -312,6 +317,10 @@ def edit_finding(finding_id: int, body: FindingEditIn, session: SessionDep, user
         raise HTTPException(status_code=422, detail="Write the replacement text for this span.")
     if f.span_start is None or f.span_end is None:
         raise HTTPException(status_code=409, detail="This finding isn't tied to a piece of text, so an edit can't be applied automatically. Dismiss it or edit the content.")
+    if f.status == "dismissed":  # precedent memory: the earlier dismissal no longer holds
+        from app import precedents
+
+        precedents.deactivate_for_finding(session, f.id, user.id)
     f.status = "edited"
     f.edited_text = body.text
     f.dismiss_reason = f.dismiss_note = None
@@ -327,4 +336,7 @@ def dismiss_finding(finding_id: int, body: FindingDismissIn, session: SessionDep
     f.dismiss_reason = body.reason
     f.dismiss_note = (body.note or "").strip() or None
     f.edited_text = None
+    from app import precedents  # precedent memory: this decision teaches the next check
+
+    precedents.record(session, f, item, user, "dismissed", body.reason, f.dismiss_note)
     return _save_finding(session, f, item, user, "finding_dismissed", {"rule_code": f.rule_code, "reason": body.reason})
