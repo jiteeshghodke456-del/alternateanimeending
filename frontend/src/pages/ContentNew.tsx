@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api, CHANNELS, DEMO_ITEM_KEY, namesWithRole, type Channel, type WebSource } from "@/lib/api";
 import { checkWebUrl, WebUrlField } from "@/components/WebUrlField";
-import { reportError } from "@/lib/hooks";
+import { reportError, toApiError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +92,7 @@ export default function ContentNew() {
   const [busy, setBusy] = useState(false);
   const [url, setUrl] = useState("");
   const [webPreview, setWebPreview] = useState<WebSource | null>(null);
+  const [webError, setWebError] = useState<string | null>(null); // the server's message for the last fetch
   const web = checkWebUrl(url);
   const [demoState, setDemoState] = useState<"idle" | "loading" | "loaded" | "missing">(demo ? "loading" : "idle");
 
@@ -154,6 +155,7 @@ export default function ContentNew() {
       );
       navigate(`/items/${out.item_id}`);
     } catch (e) {
+      if (kind === "web") setWebError(toApiError(e).message);
       reportError(e);
     } finally {
       setBusy(false);
@@ -204,7 +206,7 @@ export default function ContentNew() {
           </TabsContent>
 
           <TabsContent value="web" className="mt-5">
-            <WebUrlField value={url} onChange={(v) => { setUrl(v); setWebPreview(null); }} error={web.error} busy={busy} preview={webPreview} />
+            <WebUrlField value={url} onChange={(v) => { setUrl(v); setWebPreview(null); setWebError(null); }} error={web.error ?? webError} busy={busy} preview={webPreview} />
           </TabsContent>
         </Tabs>
 

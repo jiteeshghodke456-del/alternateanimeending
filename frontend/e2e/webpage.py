@@ -85,7 +85,7 @@ with sync_playwright() as p:
     def _():
         pg.get_by_label("Web page address").fill("http://169.254.169.254/latest/meta-data/")
         pg.get_by_role("button", name="Fetch and check").click()
-        expect(pg.get_by_text("private or internal network").first).to_be_visible(timeout=15000)
+        expect(pg.locator("#web-url-help")).to_contain_text("private or internal network", timeout=15000)  # inline, not only a toast
         assert "/content/new" in pg.url
         shot(pg, "2-blocked", full=False)
 
