@@ -1,0 +1,43 @@
+{
+  "default": {
+    "flag": 0.7,
+    "human": 0.3
+  },
+  "categories": {
+    "claims": {
+      "flag": 0.5,
+      "human": 0.3
+    },
+    "messaging": {
+      "flag": 0.7,
+      "human": 0.3
+    },
+    "tone": {
+      "flag": 0.9,
+      "human": 0.65
+    }
+  },
+  "tuned_on": "dev",
+  "run_at": "2026-11-07T10:03:20.655924Z",
+  "n_items": 42,
+  "detail": {
+    "claims": {
+      "human": 0.3,
+      "flag": 0.5,
+      "f1_at_human": 0.854,
+      "n_labels": 21
+    },
+    "messaging": {
+      "human": 0.3,
+      "flag": 0.7,
+      "f1_at_human": 0.083,
+      "n_labels": 3
+    },
+    "tone": {
+      "human": 0.65,
+      "flag": 0.9,
+      "f1_at_human": 0.549,
+      "n_labels": 8
+    }
+  }
+}

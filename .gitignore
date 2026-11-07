@@ -26,6 +26,7 @@ frontend/dist/
 # Eval run outputs other than the committed latest.json
 backend/app/eval/results/*
 !backend/app/eval/results/latest.json
+!backend/app/eval/results/thresholds.json
 
 # OS / editors
 .DS_Store
