@@ -475,14 +475,16 @@ def rewrite_messages(statement: str, category: str, brand: str, why: list[str], 
         f"<rule>{statement}</rule>\n{ex}"
         f"Why it was rated unclear: {' '.join(why) or 'its wording can be read in more than one way.'}\n\n"
         "Rewrite the rule so a new writer could apply it without asking anyone. Keep its intent and scope: don't ban "
-        "or require anything the rule doesn't already aim at. Replace vague words with things a reviewer can observe "
-        f"in the text. One or two sentences, at most {MAX_STATEMENT_CHARS - 40} characters, no examples inside the "
+        "or require anything the rule doesn't already aim at. Replace vague words with kinds of wording or content a "
+        "reviewer can point to in the text (name them). Don't turn it into a counting rule the original doesn't imply. "
+        f"One or two sentences, at most {MAX_STATEMENT_CHARS - 40} characters, no examples inside the "
         "statement.\n"
         'Reply with JSON: {"statement": string, "example_follows": string, "example_breaks": string, '
         '"what_changed": string, "paraphrases": [string, string]}\n'
         "- example_follows / example_breaks: one short text (at most 25 words) that follows / breaks the NEW rule.\n"
         "- what_changed: one plain sentence (at most 160 characters) on what you made concrete.\n"
-        "- paraphrases: two rewordings of YOUR new statement with exactly the same meaning and detail."
+        "- paraphrases: YOUR new statement restated by two different team members who each spell out, in concrete "
+        "terms, what they think it asks for (fair readings: no invented exceptions, keep precise words). One sentence each."
     )
     if feedback:
         user += f"\n\nYour previous draft was rejected: {feedback}"
