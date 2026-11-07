@@ -60,6 +60,7 @@ class FeaturesOut(_Out):
     logo: bool = True
     facts_import: bool = True
     pdf_import: bool = True
+    rule_clarity: bool = True  # Round 3: GET /rules/clarity and friends (routers/clarity.py)
 
 
 # ---------------------------------------------------------------- auth
