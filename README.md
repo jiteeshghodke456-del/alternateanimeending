@@ -55,13 +55,19 @@ The FastAPI service serves the built React app and the API from one container, o
 
 ## Screenshots
 
-![Landing page](frontend/screenshots/landing-desktop-light.png)
+![Landing page](docs/screenshots/landing.jpg)
 
-![Item page with findings](frontend/screenshots/item-desktop-light.png)
+![Findings with cited rules and verified fixes](docs/screenshots/findings.jpg)
 
-![Insights dashboard](frontend/screenshots/dashboard-desktop-light.png)
+![Audience Preview: version 1 vs version 2](docs/screenshots/audience-compare.jpg)
 
-![Brand Kit](frontend/screenshots/brand-desktop-light.png)
+![Logo fidelity check](docs/screenshots/logo-fidelity.jpg)
+
+![Guideline PDF import](docs/screenshots/pdf-import.jpg)
+
+![Insights dashboard](docs/screenshots/dashboard.jpg)
+
+![Brand Kit](docs/screenshots/brand-kit.jpg)
 
 ## Run it yourself
 

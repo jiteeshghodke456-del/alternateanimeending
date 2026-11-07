@@ -35,3 +35,6 @@ backend/app/eval/results/*
 
 # local secrets file used during the hackathon
 env.txt
+
+# full-size UI screenshots are generated locally, not committed
+frontend/screenshots/
