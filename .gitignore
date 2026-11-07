@@ -31,3 +31,6 @@ backend/app/eval/results/*
 .DS_Store
 .idea/
 .vscode/
+
+# local secrets file used during the hackathon
+env.txt
