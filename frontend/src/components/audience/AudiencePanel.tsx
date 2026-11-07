@@ -172,7 +172,7 @@ function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment;
       type="button" aria-pressed={selected} onClick={onSelect}
       className={cn(
         "glass-strong w-full p-4 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 motion-reduce:transition-none",
-        selected && "ring-2 ring-[#0A84FF]",
+        selected && "ring-2 ring-[var(--accent-vivid)]",
       )}
     >
       <span className="flex items-start gap-1.5 text-footnote font-semibold"><Users className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />{seg.label}</span>
@@ -201,7 +201,7 @@ function SegmentDetail({ seg, culprit }: { seg: AudienceSegment; culprit: Audien
         <p className="text-footnote text-muted-foreground">The three simulated readers in this group who find the post least believable.</p>
       </div>
       {seg.why && (
-        <p className="rounded-2xl bg-[#0A84FF]/8 p-3.5 text-footnote">
+        <p className="rounded-2xl bg-[var(--accent-vivid)]/8 p-3.5 text-footnote">
           <span className="mb-0.5 flex items-center gap-1.5 text-caption font-semibold text-[var(--accent-text)]"><Sparkles className="size-3.5" strokeWidth={1.75} aria-hidden /> Likely reason (an AI guess)</span>
           {seg.why}
         </p>

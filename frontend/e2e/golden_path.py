@@ -1,4 +1,4 @@
-"""Brand Gate golden path (Playwright, Python). Run against a server started on a FRESH DB:
+"""Rulemint golden path (Playwright, Python). Run against a server started on a FRESH DB:
 
     DB_PATH=/tmp/fresh.db uvicorn app.main:app --port 7860
     python frontend/e2e/golden_path.py --width 1280 --tag desktop

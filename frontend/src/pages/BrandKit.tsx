@@ -185,7 +185,7 @@ function RulesTab({ admin }: { admin: boolean }) {
             <li key={r.id} className={cn("glass-strong p-5", !r.enabled && "opacity-65")}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-footnote font-semibold">{r.code}</span>
-                {r.pack_id && <span className="rounded-full bg-[#0A84FF]/12 px-2.5 py-0.5 text-caption font-medium text-[var(--accent-text)]">Regulation</span>}
+                {r.pack_id && <span className="rounded-full bg-[var(--accent-vivid)]/12 px-2.5 py-0.5 text-caption font-medium text-[var(--accent-text)]">Regulation</span>}
                 <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", SEVERITY_STYLE[r.severity])}>{SEVERITY_LABEL[r.severity]}</span>
                 <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 text-caption font-medium capitalize">{r.category}</span>
                 <span className="text-caption text-muted-foreground">{r.check_method} · v{r.version}</span>
@@ -199,7 +199,7 @@ function RulesTab({ admin }: { admin: boolean }) {
               </div>
               <p className="mt-2 text-body">{r.statement}</p>
               {r.source_quote && (
-                <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
+                <blockquote className="mt-3 border-l-2 border-[var(--accent-vivid)]/50 pl-3">
                   <p className="text-footnote italic text-foreground/85">&ldquo;{r.source_quote}&rdquo;</p>
                   {r.page != null && <p className="mt-0.5 text-caption text-muted-foreground">Guideline p.{r.page}</p>}
                 </blockquote>
@@ -413,7 +413,7 @@ function FactsTab({ admin }: { admin: boolean }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-footnote font-semibold">{f.code}</span>
                   {f.expired && <span className="rounded-full bg-flag/12 px-2.5 py-0.5 text-caption font-medium text-flag-text">Expired</span>}
-                  {f.used_by !== undefined && <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", f.used_by ? "bg-[#0A84FF]/12 text-[var(--accent-text)]" : "bg-foreground/8 text-muted-foreground")}>{f.used_by ? `Used by ${f.used_by} item${f.used_by === 1 ? "" : "s"}${f.used_by_approved ? ` (${f.used_by_approved} approved)` : ""}` : "Not used yet"}</span>}
+                  {f.used_by !== undefined && <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", f.used_by ? "bg-[var(--accent-vivid)]/12 text-[var(--accent-text)]" : "bg-foreground/8 text-muted-foreground")}>{f.used_by ? `Used by ${f.used_by} item${f.used_by === 1 ? "" : "s"}${f.used_by_approved ? ` (${f.used_by_approved} approved)` : ""}` : "Not used yet"}</span>}
                 </div>
                 <p className="mt-1 text-body">{f.statement}</p>
                 <p className="mt-0.5 text-caption text-muted-foreground">{f.source || "No source"}{f.valid_until ? ` · valid until ${formatDate(f.valid_until)}` : " · no expiry"}</p>
@@ -445,7 +445,7 @@ export default function BrandKit() {
         actions={admin ? <Button asChild variant="secondary" className="rounded-full"><Link to="/setup"><Wand2 strokeWidth={1.75} /> Setup guide</Link></Button> : undefined}
       />
       <Tabs defaultValue={params.get("tab") ?? "rules"}>
-        <TabsList className="mb-5 h-11 flex-wrap rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
+        <TabsList className="mb-5 h-11 flex-wrap rounded-full bg-[var(--glass-bg)] p-1 btn-soft">
           <TabsTrigger value="rules" className={tabCls}>Rules{brand.data ? ` (${brand.data.rule_count})` : ""}</TabsTrigger>
           <TabsTrigger value="words" className={tabCls}>Words</TabsTrigger>
           <TabsTrigger value="palette" className={tabCls}>Palette &amp; Logo</TabsTrigger>

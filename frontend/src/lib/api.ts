@@ -1,5 +1,5 @@
 /**
- * Brand Gate API contract + client. Source of truth for shapes: backend/app/schemas.py.
+ * Rulemint API contract + client. Source of truth for shapes: backend/app/schemas.py.
  * Change a field there => change it here in the same commit (CLAUDE.md "Code conventions").
  *
  * - All calls go to same-origin `/api` (Vite dev server proxies to :7860).

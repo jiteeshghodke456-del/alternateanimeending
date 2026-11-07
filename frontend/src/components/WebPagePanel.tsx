@@ -39,7 +39,7 @@ export function WebSourceCard({ source, className }: { source: WebSource; classN
           </a>
           <p className="mt-1 text-caption text-muted-foreground">
             Fetched <time dateTime={source.fetched_at} title={fetched.toLocaleString()}>{timeAgo(source.fetched_at) || fetched.toLocaleString()}</time>
-            {" "}in {(source.elapsed_ms / 1000).toFixed(1)} s · {(source.bytes / 1024).toFixed(0)} KB · by Brand Gate itself, no third-party service
+            {" "}in {(source.elapsed_ms / 1000).toFixed(1)} s · {(source.bytes / 1024).toFixed(0)} KB · by Rulemint itself, no third-party service
           </p>
         </div>
       </div>

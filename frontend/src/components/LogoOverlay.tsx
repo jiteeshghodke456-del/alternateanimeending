@@ -104,7 +104,7 @@ export function ImageWithLogo({ src, alt, shapes, activeFindingId, onSelectFindi
               <li key={`n-${s.key}`}>
                 <button
                   type="button" disabled={s.findingId == null} onClick={() => s.findingId != null && onSelectFinding?.(s.findingId)}
-                  className={cn("flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left text-footnote", st.chip, active && "ring-2 ring-[#0A84FF]/60", s.findingId != null && "cursor-pointer")}
+                  className={cn("flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left text-footnote", st.chip, active && "ring-2 ring-[var(--accent-vivid)]/60", s.findingId != null && "cursor-pointer")}
                 >
                   <Icon className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   <span><span className="font-semibold">{st.label}.</span>{" "}

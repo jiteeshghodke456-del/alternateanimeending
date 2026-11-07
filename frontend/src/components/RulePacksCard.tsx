@@ -41,7 +41,7 @@ export function RulePacksCard({ admin, onChange }: { admin: boolean; onChange?: 
       {q.data.map((p) => (
         <div key={p.id} className="glass-strong p-5">
           <div className="flex flex-wrap items-start gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#0A84FF]/12 text-[var(--accent-text)]">
+            <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[var(--accent-vivid)]/12 text-[var(--accent-text)]">
               <Landmark className="size-5" strokeWidth={1.5} aria-hidden />
             </div>
             <div className="min-w-0 flex-1 basis-56">
@@ -71,7 +71,7 @@ export function RulePacksCard({ admin, onChange }: { admin: boolean; onChange?: 
             )}
           </div>
           <details className="group mt-3">
-            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg text-footnote font-medium text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]/60">
+            <summary className="flex cursor-pointer list-none items-center gap-1 rounded-lg text-footnote font-medium text-[var(--accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-vivid)]/60">
               <ChevronDown className="size-4 transition-transform group-open:rotate-180" strokeWidth={1.75} aria-hidden />
               Rules and sources
             </summary>

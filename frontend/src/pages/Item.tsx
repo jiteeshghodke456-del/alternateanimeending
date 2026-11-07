@@ -528,7 +528,7 @@ function Item() {
 
             <div className="min-w-0">
               <Tabs value={tab} onValueChange={setTab}>
-                <TabsList className="h-11 w-full rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
+                <TabsList className="h-11 w-full rounded-full bg-[var(--glass-bg)] p-1 btn-soft">
                   <TabsTrigger value="findings" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Findings{list.length ? ` (${openCount})` : ""}</TabsTrigger>
                   {!item.confidential && <TabsTrigger value="audience" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Audience</TabsTrigger>}
                   <TabsTrigger value="comments" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Comments</TabsTrigger>

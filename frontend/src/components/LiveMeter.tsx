@@ -47,7 +47,7 @@ export function LiveMeter({ paragraphs, paragraphsTotal, judgments, judgmentsPer
         <span className={cn("size-1.5 rounded-full", running ? "bg-[var(--accent-fill)]" : "bg-pass")} />
         {running ? "Checking now" : "Check complete"}
       </div>
-      {running && <BorderBeam size={120} duration={5} colorFrom="#0A84FF" colorTo="#64D2FF" borderWidth={2} />}
+      {running && <BorderBeam size={120} duration={5} colorFrom="#951EFC" colorTo="#FE7204" borderWidth={2} />}
     </section>
   );
 }

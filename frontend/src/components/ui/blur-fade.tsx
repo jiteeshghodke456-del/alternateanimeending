@@ -72,7 +72,7 @@ export function BlurFade({
     visibleFilter != null &&
     hiddenFilter !== visibleFilter
 
-  // Brand Gate: content appears together and quickly (<= 200 ms, at most a 60 ms stagger), and not at
+  // Rulemint: content appears together and quickly (<= 200 ms, at most a 60 ms stagger), and not at
   // all with reduced motion. Long staggered entrances made the first paint feel like it was loading.
   if (reduce) {
     const { style } = props as { style?: React.CSSProperties }

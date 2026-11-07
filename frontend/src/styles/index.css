@@ -5,7 +5,7 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* ------------------------------------------------------------------
-   Brand Gate design system: glassmorphism, Apple-like.
+   Rulemint design system: glassmorphism, Apple-like.
    Tokens are HSL triplets so shadcn/ui utilities work.
    Light is the default; dark follows prefers-color-scheme unless the
    user picks a theme (html[data-theme]).
@@ -17,7 +17,7 @@
   --card-foreground: 240 10% 8%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 8%;
-  --primary: 211 100% 48%;            /* #0A7AF5-ish, AA with white text */
+  --primary: 272 97% 55%;             /* Rulemint violet #951EFC, 5.4:1 with white text */
   --primary-foreground: 0 0% 100%;
   --secondary: 240 10% 94%;
   --secondary-foreground: 240 10% 12%;
@@ -29,22 +29,39 @@
   --destructive-foreground: 0 0% 100%;
   --border: 240 10% 85%;
   --input: 240 10% 85%;
-  --ring: 211 100% 52%;
+  --ring: 272 97% 60%;
   --radius: 1rem;
 
   --flag-text: #C4261D;    /* AA on light glass */
   --human-text: #8A5200;
   --pass-text: #167A34;
-  --accent-text: #0060D0;
-  /* Solid accent fills that carry white text: #0071E3 is 4.7:1 with white (AA); #0A84FF is only 3.6:1. */
-  --accent-fill: #0071E3;
-  --accent-fill-hover: #0062C4;
+  --accent-text: #7413CC;
+  /* Solid accent fills that carry white text: Rulemint violet #951EFC is 5.4:1 with white (AA). */
+  --accent-fill: #951EFC;
+  --accent-fill-hover: #7F12DE;
+  /* Accent for tints, rings and icons (Tailwind opacity modifiers mix it with transparent). */
+  --accent-vivid: #951EFC;
+  --brand-orange: #FE7204;
 
-  --glass-bg: rgba(255, 255, 255, 0.55);
-  --glass-strong-bg: rgba(255, 255, 255, 0.82);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  /* Glass is not backdrop-blurred (the background is already soft; a blur over an animated layer costs a
+     re-blur per frame per panel). Depth comes from tint, a top sheen, a 1px light edge and layered shadows. */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-strong-bg: rgba(255, 255, 255, 0.86);
+  --glass-sheen: rgba(255, 255, 255, 0.45);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-edge: rgba(16, 24, 40, 0.06);
+  --glass-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px -8px rgba(16, 24, 40, 0.10), 0 28px 60px -24px rgba(16, 24, 40, 0.14);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -1px 0 rgba(255, 255, 255, 0.3);
+  --chrome-bg: rgba(255, 255, 255, 0.78);
+
+  /* Lava lamp (components/MeshBackground.tsx): soft pastels; colours shift as blobs breathe and overlap. */
+  --lava-1: #d9bbff;
+  --lava-2: #ffc89c;
+  --lava-3: #f6b8e2;
+  --lava-4: #c6b6ff;
+  --lava-5: #ffdcb5;
+  --lava-opacity: 0.85;
+  --frost-wash: rgba(255, 255, 255, 0.32);
 
   --blob-1: #9cc8ff;
   --blob-2: #d3c4ff;
@@ -70,7 +87,7 @@
     --card-foreground: 0 0% 96%;
     --popover: 240 8% 12%;
     --popover-foreground: 0 0% 96%;
-    --primary: 211 100% 58%;
+    --primary: 268 100% 71%;
     --primary-foreground: 240 10% 6%;
     --secondary: 240 6% 16%;
     --secondary-foreground: 0 0% 96%;
@@ -85,12 +102,23 @@
     --flag-text: #FF7A72;
     --human-text: #FFB84D;
     --pass-text: #4BE07A;
-    --accent-text: #5AB0FF;
-    --glass-bg: rgba(255, 255, 255, 0.07);
-    --glass-strong-bg: rgba(28, 28, 32, 0.78);
+    --accent-text: #C08BFF;
+    --accent-vivid: #B06BFF;
+    --glass-bg: rgba(255, 255, 255, 0.065);
+    --glass-strong-bg: rgba(24, 24, 30, 0.82);
+    --glass-sheen: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.11);
-    --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-    --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --glass-edge: rgba(0, 0, 0, 0.35);
+    --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
+    --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+    --chrome-bg: rgba(22, 22, 28, 0.72);
+    --lava-1: #4b1494;
+    --lava-2: #6e2c05;
+    --lava-3: #5a1252;
+    --lava-4: #26196e;
+    --lava-5: #7a3608;
+    --lava-opacity: 0.8;
+    --frost-wash: rgba(8, 8, 12, 0.30);
     --blob-1: #123b73;
     --blob-2: #3a2a73;
     --blob-3: #5a3a1f;
@@ -104,7 +132,7 @@
   --card-foreground: 0 0% 96%;
   --popover: 240 8% 12%;
   --popover-foreground: 0 0% 96%;
-  --primary: 211 100% 58%;
+  --primary: 268 100% 71%;
   --primary-foreground: 240 10% 6%;
   --secondary: 240 6% 16%;
   --secondary-foreground: 0 0% 96%;
@@ -119,12 +147,23 @@
   --flag-text: #FF7A72;
   --human-text: #FFB84D;
   --pass-text: #4BE07A;
-  --accent-text: #5AB0FF;
-  --glass-bg: rgba(255, 255, 255, 0.07);
-  --glass-strong-bg: rgba(28, 28, 32, 0.78);
+  --accent-text: #C08BFF;
+    --accent-vivid: #B06BFF;
+  --glass-bg: rgba(255, 255, 255, 0.065);
+  --glass-strong-bg: rgba(24, 24, 30, 0.82);
+  --glass-sheen: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.11);
-  --glass-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --glass-edge: rgba(0, 0, 0, 0.35);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
+  --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+  --chrome-bg: rgba(22, 22, 28, 0.72);
+  --lava-1: #4b1494;
+  --lava-2: #6e2c05;
+  --lava-3: #5a1252;
+  --lava-4: #26196e;
+  --lava-5: #7a3608;
+  --lava-opacity: 0.8;
+  --frost-wash: rgba(8, 8, 12, 0.30);
   --blob-1: #123b73;
   --blob-2: #3a2a73;
   --blob-3: #5a3a1f;
@@ -145,71 +184,87 @@
 }
 
 @layer components {
-  /* Glass surface: decorative / chrome */
-  .glass {
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(40px) saturate(1.5);
-    backdrop-filter: blur(40px) saturate(1.5);
+  /* Glass surface: decorative / chrome. Layered: tint + top sheen, 1px light edge, hairline, soft shadows. */
+  .glass, .glass-strong {
+    background: linear-gradient(180deg, var(--glass-sheen), transparent 38%), var(--glass-bg);
     border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow), var(--glass-inset);
+    box-shadow: var(--glass-inset), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
     @apply rounded-3xl;
   }
   /* Readable surface: any panel with body text or lists of findings */
-  .glass-strong {
-    background: var(--glass-strong-bg);
-    -webkit-backdrop-filter: blur(40px) saturate(1.5);
-    backdrop-filter: blur(40px) saturate(1.5);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow), var(--glass-inset);
-    @apply rounded-3xl;
+  .glass-strong { background: linear-gradient(180deg, var(--glass-sheen), transparent 30%), var(--glass-strong-bg); }
+  /* Sticky chrome that content scrolls under (top bar, bottom tabs): the only always-on backdrop blur. */
+  .glass-chrome {
+    background: linear-gradient(180deg, var(--glass-sheen), transparent 50%), var(--chrome-bg);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    backdrop-filter: blur(20px) saturate(1.6);
   }
+  /* Glossy filled button / pill: top sheen, inner light edge, bottom shade. Text sits below the sheen. */
+  .btn-gloss {
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 48%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.12), 0 6px 16px -6px rgba(120, 20, 220, 0.42);
+  }
+  .btn-soft { box-shadow: var(--glass-inset), 0 0 0 0.5px var(--glass-edge), 0 1px 2px rgba(16, 24, 40, 0.06); }
+  .glass.btn-soft, .glass-strong.btn-soft { box-shadow: var(--glass-inset), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow); }
   .text-caption-muted { @apply text-caption text-muted-foreground; }
   .tabular { font-variant-numeric: tabular-nums; }
 }
 
-/* Animated mesh gradient: 3 blurred, low-saturation blobs */
-.mesh-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg-base); }
-.mesh-bg .blob { position: absolute; border-radius: 9999px; filter: blur(90px); opacity: 0.75; will-change: transform; }
-.mesh-bg .blob-1 { width: 55vw; height: 55vw; max-width: 760px; max-height: 760px; left: -8vw; top: -12vh; background: var(--blob-1); animation: blob-a 38s ease-in-out infinite; }
-.mesh-bg .blob-2 { width: 50vw; height: 50vw; max-width: 700px; max-height: 700px; right: -10vw; top: 8vh; background: var(--blob-2); animation: blob-b 46s ease-in-out infinite; }
-.mesh-bg .blob-3 { width: 45vw; height: 45vw; max-width: 640px; max-height: 640px; left: 25vw; bottom: -18vh; background: var(--blob-3); animation: blob-c 54s ease-in-out infinite; }
+/* index.html paints html AND body with the base colour (splash screen). A painted body sits above the
+   z-index:-1 background layer, which hid the background entirely; the canvas (html) keeps the base colour. */
+:root:root body { background: transparent; }
+
+/* ------------------------------------------------------------------ lava-lamp background
+   components/MeshBackground.tsx draws five soft blobs into a tiny canvas (1/8 of the viewport, 30 fps max)
+   that the browser upscales; one static frost layer (wash + film grain) sits on top. Still under reduced
+   motion; stopped while the tab is hidden. */
+.lava-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--bg-base); contain: strict; }
+.lava-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lava-frost {
+  /* One static full-screen layer: film grain over a soft wash. No backdrop-filter. */
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 0 .035'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") 0 0 / 160px 160px repeat, var(--frost-wash);
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .mesh-bg .blob { animation: none !important; }
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
 
 /* Scrollbars, quiet */
 * { scrollbar-width: thin; scrollbar-color: rgba(128,128,128,.35) transparent; }
 
-@keyframes blob-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(6vw,4vh,0) scale(1.12); } }
-@keyframes blob-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-5vw,6vh,0) scale(1.08); } }
-@keyframes blob-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(4vw,-5vh,0) scale(1.15); } }
+/* Tables inside glass: hairline rows, quiet hover */
+.glass table tbody tr, .glass-strong table tbody tr { transition: background-color 150ms ease-out; }
+.glass table tbody tr:hover, .glass-strong table tbody tr:hover { background-color: hsl(var(--foreground) / 0.03); }
 
 /* ------------------------------------------------------------------ landing hero */
 /* Static gradient headline; both ends stay >= 4.5:1 on the page background in each theme. */
 .hero-gradient-text {
-  background: linear-gradient(100deg, #0060D0 10%, #5B3FD0 60%, #8A2BB8 95%);
+  background: linear-gradient(100deg, #7413CC 8%, #A8128F 55%, #B84600 95%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
-:root[data-theme="dark"] .hero-gradient-text { background-image: linear-gradient(100deg, #6CB8FF 10%, #A99BFF 60%, #E39BFF 95%); }
+:root[data-theme="dark"] .hero-gradient-text { background-image: linear-gradient(100deg, #C08BFF 8%, #F38AD6 55%, #FFA45C 95%); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .hero-gradient-text { background-image: linear-gradient(100deg, #6CB8FF 10%, #A99BFF 60%, #E39BFF 95%); }
+  :root:not([data-theme="light"]) .hero-gradient-text { background-image: linear-gradient(100deg, #C08BFF 8%, #F38AD6 55%, #FFA45C 95%); }
 }
-/* Soft, slowly turning glow behind the product preview (part of the background; static under reduced motion). */
+/* Soft, slowly turning glow behind the product preview (part of the background). Gradients only, no CSS filter,
+   and it turns with a transform, so the compositor animates it without repainting. Static under reduced motion. */
 .hero-glow {
-  position: absolute; inset: -12% -8% -18%; z-index: -1; border-radius: 48px; filter: blur(60px); opacity: 0.55;
-  background: conic-gradient(from var(--hero-angle, 0deg), var(--blob-1), var(--blob-2), var(--blob-3), var(--blob-1));
-  animation: hero-turn 24s linear infinite;
-  pointer-events: none;
+  position: absolute; inset: -22% -14% -26%; z-index: -1; opacity: 0.6; pointer-events: none;
+  background:
+    radial-gradient(38% 42% at 28% 38%, var(--lava-1), transparent 72%),
+    radial-gradient(36% 40% at 72% 44%, var(--lava-2), transparent 72%),
+    radial-gradient(34% 36% at 50% 74%, var(--lava-5), transparent 72%);
+  will-change: transform;
+  animation: hero-turn 40s linear infinite;
 }
-@property --hero-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
-@keyframes hero-turn { to { --hero-angle: 360deg; } }
+@keyframes hero-turn { from { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.06); } to { transform: rotate(360deg) scale(1); } }
 @media (prefers-reduced-motion: reduce) { .hero-glow { animation: none !important; } }
+.lava-bg[data-paused] ~ * .hero-glow { animation-play-state: paused; }
 
 /* Consistent, visible focus ring on custom controls (rounded pills included). */
 @layer base {
@@ -229,3 +284,8 @@
   .starting-screen { animation: none; }
   .starting-bar > span { animation: none; width: 100%; opacity: 0.35; }
 }
+
+/* Rulemint logo: the wordmark comes in a light-background and a dark-background cut; show the right one. */
+.logo-on-dark { display: none; }
+:root[data-theme="dark"] .logo-on-light { display: none; }
+:root[data-theme="dark"] .logo-on-dark { display: block; }

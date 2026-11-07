@@ -70,8 +70,8 @@ export function DismissDialog({ open, onOpenChange, onConfirm }: {
         <fieldset className="space-y-2">
           <legend className="sr-only">Reason</legend>
           {DISMISS_REASONS.map((r) => (
-            <label key={r.value} className={cn("flex cursor-pointer items-center gap-3 rounded-2xl border border-border px-4 py-3 text-body transition-colors", reason === r.value && "border-[#0A84FF] bg-[#0A84FF]/8")}>
-              <input type="radio" name="dismiss-reason" className="size-4 accent-[#0A84FF]" checked={reason === r.value} onChange={() => setReason(r.value)} />
+            <label key={r.value} className={cn("flex cursor-pointer items-center gap-3 rounded-2xl border border-border px-4 py-3 text-body transition-colors", reason === r.value && "border-[var(--accent-vivid)] bg-[var(--accent-vivid)]/8")}>
+              <input type="radio" name="dismiss-reason" className="size-4 accent-[var(--accent-vivid)]" checked={reason === r.value} onChange={() => setReason(r.value)} />
               {r.label}
             </label>
           ))}

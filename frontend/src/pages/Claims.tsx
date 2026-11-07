@@ -126,7 +126,7 @@ export default function Claims() {
         </Select>
         <label className="flex items-center gap-2 text-footnote"><Switch checked={history} onCheckedChange={setHistory} aria-label="Include older versions" /> Older versions</label>
         {fact && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF]/12 py-1 pl-3 pr-1 text-caption font-medium text-[var(--accent-text)]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-vivid)]/12 py-1 pl-3 pr-1 text-caption font-medium text-[var(--accent-text)]">
             Fact {fact}
             <button type="button" onClick={() => setParams({})} aria-label="Show all facts" className="grid size-6 place-items-center rounded-full hover:bg-foreground/8"><X className="size-3.5" strokeWidth={2} /></button>
           </span>
