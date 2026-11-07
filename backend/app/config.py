@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # Demo
     demo_mode: bool = True
 
+    # Feature flags (P1). FEATURE_PDF_IMPORT=0 turns the guideline PDF import endpoints off (501).
+    feature_pdf_import: bool = True
+
     # Storage
     db_path: str = "/tmp/brandgate.db"
     upload_dir: str = "/tmp/brandgate_uploads"

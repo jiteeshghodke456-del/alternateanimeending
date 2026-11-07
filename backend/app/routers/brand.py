@@ -1,14 +1,14 @@
 """Brand Kit: brand, rules, terms, facts, assets. OWNER: backend (scaffold agent).
 
 Reads: any signed-in user. Writes: admin only. Editing a rule bumps its `version`.
-PDF import endpoints (P1) are stubs. OWNER: pipeline-agent.
+PDF import endpoints (P1-3) live in routers/innovations.py.
 """
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from sqlmodel import Session, func, select
 
@@ -20,8 +20,6 @@ from app.schemas import (
     FactCreate,
     FactOut,
     FactUpdate,
-    ImportPdfConfirmIn,
-    ImportPdfOut,
     LogoOut,
     PaletteColor,
     RuleCreate,
@@ -184,16 +182,3 @@ def update_fact(fact_id: int, body: FactUpdate, session: SessionDep, user: Admin
     session.commit()
     session.refresh(fact)
     return to_fact_out(fact)
-
-
-# ------------------------------------------------------------------ P1: guideline PDF import
-# OWNER: pipeline-agent
-@router.post("/brand/import-pdf", response_model=ImportPdfOut)
-async def import_pdf(user: AdminUser, file: UploadFile = File(...)) -> ImportPdfOut:
-    raise HTTPException(status_code=501, detail="Guideline PDF import isn't available yet.")
-
-
-# OWNER: pipeline-agent
-@router.post("/brand/import-pdf/confirm", response_model=list[RuleOut])
-def import_pdf_confirm(body: ImportPdfConfirmIn, session: SessionDep, user: AdminUser) -> list[Rule]:
-    raise HTTPException(status_code=501, detail="Guideline PDF import isn't available yet.")

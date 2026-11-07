@@ -7,6 +7,12 @@ Audience Preview
                                           (default: the item's previous version that has a finished run)
     GET  /versions/{id}/audience/events   SSE: `progress` events (AudienceOut JSON), then `done` | `error`
     Refused for confidential items (409) and without a Jev key (503).
+
+Guideline PDF import (admin; FEATURE_PDF_IMPORT=0 turns it off: 501 with a friendly message)
+    POST /brand/import-pdf                    multipart `file` (PDF, <= 20 pages, <= 10 MB) -> 202, status "running"
+    GET  /brand/import-pdf/{import_id}        poll until "done" | "error"
+    POST /brand/import-pdf/{import_id}/confirm {selected, edits, enable} -> creates rules R-IMP-NN + AuditEvent
+    Proposals are kept in memory (lost on restart; the UI then gets 404 and asks to upload again).
 """
 from __future__ import annotations
 
@@ -14,20 +20,30 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 
 from app.config import get_settings
 from app.db import get_engine
-from app.deps import CurrentUser, SessionDep
-from app.models import AICall, AudienceRun, ContentItem, Unit, Version, utcnow
+from app.deps import AdminUser, CurrentUser, SessionDep
+from app.models import AICall, AudienceRun, ContentItem, Rule, Unit, Version, utcnow
 from app.pipeline import audience as A
 from app.pipeline import jev
+from app.pipeline import pdf_import as PI
 from app.pipeline import run as pipeline_run
 from app.pipeline.privacy import mask_pii_map
 from app.pipeline.units import split_text
-from app.schemas import AudienceCompare, AudienceOut
+from app.schemas import (
+    AudienceCompare,
+    AudienceOut,
+    ImportPdfConfirmIn,
+    ImportPdfConfirmOut,
+    ImportPdfOut,
+    ProposedRule,
+    RuleOut,
+)
+from app.services import NoBrandError, audit, current_brand
 
 log = logging.getLogger("brandgate.innovations")
 router = APIRouter(tags=["innovations"])
@@ -236,3 +252,130 @@ async def audience_events(version_id: int, session: SessionDep, user: CurrentUse
                                                      message="Timed out waiting for the audience run.").model_dump_json()}
 
     return EventSourceResponse(gen(), ping=15)
+
+
+# ------------------------------------------------------------------ guideline PDF import (P1-3)
+PDF_DISABLED_MESSAGE = "Guideline PDF import is switched off on this server. Add rules one by one in the Brand Kit."
+NO_LLM_MESSAGE = "Guideline PDF import needs the writer model (LLM), and it isn't configured on this server."
+IMPORT_GONE_MESSAGE = "That import has expired (the server may have restarted). Upload the PDF again."
+MAX_IMPORTS = 20
+
+_imports: dict[str, dict] = {}  # import_id -> job (in memory, newest last)
+
+
+def _pdf_enabled() -> None:
+    if not get_settings().feature_pdf_import:
+        raise HTTPException(status_code=501, detail=PDF_DISABLED_MESSAGE)
+
+
+def _import_out(job: dict) -> ImportPdfOut:
+    props = [ProposedRule.model_validate(p) for p in job.get("proposals", [])]
+    return ImportPdfOut(import_id=job["id"], status=job["status"], filename=job["filename"], pages=job["pages"],
+                        proposals=props, verified=sum(1 for p in props if p.quote_verified),
+                        warnings=job.get("warnings", []), message=job.get("message"), elapsed_ms=job.get("elapsed_ms"),
+                        cost_usd=job.get("cost_usd"), confirmed=job.get("confirmed", False),
+                        created_codes=job.get("created_codes", []))
+
+
+async def run_import(import_id: str, pages: list[str]) -> None:
+    """Background task; never raises. Logs every LLM call to ai_calls (no content)."""
+    job = _imports.get(import_id)
+    if job is None:
+        return
+    calls = jev.CallLog()
+    try:
+        res = await PI.propose_rules(pages, calls)
+        job.update(status="done", proposals=res["proposals"], warnings=res["warnings"],
+                   elapsed_ms=res["elapsed_ms"], cost_usd=res["cost_usd"])
+    except PI.PdfImportError as exc:
+        job.update(status="error", message=exc.message, cost_usd=round(calls.cost_usd, 6))
+    except Exception:  # noqa: BLE001
+        log.exception("pdf import %s failed", import_id)
+        job.update(status="error", message="The import failed. Try again in a moment.", cost_usd=round(calls.cost_usd, 6))
+    finally:
+        try:
+            _save_calls(calls, 0)
+        except Exception:  # noqa: BLE001
+            log.exception("could not log pdf import calls")
+
+
+@router.post("/brand/import-pdf", response_model=ImportPdfOut, status_code=202)
+async def import_pdf(user: AdminUser, file: UploadFile = File(...)) -> ImportPdfOut:
+    _pdf_enabled()
+    from app.pipeline import explain as X
+
+    if not X.available():
+        raise HTTPException(status_code=503, detail=NO_LLM_MESSAGE)
+    data = await file.read(get_settings().max_upload_bytes + 1)
+    if len(data) > get_settings().max_upload_bytes:
+        raise HTTPException(status_code=413, detail="That file is larger than 10 MB.")
+    try:
+        pages = await asyncio.to_thread(PI.extract_pages, data)
+    except PI.PdfImportError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+    import uuid
+
+    import_id = uuid.uuid4().hex[:12]
+    _imports[import_id] = {"id": import_id, "status": "running", "filename": file.filename or "guideline.pdf",
+                           "pages": len(pages), "user_id": user.id, "page_text": pages}
+    while len(_imports) > MAX_IMPORTS:
+        _imports.pop(next(iter(_imports)))
+    pipeline_run.schedule(run_import(import_id, pages))
+    return _import_out(_imports[import_id])
+
+
+@router.get("/brand/import-pdf/{import_id}", response_model=ImportPdfOut)
+def get_import(import_id: str, user: AdminUser) -> ImportPdfOut:
+    _pdf_enabled()
+    job = _imports.get(import_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=IMPORT_GONE_MESSAGE)
+    return _import_out(job)
+
+
+@router.post("/brand/import-pdf/{import_id}/confirm", response_model=ImportPdfConfirmOut)
+def confirm_import(import_id: str, body: ImportPdfConfirmIn, session: SessionDep, user: AdminUser) -> ImportPdfConfirmOut:
+    _pdf_enabled()
+    job = _imports.get(import_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=IMPORT_GONE_MESSAGE)
+    if job["status"] != "done":
+        raise HTTPException(status_code=409, detail="The proposals aren't ready yet." if job["status"] == "running"
+                            else "This import failed, so there is nothing to confirm. Upload the PDF again.")
+    if job.get("confirmed"):
+        raise HTTPException(status_code=409, detail="These rules were already imported: "
+                            + ", ".join(job.get("created_codes", [])) + ".")
+    props = {p["id"]: p for p in job["proposals"]}
+    unknown = [i for i in list(body.selected) + list(body.edits) if i not in props]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown proposal id(s): {', '.join(sorted(set(unknown)))}.")
+    try:
+        brand = current_brand(session)
+    except NoBrandError as exc:
+        raise HTTPException(status_code=409, detail="Set up the brand before importing rules.") from exc
+    selected = list(dict.fromkeys(body.selected))
+    existing = [r.code for r in session.exec(select(Rule).where(Rule.brand_id == brand.id)).all()]
+    codes = PI.next_codes(existing, len(selected))
+    created: list[Rule] = []
+    for code, pid in zip(codes, selected):
+        draft = dict(props[pid]["rule"])
+        edit = body.edits.get(pid)
+        if edit is not None:
+            draft.update({k: v for k, v in edit.model_dump(exclude_none=True).items()})
+        rule = Rule(brand_id=brand.id, code=code, category=draft["category"], severity=draft["severity"],
+                    statement=draft["statement"], source_quote=draft["source_quote"], page=draft["page"],
+                    check_method=draft["check_method"], params={"imported_from": import_id},
+                    examples_violating=draft.get("examples_violating", []), examples_ok=draft.get("examples_ok", []),
+                    enabled=body.enable)
+        session.add(rule)
+        created.append(rule)
+    audit(session, "rules_imported", user_id=user.id,
+          detail={"import_id": import_id, "filename": job["filename"], "codes": codes,
+                  "unverified_quotes": [c for c, pid in zip(codes, selected) if not props[pid]["quote_verified"]],
+                  "edited": sorted(body.edits), "enabled": body.enable})
+    session.commit()
+    for r in created:
+        session.refresh(r)
+    job.update(confirmed=True, created_codes=codes)
+    return ImportPdfConfirmOut(import_id=import_id, created=[RuleOut.model_validate(r) for r in created])
+

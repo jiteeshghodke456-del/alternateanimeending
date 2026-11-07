@@ -198,19 +198,60 @@ class FactUpdate(BaseModel):
 
 
 # P1: guideline PDF import
+class ImportRuleDraft(_Out):
+    """A proposed rule (rules.json shape, no code yet: codes R-IMP-NN are given on confirm)."""
+
+    statement: str
+    category: str  # tone|claims|visual|messaging|terminology|legal|accessibility
+    severity: Severity
+    check_method: CheckMethod
+    source_quote: str
+    page: Optional[int]  # 1-based page of the guideline PDF; null if the AI gave none or an invalid one
+    examples_violating: list[str] = Field(default_factory=list)
+    examples_ok: list[str] = Field(default_factory=list)
+
+
 class ProposedRule(_Out):
-    rule: RuleCreate
-    quote_verified: bool
-    quote_score: float  # rapidfuzz partial ratio vs page text, 0-100
+    id: str  # "P-01": stable within one import; use it in confirm's `selected` and `edits`
+    rule: ImportRuleDraft
+    quote_verified: bool  # source_quote found on that page (rapidfuzz partial_ratio >= 90)
+    quote_score: float  # 0-100
+    selected: bool  # default tick: true only when the quote is verified
 
 
 class ImportPdfOut(_Out):
-    proposals: list[ProposedRule]
+    """POST /brand/import-pdf (202, status "running") and GET /brand/import-pdf/{import_id}."""
+
+    import_id: str
+    status: Literal["running", "done", "error"]
+    filename: str
     pages: int
+    proposals: list[ProposedRule] = Field(default_factory=list)
+    verified: int = 0  # how many proposals have a verified quote
+    warnings: list[str] = Field(default_factory=list)
+    message: Optional[str] = None  # human message when status is "error"
+    elapsed_ms: Optional[int] = None
+    cost_usd: Optional[float] = None
+    confirmed: bool = False
+    created_codes: list[str] = Field(default_factory=list)  # after confirm
+
+
+class ImportRuleEdit(BaseModel):
+    statement: Optional[str] = Field(default=None, min_length=1, max_length=1000)
+    category: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    severity: Optional[Severity] = None
+    check_method: Optional[CheckMethod] = None
 
 
 class ImportPdfConfirmIn(BaseModel):
-    rules: list[RuleCreate]
+    selected: list[str] = Field(min_length=1)  # proposal ids, e.g. ["P-01", "P-04"]
+    edits: dict[str, ImportRuleEdit] = Field(default_factory=dict)  # proposal id -> changed fields
+    enable: bool = False  # imported rules start disabled unless this is true (see DECISIONS.md)
+
+
+class ImportPdfConfirmOut(_Out):
+    import_id: str
+    created: list[RuleOut]
 
 
 # ---------------------------------------------------------------- content
