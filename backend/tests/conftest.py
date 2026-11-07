@@ -11,8 +11,10 @@ _TMP = tempfile.mkdtemp(prefix="brandgate-test-")
 os.environ["DB_PATH"] = os.path.join(_TMP, "test.db")
 os.environ["UPLOAD_DIR"] = os.path.join(_TMP, "uploads")
 os.environ["DEMO_MODE"] = "1"
-os.environ.pop("TYPESAFE_API_KEY", None)
-os.environ.pop("LLM_API_KEY", None)
+# Empty strings (not pop): pydantic-settings would otherwise read real keys from the repo .env,
+# and unit tests must never call the real APIs. Live tests (-m live) read the .env themselves.
+os.environ["TYPESAFE_API_KEY"] = ""
+os.environ["LLM_API_KEY"] = ""
 
 from fastapi.testclient import TestClient  # noqa: E402
 
