@@ -242,7 +242,8 @@ ContentItem(id, brand_id, title, channel, creator_id, state, confidential, creat
 Version(id, item_id, n, text, file_path, created_at, check_status, stats{})
 Unit(id, version_id, kind, page, idx, text, image_path)
 Finding(id, version_id, unit_id, rule_code|fact_code, category, severity, band, probability,
-        span_start, span_end, quote, explanation, fix, fix_verified, status, dismiss_reason)
+        span_start, span_end, quote, explanation, fix, fix_verified, status, dismiss_reason,
+        hit_start, hit_end, fix_group)   # edit regions: see DECISIONS.md
 Comment(id, item_id, user_id, body, created_at)
 Override(id, finding_id, user_id, reason, created_at)
 AuditEvent(id, item_id, user_id, action, detail{}, created_at)
