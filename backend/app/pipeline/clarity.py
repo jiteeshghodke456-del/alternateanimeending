@@ -17,6 +17,8 @@ code; models only supply paraphrases/probe texts (LLM) and judgments (Jev):
    unclarity D = 0.35 min(1, mean spread / 0.25) + 0.25 flip rate + 0.15 unsettled rate + 0.25 mismatch rate.
 3. People disagreeing (workspace data). Findings of the rule's CURRENT version: dismissed as a false
    alarm / other / rule outdated, overridden, or left in the "needs a human look" band (half weight).
+   Precedent memory: each decision is counted once (people_rows): from its finding while it exists, else
+   from the stored precedent; a finding a precedent lowered counts with its original band.
    unclarity P = (dismissed + overridden + 0.5 human) / (n + 3)  (the +3 keeps one dismissal from
    dominating); no findings = no signal.
 
@@ -273,6 +275,23 @@ def people_signal(findings: list[tuple[str, Optional[str], str]]) -> PeopleResul
     score = min(1.0, (dismissed_unclear + overridden + 0.5 * human) / (n + PEOPLE_PRIOR))
     return PeopleResult(round(score, 3), n, dismissed, dismissed_unclear, overridden, human,
                         round(dismissed / n, 3), round(overridden / n, 3), round(human / n, 3))
+
+
+def people_rows(findings: list[tuple[int, str, Optional[str], str, Optional[str]]],
+                precedents: list[tuple[Optional[int], str, str, str]]) -> list[tuple[str, Optional[str], str]]:
+    """Rows for people_signal, each human decision counted ONCE (precedent memory).
+    `findings`: (id, status, dismiss_reason, band, band_before) for the rule's current version. A finding a
+    precedent lowered counts with its original band (band_before), so "Seen before" isn't read as reviewers
+    being unsure. `precedents`: (finding_id, decision, reason, band) for the rule's current version. A
+    precedent whose finding still exists is already counted through that finding; one whose finding is gone
+    (a re-check replaces a version's findings) adds its decision back. "override" reasons count as overrides."""
+    ids = {fid for fid, *_ in findings}
+    out = [(st, r, bb or b) for _, st, r, b, bb in findings]
+    for fid, decision, reason, band in precedents:
+        if fid is not None and fid in ids:
+            continue
+        out.append((decision, None if decision == "overridden" else reason, band or "flag"))
+    return out
 
 
 # ------------------------------------------------------------------ combine
