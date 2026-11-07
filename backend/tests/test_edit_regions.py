@@ -156,3 +156,16 @@ def test_llm_context_has_renames_applied(monkeypatch) -> None:  # noqa: ANN001
     units = text_units(DEMO_TEXT)
     post = E.renamed_post(DEMO_TEXT, units, run_tier0_units(units, seed_ctx(DEMO_TEXT)))
     assert "Steam Classic" not in post and post.startswith("Saffron Signature Roast is India's #1 coffee")
+
+
+def test_meaning_truth_table_cta_from_paragraph_or_post() -> None:
+    from app.pipeline import questions as Q
+
+    para_keeps = {"same_topic": 0.9, "original_has_cta": 0.99, "keeps_cta": 0.9}
+    para_drops = {"same_topic": 0.9, "original_has_cta": 0.99, "keeps_cta": 0.1}
+    post_keeps, post_drops = {"original_has_cta": 0.99, "keeps_cta": 0.9}, {"original_has_cta": 0.99, "keeps_cta": 0.4}
+    assert Q.meaning_kept_split(para_keeps, post_drops)  # "Order now" -> "you can order it today"
+    assert Q.meaning_kept_split(para_drops, post_keeps)  # a second CTA ("grab it") dropped, the post still asks
+    assert not Q.meaning_kept_split(para_drops, post_drops)
+    assert not Q.meaning_kept_split({**para_keeps, "same_topic": 0.2}, post_keeps)
+    assert Q.meaning_kept_split({**para_keeps, "same_topic": 0.2}, post_keeps, removal_required=True)  # expired offer

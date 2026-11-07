@@ -219,6 +219,16 @@ def meaning_kept(nouls: dict[str, float], removal_required: bool = False) -> boo
     return nouls.get("original_has_cta", 1.0) < MEANING_OK_AT or nouls.get("keeps_cta", 0.0) >= MEANING_OK_AT
 
 
+def meaning_kept_split(unit: dict[str, float], post: dict[str, float], removal_required: bool = False) -> bool:
+    """Same truth table with the CTA asked twice: about the paragraph (`unit`) and the whole post (`post`).
+    The CTA is kept if either says so: the paragraph keeps its own action, or the post still asks for it elsewhere
+    (a post has one CTA, so a fix may drop a second one). same_topic comes from the paragraph."""
+    if not removal_required and unit.get("same_topic", 0.0) < MEANING_OK_AT:
+        return False
+    return any(n.get("original_has_cta", 1.0) < MEANING_OK_AT or n.get("keeps_cta", 0.0) >= MEANING_OK_AT
+               for n in (unit, post) if "keeps_cta" in n)
+
+
 # ------------------------------------------------------------------ call to action (counted in code)
 CTA_PARAM_KEYS = ("min_ctas", "max_ctas")
 

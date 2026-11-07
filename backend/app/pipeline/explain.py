@@ -200,10 +200,12 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
         "exactly, so it must be complete, grammatical sentences that read naturally in the paragraph, start the way a "
         "sentence starts, and end with sentence punctuation. Don't repeat words from the text around the excerpt. "
         "Use the current product names from the post. Don't repeat a point the post already makes elsewhere. "
+        "If the excerpt asks the reader to act (like \"Order now\"), keep that same action, worded calmly; never add a "
+        "call to action the excerpt doesn't have. "
         "Keep the message and any call to action. Drop a claim, offer or number you can't support with an approved fact "
         "rather than inventing one. If a fact is marked EXPIRED, remove that offer or claim completely (code, discount and "
         "all) and don't mention it, its code or that it ended (no words like offer, sale, discount or code); write about the "
-        "product from the post instead, keeping a call to action if the excerpt had one. Never swap in a different offer, "
+        "product from the post instead. Never swap in a different offer, "
         "product, price or code. If there is no safe fix, use null."
     )
     if feedback:

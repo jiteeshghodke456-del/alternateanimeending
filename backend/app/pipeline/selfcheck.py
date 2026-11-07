@@ -174,9 +174,9 @@ async def verify_fix(
             reasons.append(f"the fix makes a claim that no current approved fact supports (“{cl.text[:80]}”)")
             break
 
-    # 3. Jev. Rule + superlative questions are about the fixed paragraph; the meaning questions ("same message,
-    # same call to action") are about the whole post, since a post keeps one call to action (R-MSG-02) and a fix may
-    # drop a second one. Both calls run in parallel.
+    # 3. Jev. Rule, superlative and same-topic questions are about the fixed paragraph; the call-to-action questions
+    # are about the whole post, since a post keeps one call to action (R-MSG-02) and a fix may drop a second one.
+    # Both calls run in parallel.
     if use_jev and not reasons:
         mo = meaning_original or original
         whole = bool(ctx.post_text and unit.char_start is not None and ctx.post_text.strip() != original.strip())
@@ -184,8 +184,11 @@ async def verify_fix(
                                     mask_pii(post)[0], ctx.channel)
                    if whole and unit.char_start is not None else Q.revision_state(mask_pii(mo)[0], mask_pii(fixed)[0], ctx.channel))
         u_state = Q.revision_state(mask_pii(mo)[0], mask_pii(fixed)[0], ctx.channel)
-        meaning_qs: dict = {} if deterministic else dict(Q.MEANING_QUESTIONS)
-        qs: dict = {} if deterministic else {"new_superlative": Q.new_superlative_question(mask_pii(fix)[0])}
+        # same_topic is judged on the paragraph (on a long, mostly identical post it is noisy); the call to action
+        # on both the paragraph and the whole post (questions.meaning_kept_split).
+        meaning_qs: dict = {} if deterministic else {k: q for k, q in Q.MEANING_QUESTIONS.items() if k != "same_topic"}
+        qs: dict = {} if deterministic else {**Q.MEANING_QUESTIONS,
+                                             "new_superlative": Q.new_superlative_question(mask_pii(fix)[0])}
         targets = [r for r in text_rules_for_jev(ctx) if r.severity == "blocking"]
         for r in rules:
             if r.check_method == "jev" and r.code not in {t.code for t in targets}:
@@ -193,18 +196,17 @@ async def verify_fix(
         for r in targets:
             qs[r.code] = Q.rule_question(r, field="revised")
         if not whole:
-            qs, meaning_qs = {**meaning_qs, **qs}, {}
+            meaning_qs = {}
         asks = [jev.ask(u_state, qs, purpose="selfcheck", calls=calls, unit_id=unit.id)] if qs else []
         if meaning_qs:
             asks.append(jev.ask(m_state, meaning_qs, purpose="selfcheck", calls=calls, unit_id=unit.id))
         results = await asyncio.gather(*asks)
-        nouls: dict[str, float] = {}
-        for res in results:
-            nouls.update(res.nouls)
+        nouls: dict[str, float] = dict(results[0].nouls) if qs and results else {}
+        post_nouls: dict[str, float] = dict(results[-1].nouls) if meaning_qs and results else {}
         if not all(res.ok for res in results):
             reasons.append("the self-check couldn't run (Jev error)")
         else:
-            if not deterministic and not Q.meaning_kept(nouls, removal_required):
+            if not deterministic and not Q.meaning_kept_split(nouls, post_nouls, removal_required):
                 reasons.append("the fix changes the core message or call to action")
             sp = nouls.get("new_superlative")
             if not deterministic and (sp is None or sp >= Q.SELFCHECK_RULE_MAX):
