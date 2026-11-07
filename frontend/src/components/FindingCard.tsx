@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 import { RegulationChip, RegulationCitations } from "@/components/RegulationCitation"; // rule packs
+import { PrecedentLine } from "@/components/Precedent"; // precedent memory
 
 /** Word-level diff (LCS). Returns tokens tagged same / del / add. */
 export function wordDiff(a: string, b: string) {
@@ -178,6 +179,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       </div>
 
       <p className="mt-4 text-body">{f.explanation}</p>
+      <PrecedentLine finding={f} />
 
       {group && group.isLead && group.others.length > 0 && (
         <p data-testid="fix-group-lead" className="mt-3 flex items-start gap-2 rounded-xl bg-[#0A84FF]/10 px-3 py-2 text-footnote">

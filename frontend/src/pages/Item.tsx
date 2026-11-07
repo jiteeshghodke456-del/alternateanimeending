@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { LiveMeter } from "@/components/LiveMeter";
 import { RuleScanPanel, type RuleScanRow } from "@/components/RuleScanPanel";
 import { FindingCard, type FixGroupInfo } from "@/components/FindingCard";
+import { PreviouslyAccepted } from "@/components/Precedent"; // precedent memory
 import { HighlightedText, type HighlightSpan } from "@/components/HighlightedText";
 import { AudiencePanel } from "@/components/audience/AudiencePanel";
 import { ImageWithLogo, logoShapes } from "@/components/LogoOverlay";
@@ -539,6 +540,7 @@ function Item() {
                       </AnimatedListItem>
                     ))}
                   </AnimatePresence>
+                  <PreviouslyAccepted findings={Object.values(findings)} onSelect={setActive} />
                 </TabsContent>
 
                 {!item.confidential && (

@@ -386,6 +386,11 @@ export interface FindingOut {
   hit_end?: number | null;
   fix_group?: string | null;
   regulations?: RuleRef[]; // rule packs: regulations linked to this brand rule (each has a citation)
+  // Precedent memory: the earlier human decision this finding matched ("Seen before"), the band before the
+  // precedent lowered it, and what it changed in plain words. null/absent when no precedent applied.
+  precedent?: PrecedentRef | null;
+  band_before?: Band | null;
+  band_note?: string | null;
 }
 
 /** A region of an image as fractions (0..1): top/bottom of the height, left/right of the width. */
@@ -1103,4 +1108,53 @@ export const packsApi = {
   list: () => request<PackOut[]>("GET", "/rules/packs"),
   apply: (id: string) => request<PackApplyOut>("POST", `/rules/packs/${encodeURIComponent(id)}/apply`, { json: {} }),
   remove: (id: string) => request<PackRemoveOut>("DELETE", `/rules/packs/${encodeURIComponent(id)}`),
+};
+
+/* ---------------------------------------------------------------- precedent memory (Round 3) */
+export interface PrecedentRef {
+  id: number;
+  decision: "dismissed" | "overridden";
+  reason: string; // false_alarm | approved_exception | rule_outdated | other | override
+  note: string | null;
+  by: string;
+  at: IsoDate;
+  item_id: number | null;
+  item_title: string;
+  rule_changed: boolean; // the rule was rewritten since the decision
+}
+export interface PrecedentOut {
+  id: number;
+  rule_code: string;
+  rule_version: number;
+  rule_current_version: number | null;
+  rule_statement: string;
+  quote: string;
+  context: string;
+  decision: "dismissed" | "overridden";
+  reason: string;
+  note: string | null;
+  by: string;
+  at: IsoDate;
+  item_id: number | null;
+  item_title: string;
+  channel: string;
+  severity: Severity;
+  active: boolean;
+  applies: boolean;
+  excluded_why: string | null;
+  uses: number;
+  seeded: boolean;
+  revoked_by: string | null;
+  revoked_at: IsoDate | null;
+}
+export interface PrecedentListOut { precedents: PrecedentOut[]; max_age_days: number }
+
+export const PRECEDENT_REASON_LABEL: Record<string, string> = {
+  false_alarm: "False alarm", approved_exception: "Approved exception", rule_outdated: "Rule is outdated",
+  other: "Other", override: "Override",
+};
+
+export const precedentsApi = {
+  list: () => request<PrecedentListOut>("GET", "/precedents"),
+  revoke: (id: number) => request<PrecedentOut>("POST", `/precedents/${id}/revoke`, { json: {} }),
 };
