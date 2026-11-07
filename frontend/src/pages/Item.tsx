@@ -419,7 +419,7 @@ export default function Item() {
           )}
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)]">
-            <div className="space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+            <div className="min-w-0 space-y-6 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
               <section className="glass-strong p-5 md:p-6" aria-label="Content">
                 <h2 className="mb-3 text-headline">Content{version ? ` · v${version.n}` : ""}</h2>
                 {version ? (
@@ -438,7 +438,7 @@ export default function Item() {
               <RuleScanPanel rows={scanRows} totalRules={rulesQ.data?.length} running={running} />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="h-11 w-full rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
                   <TabsTrigger value="findings" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Findings{list.length ? ` (${openCount})` : ""}</TabsTrigger>

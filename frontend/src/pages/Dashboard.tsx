@@ -15,7 +15,7 @@ export function SimpleBar({ data, horizontal }: { data: Row[]; horizontal?: bool
   return (
     <ResponsiveContainer width="100%" height="100%" className="text-muted-foreground">
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ left: horizontal ? 24 : -16, right: 8, top: 4 }}>
-        <CartesianGrid stroke={chartTheme.grid} vertical={!horizontal} horizontal={!horizontal} />
+        <CartesianGrid stroke={chartTheme.grid} vertical={false} horizontal={!horizontal} />
         {horizontal ? (
           <>
             <XAxis type="number" allowDecimals={false} {...chartTheme.axis} />
@@ -23,7 +23,7 @@ export function SimpleBar({ data, horizontal }: { data: Row[]; horizontal?: bool
           </>
         ) : (
           <>
-            <XAxis dataKey="name" interval={0} {...chartTheme.axis} />
+            <XAxis dataKey="name" interval={0} tickFormatter={(v: string) => (v.length > 9 ? `${v.slice(0, 8)}…` : v)} {...chartTheme.axis} />
             <YAxis allowDecimals={false} {...chartTheme.axis} />
           </>
         )}
@@ -38,7 +38,7 @@ export function SimpleBar({ data, horizontal }: { data: Row[]; horizontal?: bool
   );
 }
 
-const rows = (b: CountBucket[]): Row[] => b.map((x) => ({ name: x.key || "other", count: x.count, label: x.label }));
+const rows = (b: CountBucket[]): Row[] => b.map((x) => ({ name: x.key?.trim() || "uncategorised", count: x.count, label: x.label }));
 
 export default function Dashboard() {
   const q = useAsync(() => api.insights(), []);

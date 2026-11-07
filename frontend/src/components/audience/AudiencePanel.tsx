@@ -25,9 +25,10 @@ const mean = (t: AudienceTotals, m: Metric): number | null => (m === "distrust" 
 /* ------------------------------------------------------------------ small pieces */
 
 /** Change chip: down is good for every metric here. Icon + words + sign, never colour alone. */
-function DeltaChip({ d, className }: { d: number; className?: string }) {
+function DeltaChip({ d, avg, className }: { d: number; avg?: number | null; className?: string }) {
   const p = points(d);
-  const better = p < 0, worse = p > 0;
+  const a = p === 0 && avg != null && Math.abs(avg) >= 0.02 ? avg : null; // shares saturate; the mean score still moves
+  const better = p < 0 || (a != null && a < 0), worse = p > 0 || (a != null && a > 0);
   const Icon = better ? TrendingDown : worse ? TrendingUp : Minus;
   return (
     <span className={cn(
@@ -106,7 +107,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
             <p className="text-caption font-medium">v{thisN} (this version)</p>
             <p className={cn("text-[44px] font-semibold leading-none tracking-tight tabular-nums", M.text)}>{pct(after)}%</p>
           </div>
-          <DeltaChip d={d} className="mb-1 !text-footnote" />
+          <DeltaChip d={d} avg={mb != null && ma != null ? ma - mb : null} className="mb-1 !text-footnote" />
         </div>
         <p className="mt-3 text-footnote text-muted-foreground">
           {pct(before)}% of the simulated readers {M.hint} in v{prevN}; now {pct(after)}%.{" "}
@@ -123,11 +124,14 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
               <li key={s.key}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="min-w-0 truncate text-footnote font-medium">{s.label}</span>
-                  <DeltaChip d={a - b} />
+                  <DeltaChip d={a - b} avg={metric === "distrust" ? s.delta.mean_distrust : metric === "confused" ? s.delta.mean_confused : null} />
                 </div>
                 <div className="mt-1.5 space-y-1">
                   <div className="flex items-center gap-2"><span className="w-6 text-caption text-muted-foreground">v{prevN}</span><Bar value={b} color={M.color} muted label={`${s.label} ${M.label} in version ${prevN}`} /><span className="w-9 text-right text-caption tabular-nums text-muted-foreground">{pct(b)}%</span></div>
                   <div className="flex items-center gap-2"><span className="w-6 text-caption font-medium">v{thisN}</span><Bar value={a} color={M.color} label={`${s.label} ${M.label} in version ${thisN}`} /><span className="w-9 text-right text-caption font-semibold tabular-nums">{pct(a)}%</span></div>
+                  {mean(s.previous, metric) != null && mean(cur, metric) != null && (
+                    <p className="pl-8 text-caption text-muted-foreground tabular-nums">Average score {mean(s.previous, metric)!.toFixed(2)} <ArrowRight className="inline size-3" aria-hidden /> {mean(cur, metric)!.toFixed(2)}</p>
+                  )}
                 </div>
               </li>
             );
@@ -144,7 +148,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
 
 /* ------------------------------------------------------------------ segments */
 
-function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment; selected: boolean; onSelect: () => void; delta?: number }) {
+function SegmentCard({ seg, selected, onSelect, delta, avg }: { seg: AudienceSegment; selected: boolean; onSelect: () => void; delta?: number; avg?: number }) {
   return (
     <button
       type="button" aria-pressed={selected} onClick={onSelect}
@@ -153,10 +157,8 @@ function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment;
         selected && "ring-2 ring-[#0A84FF]",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-footnote font-semibold"><Users className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />{seg.label}</span>
-        {delta != null && <DeltaChip d={delta} />}
-      </div>
+      <span className="flex items-center gap-1.5 text-footnote font-semibold"><Users className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />{seg.label}</span>
+      {delta != null && <div className="mt-1.5"><DeltaChip d={delta} avg={avg} /></div>}
       <div className="mt-3 space-y-2">
         {(Object.keys(METRIC) as Metric[]).map((m) => {
           const Ic = METRIC[m].icon, v = share(seg, m);
@@ -239,7 +241,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
   const answered = progress?.done ?? (data?.personas ?? []).filter((p) => p.signal).length;
   const total = progress?.total ?? TOTAL_DOTS;
   const cmp = data?.compare_to_previous_version ?? null;
-  const cmpDelta = new Map((cmp?.segments ?? []).map((s) => [s.key, s.delta.distrust_pct]));
+  const cmpDelta = new Map((cmp?.segments ?? []).map((s) => [s.key, s.delta]));
 
   function run() { start(); }
   const runBtn = (label: string, icon: "play" | "again") => (
@@ -320,7 +322,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
           <h3 className="px-1 pt-1 text-headline">Six audience groups</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             {segs.map((s) => (
-              <SegmentCard key={s.key} seg={s} selected={selected === s.key} onSelect={() => setSelected((cur) => (cur === s.key ? null : s.key))} delta={cmpDelta.get(s.key)} />
+              <SegmentCard key={s.key} seg={s} selected={selected === s.key} onSelect={() => setSelected((cur) => (cur === s.key ? null : s.key))} delta={cmpDelta.get(s.key)?.distrust_pct} avg={cmpDelta.get(s.key)?.mean_distrust} />
             ))}
           </div>
           {segment && <SegmentDetail seg={segment} culprit={data?.culprit_paragraph ?? null} />}

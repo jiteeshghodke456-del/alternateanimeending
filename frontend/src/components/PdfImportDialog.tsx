@@ -212,7 +212,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
               </div>
             )}
 
-            <DialogFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <DialogFooter className="sticky -bottom-5 z-10 -mx-5 flex-col items-stretch gap-3 border-t border-border bg-[var(--glass-strong-bg)] px-5 py-3 backdrop-blur-xl sm:-bottom-6 sm:-mx-6 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div className="space-y-1">
                 <p className="text-footnote"><span className="font-semibold tabular-nums">{picked.size}</span> of {proposals.length} selected{unverifiedPicked > 0 && <span className="text-human-text"> · {unverifiedPicked} with a quote we couldn't verify</span>}</p>
                 <label className="flex cursor-pointer items-center gap-2 text-footnote text-muted-foreground">

@@ -9,7 +9,7 @@ export interface HighlightSpan { start: number; end: number; band: Band; id?: st
 export function HighlightedText({ text, spans, activeId, onSelect, className }: {
   text: string; spans: HighlightSpan[]; activeId?: string; onSelect?: (id: string) => void; className?: string;
 }) {
-  const sorted = [...spans].filter((s) => s.end > s.start && s.start >= 0 && s.start < text.length).sort((a, b) => a.start - b.start);
+  const sorted = [...spans].filter((s) => s.end > s.start && s.start >= 0 && s.start < text.length && text.slice(s.start, s.end).trim() !== "").sort((a, b) => a.start - b.start);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   sorted.forEach((s, i) => {
