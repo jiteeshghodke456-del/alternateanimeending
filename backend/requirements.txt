@@ -1,0 +1,25 @@
+# Pinned to compatible-release ranges (major for >=1.x, minor for 0.x packages).
+fastapi~=0.162
+uvicorn[standard]~=0.54
+sqlmodel~=0.0.48
+pydantic>=2.10,<3
+pydantic-settings>=2.6,<3
+sse-starlette>=3,<4
+itsdangerous>=2.2,<3
+python-multipart~=0.0.20
+
+# AI
+typesafe-sdk~=0.7.5
+openai>=3,<4
+
+# Files and checks
+pdfplumber~=0.11
+pillow>=11,<14
+numpy>=2,<3
+opencv-python-headless>=4.10,<6
+textstat~=0.7
+rapidfuzz>=3,<4
+
+# Tests
+pytest>=8,<10
+httpx~=0.28
