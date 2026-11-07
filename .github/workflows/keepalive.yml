@@ -1,0 +1,14 @@
+name: keep-alive
+# Render's free tier sleeps after 15 minutes without traffic. This pings the
+# public demo every 10 minutes so judges don't wait for a cold start.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping health endpoint
+        run: curl -fsS --max-time 90 https://brand-gate.onrender.com/api/health || true
