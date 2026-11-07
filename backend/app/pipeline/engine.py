@@ -23,6 +23,7 @@ from app.pipeline import logo as L
 from app.pipeline import provenance as P
 from app.pipeline import questions as Q
 from app.pipeline import selfcheck as S
+from app.pipeline import tier0 as T0
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, RuleSpec, UnitIn
 from app.pipeline.privacy import mask_pii_map, unmask
@@ -157,8 +158,10 @@ class _Run:
         return d
 
     def text_rules(self) -> list[RuleSpec]:
-        return [r for r in self.rules if r.check_method == "jev" and r.category != "visual"
-                and not any(k in (r.params or {}) for k in Q.CTA_PARAM_KEYS)]
+        # A plain-language "tier0" rule that yields no word list (e.g. "Use exclamation points sparingly", "Don't
+        # refer to an audience as 'it'") is judged like any written rule instead of silently never being checked.
+        return [r for r in self.rules if (r.check_method == "jev" or (r.check_method == "tier0" and not T0.code_checkable(r)))
+                and r.category != "visual" and not any(k in (r.params or {}) for k in Q.CTA_PARAM_KEYS)]
 
     def image_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if (r.check_method == "visual" or (r.check_method == "jev" and r.category == "visual"))
@@ -173,6 +176,11 @@ class _Run:
         # Rule packs: a regulation the text alone rarely settles (is this a creator's post? an AI avatar?)
         # only raises a finding when Jev is confident; "needs a human look" would be mostly noise.
         if (rule.params or {}).get("flag_only") and b == "human":
+            return "pass"
+        # Plain-language formatting rules with no word list ("Use the numeral, including for ordinals") are judged
+        # by the model as a whole; only a confident answer becomes a finding (real-brand test: these filled the
+        # "needs a human look" band with 0.3-0.7 guesses on every paragraph).
+        if b == "human" and rule.check_method == "tier0" and not T0.code_checkable(rule):
             return "pass"
         return b
 

@@ -168,12 +168,55 @@ NEVER_SAY = re.compile(r"^\s*(never|don'?t|do not|avoid|no)\s+(say|use|write|say
 
 def is_never_say(rule: RuleSpec) -> bool:
     """An admin rule like "Never say 'cheap'" with no params is checked exactly, whatever its method."""
-    return not _has_known_params(rule.params or {}) and bool(NEVER_SAY.search(rule.statement)) and bool(statement_words(rule.statement))
+    return not _has_known_params(rule.params or {}) and bool(NEVER_SAY.search(rule.statement)) and bool(word_roles(rule.statement)[0])
 
 
 def statement_words(statement: str) -> list[str]:
     """Quoted words in a rule statement ("Never say 'cheap'") for admin rules without params."""
     return [m.group(1).strip() for m in _QUOTED.finditer(statement) if m.group(1).strip()]
+
+
+# Quoted words in a plain-language rule play different roles. Real-brand test (Mailchimp style guide, 8 Nov):
+# "Don't refer to an audience as "it"; always use "they."" banned both "it" and "they", so every rewrite failed
+# its self-check; "Use the % symbol instead of spelling out "percent"" would have required "percent".
+_STOPWORDS = {"it", "its", "they", "them", "their", "he", "she", "his", "her", "we", "us", "our", "you", "your",
+              "i", "me", "my", "a", "an", "the", "this", "that", "these", "those", "and", "or", "to", "of"}
+# Formatting rules (case, symbols, punctuation, abbreviations) can't be read as a word list: judged as a whole.
+_FORMAT_WORDS = re.compile(r"\b(capitali[sz]\w*|upper ?case|lower ?case|all[- ]caps|abbreviat\w*|spell(?:ed|ing)? out|"
+                           r"hyphen\w*|period|comma|symbol|numeral\w*|plural|singular|italic\w*|bold)\b", re.IGNORECASE)
+_BAN_CLAUSE = re.compile(r"\b(never|don'?t|do not|avoid|not|no|instead of|rather than|ban\w*|forbid\w*|prohibit\w*)\b", re.IGNORECASE)
+_REQ_CLAUSE = re.compile(r"\b(always|use|write|refer to|call|spell|say|name)\b", re.IGNORECASE)
+
+
+def word_roles(statement: str) -> tuple[list[str], list[str]]:
+    """(banned, required) quoted words of a plain-language rule. A word is banned when a negation ("never",
+    "don't", "instead of", ...) comes before it in the same clause; required when the clause asks for it
+    ("always ... as 'Swiggy'") and it is a name (has a capital letter). Pronouns and other function words are
+    never treated as a word list ("it" is fine in "send it"), and formatting rules return nothing: those rules
+    are judged as a whole (see code_checkable)."""
+    if _FORMAT_WORDS.search(statement):
+        return [], []
+    banned: list[str] = []
+    required: list[str] = []
+    for m in _QUOTED.finditer(statement):
+        w = m.group(1).strip().rstrip(".,;:!?")
+        if len(w) < 2 or w.lower() in _STOPWORDS:
+            continue
+        clause = re.split(r"[;.:]\s", statement[: m.start()])[-1]
+        if _BAN_CLAUSE.search(clause):
+            banned.append(w)
+        elif _REQ_CLAUSE.search(clause) and any(c.isupper() for c in w):
+            required.append(w)
+    return banned, required
+
+
+def code_checkable(rule: RuleSpec) -> bool:
+    """A tier0 rule without params can be checked in code only when its statement yields banned or required
+    words; otherwise the engine asks the judgment model about it like any written rule (engine.text_rules)."""
+    if _has_known_params(rule.params or {}):
+        return True
+    banned, required = word_roles(rule.statement)
+    return bool(banned or required)
 
 
 _POSITIVE = re.compile(r"^\s*(always|only|use|write|refer|call|spell|say|keep|make sure|must)\b", re.IGNORECASE)
@@ -186,12 +229,8 @@ def is_positive_statement(rule: RuleSpec) -> bool:
 
 
 def is_must_use(rule: RuleSpec) -> bool:
-    """ "Always refer to the brand as 'Swiggy'": a positive statement with quoted words and no negation
-    before the quote. The quoted words are the required spelling."""
-    if not is_positive_statement(rule) or not statement_words(rule.statement):
-        return False
-    first_quote = _QUOTED.search(rule.statement)
-    return not _NEGATION.search(rule.statement[: first_quote.start()] if first_quote else rule.statement)
+    """ "Always refer to the brand as 'Swiggy'": the statement asks for a quoted name as written."""
+    return bool(word_roles(rule.statement)[1])
 
 
 # Hashtags and @handles are written however the platform account or tag is spelled ("#swiggy", "@swiggy"):
@@ -201,13 +240,13 @@ _TAG_OR_HANDLE = re.compile(r"(?<![\w@#])[#@][\w]+", re.UNICODE)
 _POSSESSIVE = re.compile(r"['’]([sS])(?!\w)")
 
 
-def check_must_use(rule: RuleSpec, text: str) -> list[Tier0Hit]:
+def check_must_use(rule: RuleSpec, text: str, words: Optional[list[str]] = None) -> list[Tier0Hit]:
     """Flag any spelling of a required word that differs from it (case or small typos are not guessed:
     only the same letters in a different case, e.g. SWIGGY or swiggy for 'Swiggy'). A possessive is part of
     the word ("SWIGGY'S" -> "Swiggy's"); "Swiggy's" itself is correct."""
     tags = [(m.start(), m.end()) for m in _TAG_OR_HANDLE.finditer(text)]
     hits = []
-    for w in statement_words(rule.statement):
+    for w in (words if words is not None else word_roles(rule.statement)[1]):
         for s, e, _ in find_phrases(text, [w], case_insensitive=True):
             if text[s:e] == w or in_protected(s, e, tags):
                 continue
@@ -223,7 +262,7 @@ def check_banned(rule: RuleSpec, text: str) -> list[Tier0Hit]:
     p = rule.params or {}
     words = p.get("banned")
     if not isinstance(words, list):
-        words = statement_words(rule.statement) if not _has_known_params(p) else []
+        words = word_roles(rule.statement)[0] if not _has_known_params(p) else []
     replacement = p.get("replacement")
     hits = []
     for s, e, w in find_phrases(text, [str(w) for w in words], bool(p.get("case_insensitive", True))):
@@ -626,6 +665,9 @@ _DATE = re.compile(
     re.IGNORECASE,
 )
 _NUMBER = re.compile(r"(?<![A-Za-z\d])\d[\d,]*(?:\.\d+)?\s?%?")
+_ORDINAL_SUFFIX = re.compile(r"(st|nd|rd|th)\b", re.IGNORECASE)
+_RANKING_CONTEXT = re.compile(r"\b(ranked|rated|in (india|the world|the country|town|the city)|among|place|largest|biggest|"
+                              r"fastest|most|top|leading|position)\b", re.IGNORECASE)
 _AWARD = re.compile(r"\b(won|wins|award(?:s|ed)?|gold|silver|bronze|medal|certified|rated)\b", re.IGNORECASE)
 _DEFAULT_SUPERLATIVES = [r"#\s?1\b", r"\bnumber (one|1)\b", r"\bbest\b", r"\bfinest\b", r"\bcheapest\b", r"\bguaranteed\b"]
 # Hindi / Marathi / Hinglish superlatives and guarantees (code defaults, like the English ones above).
@@ -676,6 +718,8 @@ def claim_triggers(text: str, rules: list[RuleSpec]) -> list[ClaimTrigger]:
         s, e = m.start(), m.end()
         if any(a <= s < b or a < e <= b for a, b in taken):
             continue
+        if _ORDINAL_SUFFIX.match(text, e) and not _RANKING_CONTEXT.search(text[max(0, s - 20):e + 40]):
+            continue  # "your 1st campaign" counts the reader's own steps; "1st in India" is still a claim
         out.append(ClaimTrigger("number", s, len(m.group(0).rstrip()) + s, m.group(0).rstrip()))
     for m in _AWARD.finditer(text):
         out.append(ClaimTrigger("award", m.start(), m.end(), m.group(0)))
@@ -709,10 +753,11 @@ def check_rule_on_text(rule: RuleSpec, text: str, ctx: CheckContext, state: Post
         # No params (e.g. a rule imported from a guideline PDF): read the quoted words in the statement.
         # "Never say 'cheap'" bans them; "Always refer to the brand as 'Swiggy'" requires them as written,
         # so a different spelling or case is flagged, never the required word itself.
-        if is_must_use(rule):
-            hits += check_must_use(rule, text)
-        elif not is_positive_statement(rule):
+        banned, required = word_roles(rule.statement)
+        if banned:
             hits += check_banned(rule, text)
+        if required:
+            hits += check_must_use(rule, text, required)
     if "pattern" in p:
         hits += check_pattern(rule, text)
     if "patterns" in p:
