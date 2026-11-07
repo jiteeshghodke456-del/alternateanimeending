@@ -124,7 +124,7 @@ export function AccountMenu() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 520, damping: 34, mass: 0.6 }}
-            className="glass-strong absolute right-0 top-12 z-50 w-[min(300px,calc(100vw-2rem))] origin-top-right !rounded-2xl p-1.5"
+            className="absolute right-0 top-12 z-50 w-[min(300px,calc(100vw-2rem))] origin-top-right rounded-2xl border border-border bg-popover p-1.5 text-popover-foreground shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)]"
           >
             <div className="flex items-center gap-3 px-3 pb-3 pt-2.5">
               <BrandMark brand={brand} className="size-10" />
@@ -139,7 +139,7 @@ export function AccountMenu() {
             {user?.role === "admin" && workspaceKind === "blank" && (
               <Item icon={Wand2} label="Set up your brand" hint="Name, colours, rules, facts and words" onClick={() => { setOpen(false); navigate("/setup"); }} />
             )}
-            <Item icon={RotateCcw} label="Reset this workspace" hint="Back to how it started" onClick={() => ask("reset")} />
+            <Item icon={RotateCcw} label="Reset this workspace" hint={user?.role === "admin" ? "Back to how it started" : "Brand admins only"} disabled={user?.role !== "admin"} onClick={() => ask("reset")} />
             <Item icon={Sparkles} label="Start fresh" hint={canSwitch ? "An empty workspace for your own brand" : "Not available on this server yet"} disabled={!canSwitch} onClick={() => ask("blank")} />
             <Item icon={Sparkles} label="Open demo brand" hint={canSwitch ? "A new copy of the sample brand" : "Not available on this server yet"} disabled={!canSwitch} onClick={() => ask("demo")} />
             <div className="my-1 h-px bg-border" />

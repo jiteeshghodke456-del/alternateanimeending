@@ -84,8 +84,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const startWorkspace = useCallback(async (kind: WorkspaceKind, role: Role) => {
     await api.createWorkspace(kind);
-    setToken(null); // the server cleared the login
-    setUser(null);
+    // The server cleared the login. Keep the old user in state until the new login lands,
+    // so the app shell doesn't bounce to the landing page in between.
+    setToken(null);
     const me = await api.me();
     setUsers(me.users);
     setDemoMode(me.demo_mode);
