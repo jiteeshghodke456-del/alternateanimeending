@@ -38,7 +38,7 @@ function RoleSwitcher() {
         {user ? (
           <span className="flex min-w-0 items-center gap-2">
             <UserAvatar id={user.id} name={user.name} className="size-7 text-footnote" />
-            <span className="truncate text-footnote font-medium"><SelectValue /></span>
+            <span className="truncate text-footnote font-medium"><SelectValue>{user.name} <span className="font-normal text-muted-foreground">· {ROLE_LABELS[user.role]}</span></SelectValue></span>
           </span>
         ) : (
           <SelectValue placeholder="Choose a role" />
