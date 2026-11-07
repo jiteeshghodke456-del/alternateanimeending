@@ -56,6 +56,9 @@ function Body({ itemId, refreshKey }: { itemId: number; refreshKey: unknown }) {
         Personal data masked: <span className="font-medium text-foreground">{data.pii_masked}</span>.
         {" "}Emails, phone numbers and long digit strings are replaced before any outside call. {data.external_calls} outside call{data.external_calls === 1 ? "" : "s"} in total.
       </p>
+      <p className="text-footnote text-muted-foreground" data-testid="provenance-local-note">
+        The Content Credentials check (C2PA, XMP and EXIF metadata on images) runs locally on our server, also for confidential items. It never sends the image anywhere.
+      </p>
     </div>
   );
 }

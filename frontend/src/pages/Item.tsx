@@ -12,6 +12,7 @@ import { FindingCard, type FixGroupInfo } from "@/components/FindingCard";
 import { HighlightedText, type HighlightSpan } from "@/components/HighlightedText";
 import { AudiencePanel } from "@/components/audience/AudiencePanel";
 import { ImageWithLogo, logoShapes } from "@/components/LogoOverlay";
+import { ProvenancePanel } from "@/components/ProvenancePanel";
 import { AiUsageDrawer } from "@/components/AiUsageDrawer";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
 import { StateBadge } from "@/components/StateBadge";
@@ -77,6 +78,7 @@ function ContentPanel({ version, findings, active, onSelect, palette, culprit }:
             shapes={logoShapes(version, findings)} activeFindingId={active} onSelectFinding={onSelect}
           />
         )}
+        <ProvenancePanel version={version} />
         {palette.length > 0 && (
           <div>
             <p className="mb-1.5 text-caption font-medium text-muted-foreground">Brand palette</p>

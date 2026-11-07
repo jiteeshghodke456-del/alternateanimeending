@@ -19,7 +19,7 @@ export type CheckMethod = "tier0" | "jev" | "claim" | "visual";
 export type TermKind = "banned" | "preferred" | "capitalise";
 export type Band = "flag" | "human" | "pass";
 export type FindingStatus = "open" | "accepted" | "edited" | "dismissed" | "overridden";
-export type FindingTier = "tier0" | "jev" | "claim" | "visual" | "logo";
+export type FindingTier = "tier0" | "jev" | "claim" | "visual" | "logo" | "provenance";
 export type ClaimStatus = "supported" | "unsupported" | "outdated";
 export type CheckStatus = "not_run" | "queued" | "running" | "done" | "error";
 export type UnitKind = "text" | "image" | "caption" | "alt_text";
@@ -255,6 +255,32 @@ export interface UnitOut {
   image_url: string | null;
   char_start: number | null; // offsets into VersionOut.text
   char_end: number | null;
+  provenance?: Provenance | null; // image units only
+}
+
+/** AI-image provenance read locally from the ORIGINAL upload's metadata (C2PA, XMP, EXIF, PNG text).
+ *  Signatures are never verified (`signature: "not_verified"`). No metadata proves nothing either way. */
+export interface Provenance {
+  status: "ai_generated" | "ai_edited" | "camera_or_unknown" | "no_metadata";
+  generator: string | null;
+  evidence: { source: string; field: string; value: string }[];
+  c2pa: boolean;
+  c2pa_method: "cbor" | "byte-scan" | null;
+  signature: string;
+  source_types: string[];
+  note: string;
+  checked_locally: boolean;
+}
+
+/** VersionOut.stats.provenance[]: the R-AI-LABEL decision per image unit (code-decided, local). */
+export interface ProvenanceCheck {
+  unit_idx: number;
+  status: Provenance["status"];
+  generator: string | null;
+  c2pa: boolean;
+  disclosed: boolean;
+  needs_label: boolean;
+  message: string;
 }
 
 export interface VersionSummary {
@@ -274,6 +300,7 @@ export interface VersionStats {
   pii_masked?: number;
   /** Human notes about the check, e.g. "Add rules first: ..." in a brand with no rules. */
   warnings?: string[];
+  provenance?: ProvenanceCheck[];
   [k: string]: unknown;
 }
 
