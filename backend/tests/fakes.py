@@ -30,6 +30,7 @@ class FakeJev:
     tokens: int = 430
     kind: Any = None  # claim_kind answer: an option name or callable(text) -> name; None = the first option
     checkable: Any = 0.9  # claim_checkable: p or callable(text) -> p
+    figures: dict[str, float] = field(default_factory=dict)  # fig_<fact>_<i> by fact code (default: its support p)
     calls: list[dict] = field(default_factory=list)
 
     async def __call__(self, state: Any, questions: dict, *, model: Optional[str], extra_headers: Any, timeout: float) -> Any:
@@ -54,6 +55,9 @@ class FakeJev:
                 continue
             if name.startswith("support_"):
                 p = self.support.get(name[len("support_"):], 0.02)
+            elif name.startswith("fig_"):  # atomic claims: one figure vs one fact (fig_<fact>_<i>)
+                code = name[len("fig_"):].rsplit("_", 1)[0]
+                p = self.figures.get(code, self.support.get(code, 0.02))
             elif name == "claim_checkable":
                 p = self.checkable(text) if callable(self.checkable) else self.checkable
             elif name in ("same_topic", "keeps_cta"):

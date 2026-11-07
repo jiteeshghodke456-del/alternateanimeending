@@ -19,6 +19,8 @@ Claims Jev found without a trigger word: partial support (p >= HUMAN_AT) counts,
 Without Jev (no key, confidential, or a failed call): rule 3 runs on number matching alone
 (candidates with ratio >= 50); everything else is "unsupported (no Jev)" in the human band.
 Expiry is always compared in code.
+Atomic claims (`atomic`, after the table): a clause with 2+ figures is also judged figure by figure, and when
+only some figures are covered by facts, only the uncovered ones are reported (ClaimResult.spans).
 
 Check-worthiness gate (`gate`, applied after the table above when the engine asks for it, i.e. a live Jev
 check; selfcheck does not). The claim's Jev call also asks `claim_kind` (Choice: comparative_or_superlative,
@@ -49,7 +51,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
+from typing import Any, Optional
 
 from rapidfuzz import fuzz
 
@@ -75,6 +77,16 @@ def is_expired(valid_until: date | None, today: date | None = None) -> bool:
     return valid_until < (today or local_today())
 
 
+@dataclass(frozen=True)
+class Figure:
+    """One number in a claim (atomic claims): unit-local span, the words shown ("10x", "₹4.3 lakh") and its
+    normalised values (numbers())."""
+    start: int
+    end: int
+    label: str
+    values: frozenset[str]
+
+
 @dataclass
 class Claim:
     group: str  # superlative|eco|factual
@@ -84,6 +96,7 @@ class Claim:
     text: str  # the clause sent to Jev and used for fact matching
     triggers: list[ClaimTrigger] = field(default_factory=list)
     from_jev: bool = False  # found by has_claim/claim_type, not by a trigger
+    figures: list[Figure] = field(default_factory=list)  # numbers in the claim, for atomic coverage
 
 
 @dataclass
@@ -102,6 +115,7 @@ class ClaimResult:
     p_checkable: Optional[float] = None  # claim_checkable (Jev), when the gate ran
     p_record: Optional[float] = None  # claim_record (Jev), when the gate ran
     gated: Optional[str] = None  # the gate row that changed the outcome (None = unchanged)
+    spans: list[tuple[int, int]] = field(default_factory=list)  # unit-local spans to report (atomic); [] = the claim span
 
     @property
     def is_finding(self) -> bool:
@@ -177,7 +191,30 @@ def extract_claims(text: str, ctx: CheckContext, covered: list[Tier0Hit] | None 
                 continue  # "certified organic": the eco claim covers it
             code = codes["price"] if group == "factual" and any(t.group == "price" for t in ts) else codes[group]
             out.append(Claim(group=group, rule_code=code, start=min(t.start for t in ts), end=max(t.end for t in ts),
-                             text=text[cs:ce].strip(), triggers=ts))
+                             text=text[cs:ce].strip(), triggers=ts,
+                             figures=figures(text, ts) if group == "factual" else []))
+    return out
+
+
+_FIGURE_TAIL = re.compile(r"[^\s,;:.!?()\[\]\"“”]*")
+
+
+def figures(text: str, triggers: list[ClaimTrigger]) -> list[Figure]:
+    """The numbers among a claim's triggers, with Indian scale words ("₹4.3 lakh" -> 430000) and unit tails
+    ("10x", "491%") kept in the label. Code only."""
+    scaled = L.scaled_numbers(text) if len(L.ascii_digits(L.nfc(text))) == len(text) else []
+    out: list[Figure] = []
+    for t in sorted(triggers, key=lambda t: t.start):
+        if t.group not in ("number", "price"):
+            continue
+        sc = next(((a, b, v) for a, b, v in scaled if a < t.end and t.start < b), None)
+        if sc is not None:
+            s0, e0, vals = min(sc[0], t.start), sc[1], {sc[2]}
+        else:
+            s0, e0 = t.start, t.end + len(_FIGURE_TAIL.match(text, t.end).group(0))  # type: ignore[union-attr]
+            vals = numbers(t.text)
+        if vals and not (out and out[-1].start <= s0 < out[-1].end):
+            out.append(Figure(s0, e0, text[s0:e0], frozenset(vals)))
     return out
 
 
@@ -254,9 +291,93 @@ def _number_only_in_expired(claim_nums: set[str], cands: list[tuple[FactSpec, fl
     return next((f for f, _, _ in cands if is_expired(f.valid_until, today) and numbers(_fact_text(f)) & missing), None)
 
 
+def figure_key(fact_code: str, i: int) -> str:
+    return f"fig_{fact_code}_{i}"
+
+
+def figure_questions(claim: Claim, found: list[tuple[FactSpec, float]], today: date) -> dict[str, Any]:
+    """Atomic claims: for a claim with 2+ figures, one Noul per (current candidate fact, figure) where the fact
+    holds the figure's digits (code pre-filters), so Jev only confirms it is the same thing."""
+    if len(claim.figures) < 2:
+        return {}
+    qs: dict[str, Any] = {}
+    for f, _ in found:
+        if is_expired(f.valid_until, today):
+            continue
+        fnums = numbers(_fact_text(f))
+        for i, fig in enumerate(claim.figures):
+            if fig.values <= fnums:
+                qs[figure_key(f.code, i)] = Q.figure_support_question(f, fig.label)
+    return qs
+
+
+def atomic(r: ClaimResult, cands: list[tuple[FactSpec, float, Optional[float]]], today: date, jev_ok: bool,
+           fig_p: Optional[dict[str, float]] = None) -> ClaimResult:
+    """Atomic claims (code): a clause with 2+ figures ("Rajkot 10x, Ludhiana 7x") is judged figure by figure.
+    A figure is covered when a current candidate fact holds its digits and Jev confirms that fact for it
+    (figure Noul >= HUMAN_AT; without Jev: token-set ratio >= NO_JEV_FACT_SCORE). In a clause Jev already called
+    supported, holding the digits is enough (as in relied_facts). Then:
+      none covered                    -> unchanged (the whole claim)
+      all covered, status unsupported -> supported (via "figures")
+      some covered                    -> only the uncovered figures are reported (`spans`, merged when adjacent);
+                                         a clause Jev called supported becomes unsupported for those figures
+                                         (p = 1 - best figure support, 1.0 when no fact holds the digits)
+    Outdated claims are left alone."""
+    figs = r.claim.figures
+    if r.claim.group != "factual" or len(figs) < 2 or r.status == "outdated":
+        return r
+    fig_p = fig_p or {}
+    covered, worst = [], 0.0
+    for i, fig in enumerate(figs):
+        best = 0.0
+        for f, ratio, _ in cands:
+            if is_expired(f.valid_until, today) or not fig.values <= numbers(_fact_text(f)):
+                continue
+            if r.status == "supported":
+                best = 1.0  # the clause is supported: a figure a current candidate fact holds counts (as relied_facts)
+            elif jev_ok:
+                best = max(best, fig_p.get(figure_key(f.code, i), 0.0))
+            elif ratio >= NO_JEV_FACT_SCORE:
+                best = 1.0
+        ok = best >= Q.HUMAN_AT
+        covered.append(ok)
+        if not ok:
+            worst = max(worst, 1.0 - best)
+    if not any(covered):
+        return r
+    if all(covered):
+        if r.status == "unsupported":
+            r.status, r.rule_code, r.band, r.via, r.probability = "supported", None, "pass", "figures", None
+        return r
+    runs: list[tuple[int, int]] = []
+    prev_uncovered = False
+    for fig, ok in zip(figs, covered):
+        if ok:
+            prev_uncovered = False
+            continue
+        if prev_uncovered:
+            runs[-1] = (runs[-1][0], fig.end)
+        else:
+            runs.append((fig.start, fig.end))
+        prev_uncovered = True
+    r.spans = runs
+    if r.status == "supported":
+        p = round(worst, 4) if jev_ok else None
+        r.status, r.rule_code, r.via, r.probability = "unsupported", r.claim.rule_code, "figures", p
+        r.fact_code = None
+        r.band = to_band(p, "claims") if p is not None else "human"
+    return r
+
+
 def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], ctx: CheckContext,
-           jev_ok: bool, error: Optional[str] = None) -> ClaimResult:
-    """The decision table in the module docstring. `cands` = [(fact, ratio, p_support|None)]."""
+           jev_ok: bool, error: Optional[str] = None, fig_p: Optional[dict[str, float]] = None) -> ClaimResult:
+    """The decision table in the module docstring, then `atomic`. `cands` = [(fact, ratio, p_support|None)]."""
+    r = _decide(claim, cands, ctx, jev_ok, error)
+    return atomic(r, cands, ctx.today, jev_ok, fig_p) if cands else r
+
+
+def _decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], ctx: CheckContext,
+            jev_ok: bool, error: Optional[str] = None) -> ClaimResult:
     codes = claim_rule_codes(ctx.enabled_rules())
     today = ctx.today
     info = [{"code": f.code, "score": round(s, 1), "p": None if p is None else round(p, 3),
@@ -378,6 +499,8 @@ async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: 
     if not use_jev:
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False)
     qs: dict = {Q.support_key(f.code): Q.support_question(f) for f, _ in found}
+    fig_qs = figure_questions(claim, found, ctx.today)
+    qs.update(fig_qs)
     if gating:
         qs["claim_kind"] = Q.claim_kind_question(gate_with)
         qs["claim_checkable"] = Q.claim_checkable_question(gate_with)
@@ -388,7 +511,8 @@ async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: 
         if not found:  # the call was only for the gate: decide as without it
             return decide(claim, [], ctx, jev_ok=True, error=res.error)
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False, error=res.error)
-    cr = decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True)
+    cr = decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True,
+                fig_p={k: res.nouls[k] for k in fig_qs if k in res.nouls})
     if gating:
         kind = res.choices.get("claim_kind")
         cr = gate(cr, kind.choice if kind else None, res.nouls.get("claim_checkable"), ctx, res.nouls.get("claim_record"))

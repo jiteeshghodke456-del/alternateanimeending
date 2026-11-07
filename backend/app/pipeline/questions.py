@@ -261,6 +261,20 @@ def support_question(fact: FactSpec) -> Noul:
     )
 
 
+def figure_support_question(fact: FactSpec, figure: str) -> Noul:
+    """Atomic claims (claims.figure_questions): high = this fact confirms this one figure of a multi-figure claim.
+    Asked only when code has seen the figure's digits in the fact."""
+    return Noul(
+        instructions=f"Does this approved fact confirm the figure “{figure}” in `text`? Fact: {fact.statement}",
+        criteria={
+            "true": f"The fact gives “{figure}” for the same thing that `text` uses it for, such as the same city, "
+                    "product, count or time.",
+            "false": f"The fact uses that number for something else, such as a different city, product or time than "
+                     f"`text` gives for “{figure}”.",
+        },
+    )
+
+
 def support_key(fact_code: str) -> str:
     return f"support_{fact_code}"
 

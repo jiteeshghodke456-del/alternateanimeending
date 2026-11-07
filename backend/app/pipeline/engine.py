@@ -223,8 +223,8 @@ class _Run:
         if not found and not hits and claim_type in ("objective", "comparative"):
             claim_tasks.append(asyncio.ensure_future(self.check_claim(u, C.unit_claim(u.text, self.ctx, claim_type))))
         for cr in await asyncio.gather(*claim_tasks):
-            if cr.is_finding:
-                out.append(self.from_claim(u, cr))
+            if cr.is_finding:  # atomic claims: only the figures no fact covers (claims.atomic), else the claim span
+                out += [self.from_claim(u, cr, sp) for sp in (cr.spans or [(cr.claim.start, cr.claim.end)])]
         await self.on_progress("claims", self.res)
         return out
 
@@ -428,8 +428,9 @@ class _Run:
                           rule_code=h.rule_code, category=h.category, severity=h.severity, detail=h.detail, det_fix=h.fix,
                           problem=h.detail or "A code check matched this text.")
 
-    def from_claim(self, u: UnitIn, cr: C.ClaimResult) -> FindingDraft:
+    def from_claim(self, u: UnitIn, cr: C.ClaimResult, span: Optional[tuple[int, int]] = None) -> FindingDraft:
         rule = self.rule(cr.rule_code)
+        start, end = span or (cr.claim.start, cr.claim.end)
         fact = next((f for f in self.ctx.facts if f.code == cr.fact_code), None)
         current = [f for f in self.ctx.facts if any(c["code"] == f.code and not c["expired"] for c in cr.candidates)]
         notes = [f"{f.code}: {f.statement} (current)" for f in current]
@@ -447,11 +448,11 @@ class _Run:
             # confirm it, offer "Add as fact", and never rewrite the number away. Real-brand test (8 Nov):
             # every figure in a Swiggy blog post was flagged at p = 1.00 and "fixed" by deleting it.
             band = "pass" if cr.band == "pass" else "human"
-            return self.draft(u, None, band=band, tier=tier, p=None, start=cr.claim.start, end=cr.claim.end,
+            return self.draft(u, None, band=band, tier=tier, p=None, start=start, end=end,
                               fact_code=None, claim_status=cr.status, detail=UNVERIFIED_CLAIM, problem=UNVERIFIED_CLAIM,
                               facts_note=notes, category="claims", severity="minor", local_only=True,
                               explanation=UNVERIFIED_CLAIM)
-        d = self.draft(u, rule, band=cr.band, tier=tier, p=cr.probability, start=cr.claim.start, end=cr.claim.end,
+        d = self.draft(u, rule, band=cr.band, tier=tier, p=cr.probability, start=start, end=end,
                        fact_code=cr.fact_code, claim_status=cr.status, detail=detail, problem=detail, facts_note=notes,
                        category=rule.category if rule else "claims", severity=rule.severity if rule else "major")
         return d
