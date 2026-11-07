@@ -138,9 +138,51 @@ export interface FactCreate {
 export type FactUpdate = Partial<Omit<FactCreate, "code">>;
 
 // P1 guideline import
+/** @deprecated superseded by ImportProposal (the server sends ImportJobOut). */
 export interface ProposedRule { rule: RuleCreate; quote_verified: boolean; quote_score: number }
+/** @deprecated superseded by ImportJobOut. */
 export interface ImportPdfOut { proposals: ProposedRule[]; pages: number }
+/** @deprecated superseded by ImportConfirmIn. */
 export interface ImportPdfConfirmIn { rules: RuleCreate[] }
+
+/** A proposed rule in the rules.json shape, without a code (R-IMP-NN is given on confirm). */
+export interface ImportRuleDraft {
+  statement: string;
+  category: string; // tone | claims | visual | messaging | terminology | legal | accessibility
+  severity: Severity;
+  check_method: CheckMethod;
+  source_quote: string;
+  page: number | null; // 1-based PDF page
+  examples_violating: string[];
+  examples_ok: string[];
+}
+export interface ImportProposal {
+  id: string; // "P-01"; use it in ImportConfirmIn
+  rule: ImportRuleDraft;
+  quote_verified: boolean; // false: show a "quote not found" badge
+  quote_score: number; // rapidfuzz partial ratio 0..100 (verified at >= 90)
+  selected: boolean; // default tick: true only when the quote is verified
+}
+export interface ImportJobOut {
+  import_id: string;
+  status: "running" | "done" | "error"; // poll GET /brand/import-pdf/{id} every ~1 s while running
+  filename: string;
+  pages: number;
+  proposals: ImportProposal[]; // up to 40
+  verified: number; // proposals with a verified quote
+  warnings: string[];
+  message: string | null; // human message when status is "error"
+  elapsed_ms: number | null;
+  cost_usd: number | null;
+  confirmed: boolean;
+  created_codes: string[];
+}
+export interface ImportConfirmIn {
+  selected: string[]; // proposal ids, at least one
+  edits?: Record<string, Partial<Pick<ImportRuleDraft, "statement" | "category" | "severity" | "check_method">>>;
+  enable?: boolean; // default false: imported rules start disabled (turn on in the Brand Kit)
+}
+export interface ImportConfirmOut { import_id: string; created: RuleOut[] }
 
 // ------------------------------------------------------------------ content
 export interface ItemCreateIn {
@@ -605,12 +647,23 @@ export const api = {
   facts: () => get<FactOut[]>("/facts"),
   createFact: (body: FactCreate) => post<FactOut>("/facts", body),
   updateFact: (id: number, body: FactUpdate) => patch<FactOut>(`/facts/${id}`, body),
+  /** @deprecated the server now answers with ImportJobOut; use startImport. */
   importPdf(file: File | Blob): Promise<ImportPdfOut> {
     const form = new FormData();
     form.append("file", file);
     return request<ImportPdfOut>("POST", "/brand/import-pdf", { form });
   },
+  /** @deprecated the server has no /brand/import-pdf/confirm; use confirmImport. */
   importPdfConfirm: (body: ImportPdfConfirmIn) => post<RuleOut[]>("/brand/import-pdf/confirm", body),
+  /** Admin. 202 + status "running"; 501 when FEATURE_PDF_IMPORT=0, 503 without the LLM, 413/415/422 bad file. */
+  startImport(file: File | Blob): Promise<ImportJobOut> {
+    const form = new FormData();
+    form.append("file", file);
+    return request<ImportJobOut>("POST", "/brand/import-pdf", { form });
+  },
+  importJob: (importId: string) => get<ImportJobOut>(`/brand/import-pdf/${importId}`),
+  confirmImport: (importId: string, body: ImportConfirmIn) =>
+    post<ImportConfirmOut>(`/brand/import-pdf/${importId}/confirm`, body),
 
   // content
   createItem(input: ItemCreateIn): Promise<ItemCreated> {
