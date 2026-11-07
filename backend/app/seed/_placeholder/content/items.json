@@ -1,0 +1,10 @@
+[
+  {"title": "Diwali Instagram post (placeholder)", "channel": "instagram", "creator": "rohan", "state": "draft", "confidential": false,
+   "text": "India's #1 cold brew is here! Our Golden Brew is the cheapest way to start your day.\n\nBUY NOW before it's GONE!!! Over 50 cafes across India.", "file": null},
+  {"title": "Welcome email (placeholder)", "channel": "email", "creator": "rohan", "state": "in_review", "confidential": false,
+   "text": "Hi there,\n\nThanks for joining Saffron & Steam. Come say hi and try our new Steam Gold roast this week.", "file": null},
+  {"title": "Kabir's LinkedIn update (placeholder)", "channel": "linkedin", "creator": "kabir", "state": "in_review", "confidential": false,
+   "text": "Proud to share that Steam Gold won the 2025 India Coffee Taste Award for cold brew.", "file": null},
+  {"title": "Image ad (placeholder)", "channel": "instagram", "creator": "rohan", "state": "draft", "confidential": false,
+   "text": "Fresh Steam Gold, brewed every morning.", "file": "ad.png", "alt_text": ""}
+]

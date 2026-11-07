@@ -1,0 +1,10 @@
+{
+  "name": "Saffron & Steam Coffee Co. (placeholder seed, fictional)",
+  "tone_labels": ["warm", "playful", "premium", "formal", "pushy"],
+  "channel_targets": {
+    "instagram": {"max_grade": 7},
+    "email": {"max_grade": 9},
+    "website": {"max_grade": 10},
+    "linkedin": {"max_grade": 12}
+  }
+}

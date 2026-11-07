@@ -1,0 +1,5 @@
+[
+  {"kind": "banned", "value": "cheap", "replacement": "great value"},
+  {"kind": "preferred", "value": "Golden Brew", "replacement": "Steam Gold"},
+  {"kind": "capitalise", "value": "Saffron & Steam", "replacement": null}
+]
