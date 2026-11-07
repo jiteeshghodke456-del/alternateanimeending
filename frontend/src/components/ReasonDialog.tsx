@@ -37,7 +37,7 @@ export function NoteDialog({ open, onOpenChange, title, description, label, conf
           <Button
             disabled={busy || (required && !note.trim())}
             onClick={go}
-            className={cn("rounded-full text-white", destructive ? "bg-[#C4261D] hover:bg-[#C4261D]/90" : "bg-[#0A84FF] hover:bg-[#0A84FF]/90")}
+            className={cn("rounded-full text-white", destructive ? "bg-[#C4261D] hover:bg-[#C4261D]/90" : "bg-[var(--accent-fill)] hover:bg-[var(--accent-fill-hover)]")}
           >
             {busy && <Loader2 className="animate-spin" />} {confirmLabel}
           </Button>
@@ -82,7 +82,7 @@ export function DismissDialog({ open, onOpenChange, onConfirm }: {
         </div>
         <DialogFooter className="gap-2">
           <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={busy || (needNote && !note.trim())} onClick={go} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+          <Button disabled={busy || (needNote && !note.trim())} onClick={go} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
             {busy && <Loader2 className="animate-spin" />} Dismiss finding
           </Button>
         </DialogFooter>

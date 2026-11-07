@@ -36,6 +36,9 @@
   --human-text: #8A5200;
   --pass-text: #167A34;
   --accent-text: #0060D0;
+  /* Solid accent fills that carry white text: #0071E3 is 4.7:1 with white (AA); #0A84FF is only 3.6:1. */
+  --accent-fill: #0071E3;
+  --accent-fill-hover: #0062C4;
 
   --glass-bg: rgba(255, 255, 255, 0.55);
   --glass-strong-bg: rgba(255, 255, 255, 0.82);
@@ -182,3 +185,35 @@
 @keyframes blob-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(6vw,4vh,0) scale(1.12); } }
 @keyframes blob-b { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-5vw,6vh,0) scale(1.08); } }
 @keyframes blob-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(4vw,-5vh,0) scale(1.15); } }
+
+/* ------------------------------------------------------------------ landing hero */
+/* Static gradient headline; both ends stay >= 4.5:1 on the page background in each theme. */
+.hero-gradient-text {
+  background: linear-gradient(100deg, #0060D0 10%, #5B3FD0 60%, #8A2BB8 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+:root[data-theme="dark"] .hero-gradient-text { background-image: linear-gradient(100deg, #6CB8FF 10%, #A99BFF 60%, #E39BFF 95%); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .hero-gradient-text { background-image: linear-gradient(100deg, #6CB8FF 10%, #A99BFF 60%, #E39BFF 95%); }
+}
+/* Soft, slowly turning glow behind the product preview (part of the background; static under reduced motion). */
+.hero-glow {
+  position: absolute; inset: -12% -8% -18%; z-index: -1; border-radius: 48px; filter: blur(60px); opacity: 0.55;
+  background: conic-gradient(from var(--hero-angle, 0deg), var(--blob-1), var(--blob-2), var(--blob-3), var(--blob-1));
+  animation: hero-turn 24s linear infinite;
+  pointer-events: none;
+}
+@property --hero-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes hero-turn { to { --hero-angle: 360deg; } }
+@media (prefers-reduced-motion: reduce) { .hero-glow { animation: none !important; } }
+
+/* Consistent, visible focus ring on custom controls (rounded pills included). */
+@layer base {
+  button:focus-visible, a:focus-visible, [role="menuitem"]:focus-visible, input[type="color"]:focus-visible {
+    outline: 2px solid hsl(var(--ring)); outline-offset: 2px;
+  }
+}

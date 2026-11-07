@@ -164,7 +164,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
             <span className="grid size-14 place-items-center rounded-2xl bg-flag/12 text-flag-text"><TriangleAlert className="size-7" strokeWidth={1.5} aria-hidden /></span>
             <p className="text-title3">The import didn't work</p>
             <p className="max-w-[46ch] text-body text-muted-foreground">{err}</p>
-            <Button onClick={() => setPhase("pick")} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">Try another PDF</Button>
+            <Button onClick={() => setPhase("pick")} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">Try another PDF</Button>
           </div>
         )}
 
@@ -222,7 +222,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
               </div>
               <div className="flex gap-2 sm:justify-end">
                 <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-                <Button disabled={picked.size === 0 || confirming} onClick={confirm} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+                <Button disabled={picked.size === 0 || confirming} onClick={confirm} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
                   {confirming ? <Loader2 className="animate-spin" /> : <ShieldCheck strokeWidth={1.75} />} Confirm {picked.size > 0 ? `${picked.size} rule${picked.size === 1 ? "" : "s"}` : ""}
                 </Button>
               </div>
@@ -240,7 +240,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff 
                 : <>They start <span className="font-medium text-foreground">switched off</span>, so nothing changes yet. In the rules list, turn on the switch next to each one, or use “Enable all” in the banner, to start checking with it.</>}
             </p>
             <p className="font-mono text-caption text-muted-foreground">{created.map((r) => r.code).join(", ")}</p>
-            <Button onClick={() => onOpenChange(false)} className="rounded-full bg-[#0A84FF] px-6 text-white hover:bg-[#0A84FF]/90">Back to the rules</Button>
+            <Button onClick={() => onOpenChange(false)} className="rounded-full bg-[var(--accent-fill)] px-6 text-white hover:bg-[var(--accent-fill-hover)]">Back to the rules</Button>
           </div>
         )}
       </DialogContent>

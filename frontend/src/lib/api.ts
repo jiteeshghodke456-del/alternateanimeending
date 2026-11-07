@@ -36,6 +36,12 @@ export type IsoDate = string;
 export const ROLE_LABELS: Record<Role, string> = {
   admin: "Brand Admin", creator: "Creator", reviewer: "Reviewer", approver: "Approver",
 };
+/** "Meera or Kabir" for the users holding these roles (names come from the server, never hard-coded). */
+export function namesWithRole(users: UserOut[], ...roles: Role[]): string {
+  const names = users.filter((u) => roles.includes(u.role)).map((u) => u.name);
+  if (names.length === 0) return roles.map((r) => `a ${ROLE_LABELS[r].toLowerCase()}`).join(" or ");
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
 export const CHANNELS: Channel[] = ["instagram", "email", "website", "linkedin"];
 export const DISMISS_REASONS: { value: DismissReason; label: string }[] = [
   { value: "false_alarm", label: "False alarm" },
@@ -81,7 +87,31 @@ export interface BrandOut {
   term_count: number;
   fact_count: number;
   demo: boolean; // seeded fictional brand: label it as demo data
+  // Workspace / setup fields (newer servers; all optional so older servers still type-check).
+  tagline?: string | null;
+  description?: string | null;
+  logo_url?: string | null;
+  counts?: { rules: number; facts: number; terms: number; items: number };
+  /** true while a blank workspace still needs its brand set up: show the setup card. */
+  is_blank_setup?: boolean;
 }
+
+// ------------------------------------------------------------------ workspaces
+export type WorkspaceKind = "demo" | "blank";
+export interface WorkspaceCreateIn { kind: WorkspaceKind }
+export interface WorkspaceCreated {
+  id: string; kind: WorkspaceKind; brand: { name: string }; created_at: IsoDateTime;
+  /** Signed workspace token (= the bg_ws cookie). Kept for browsers that block cookies; see setWorkspaceToken. */
+  token?: string;
+}
+export interface WorkspaceOut extends WorkspaceCreated {
+  token?: string;
+  expires_at: IsoDateTime | null;
+  limits: { max_workspaces: number; ttl_hours: number };
+}
+export interface BrandPatchIn { name?: string; tagline?: string; description?: string }
+export interface PalettePutIn { colours: PaletteColor[] }
+export interface FactImportOut { imported: number; skipped: { row: number; reason: string }[] }
 
 export interface RuleOut {
   id: number;
@@ -239,6 +269,8 @@ export interface VersionStats {
   elapsed_ms?: number;
   cost_usd?: number;
   pii_masked?: number;
+  /** Human notes about the check, e.g. "Add rules first: ..." in a brand with no rules. */
+  warnings?: string[];
   [k: string]: unknown;
 }
 
@@ -533,6 +565,8 @@ export interface EvalLatestOut {
   models: Record<string, string>;
   metrics: Record<string, unknown>;
   misses: Record<string, unknown>[];
+  /** Newer servers: which brand the eval set was built for (it measures the demo brand). Show when present. */
+  brand_note?: string | null;
 }
 export interface EvalRunOut { started: boolean; message: string }
 
@@ -549,10 +583,29 @@ export class ApiError extends Error {
   get isAuth(): boolean { return this.status === 401; }
   get isForbidden(): boolean { return this.status === 403; }
   get notImplemented(): boolean { return this.status === 501; }
+  /** 404/405 on an endpoint this server doesn't have yet (older backend). */
+  get missing(): boolean { return this.status === 404 || this.status === 405; }
 }
 
 const BASE = "/api";
 const TOKEN_KEY = "bg-token";
+const WS_KEY = "bg-ws";
+const WS_HEADER = "X-BG-Workspace";
+
+let memWs: string | null = null;
+/** Workspace token: sent as X-BG-Workspace (and ?ws= on URLs) so workspaces work where cookies are blocked. */
+export function getWorkspaceToken(): string | null {
+  if (memWs) return memWs;
+  try { memWs = sessionStorage.getItem(WS_KEY); } catch { /* storage blocked */ }
+  return memWs;
+}
+export function setWorkspaceToken(token: string | null): void {
+  memWs = token;
+  try {
+    if (token) sessionStorage.setItem(WS_KEY, token);
+    else sessionStorage.removeItem(WS_KEY);
+  } catch { /* storage blocked */ }
+}
 
 let memToken: string | null = null;
 
@@ -608,6 +661,8 @@ export async function request<T>(
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+  const ws = getWorkspaceToken();
+  if (ws) headers[WS_HEADER] = ws;
   let body: BodyInit | undefined;
   if (opts.form) body = opts.form;
   else if (opts.json !== undefined) {
@@ -623,6 +678,9 @@ export async function request<T>(
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     throw new ApiError(0, "Can't reach the server. Check your connection and try again.", e);
   }
+  // A response that had to create a workspace hands back its token; keep it for cookie-less browsers.
+  const newWs = res.headers.get(WS_HEADER);
+  if (newWs) setWorkspaceToken(newWs);
   const text = await res.text();
   let data: unknown = null;
   if (text) {
@@ -635,6 +693,12 @@ export async function request<T>(
 const get = <T>(path: string, query?: Query) => request<T>("GET", path, { query });
 const post = <T>(path: string, json?: unknown) => request<T>("POST", path, { json: json ?? {} });
 const patch = <T>(path: string, json: unknown) => request<T>("PATCH", path, { json });
+const put = <T>(path: string, json: unknown) => request<T>("PUT", path, { json });
+const upload = <T>(path: string, file: File | Blob) => {
+  const form = new FormData();
+  form.append("file", file);
+  return request<T>("POST", path, { form });
+};
 
 export const api = {
   // health / auth
@@ -651,8 +715,28 @@ export const api = {
   },
   reset: () => post<OkOut>("/demo/reset"),
 
+  // workspaces (newer servers: 404 on older ones; callers degrade gracefully)
+  /** 201; sets the workspace cookie and clears the login. Follow with me() and login(). */
+  async createWorkspace(kind: WorkspaceKind): Promise<WorkspaceCreated> {
+    const out = await post<WorkspaceCreated>("/workspaces", { kind } satisfies WorkspaceCreateIn);
+    setToken(null); // the server cleared the login: the old user doesn't exist in the new workspace
+    if (out.token) setWorkspaceToken(out.token);
+    return out;
+  },
+  async workspace(): Promise<WorkspaceOut> {
+    const out = await get<WorkspaceOut>("/workspace");
+    if (out.token) setWorkspaceToken(out.token);
+    return out;
+  },
+
   // brand kit
   brand: () => get<BrandOut>("/brand"),
+  updateBrand: (body: BrandPatchIn) => patch<BrandOut>("/brand", body),
+  setPalette: (colours: PaletteColor[]) => put<BrandOut>("/brand/palette", { colours } satisfies PalettePutIn),
+  /** PNG or JPEG, <= 5 MB. */
+  uploadLogo: (file: File | Blob) => upload<BrandOut>("/brand/logo", file),
+  /** CSV with header statement,value,source,valid_until. */
+  importFacts: (file: File | Blob) => upload<FactImportOut>("/facts/import", file),
   rules: (q?: { category?: string; severity?: Severity; enabled?: boolean }) => get<RuleOut[]>("/rules", q),
   createRule: (body: RuleCreate) => post<RuleOut>("/rules", body),
   updateRule: (id: number, body: RuleUpdate) => patch<RuleOut>(`/rules/${id}`, body),
@@ -725,11 +809,54 @@ export const api = {
   evalRun: () => post<EvalRunOut>("/eval/run"),
 };
 
+// ================================================================== feature detection
+/** Server endpoints added for workspaces / brand setup. Older servers lack them. */
+export interface ServerFeatures {
+  workspaces: boolean; // POST /workspaces + GET /workspace
+  brandEdit: boolean; // PATCH /brand
+  palette: boolean; // PUT /brand/palette
+  logo: boolean; // POST /brand/logo
+  factsImport: boolean; // POST /facts/import
+}
+const ALL_ON: ServerFeatures = { workspaces: true, brandEdit: true, palette: true, logo: true, factsImport: true };
+let featuresP: Promise<ServerFeatures> | null = null;
+
+/**
+ * Which newer endpoints this server has, read once from its OpenAPI document, so the UI never
+ * calls a missing route (a 404 would also show up as a console error). If the document can't be
+ * read we assume everything is there and each call still handles 404 itself.
+ */
+export function serverFeatures(): Promise<ServerFeatures> {
+  featuresP ??= (async () => {
+    try {
+      const res = await fetch(`${BASE}/openapi.json`, { credentials: "include" });
+      if (!res.ok) return ALL_ON;
+      const doc = (await res.json()) as { paths?: Record<string, Record<string, unknown>> };
+      const paths = doc.paths ?? {};
+      const has = (path: string, method: string) => !!paths[`${BASE}${path}`]?.[method];
+      return {
+        workspaces: has("/workspaces", "post") && has("/workspace", "get"),
+        brandEdit: has("/brand", "patch"),
+        palette: has("/brand/palette", "put"),
+        logo: has("/brand/logo", "post"),
+        factsImport: has("/facts/import", "post"),
+      };
+    } catch {
+      return ALL_ON;
+    }
+  })();
+  return featuresP;
+}
+
 /** Append the session token to a same-origin URL (for <img src>, EventSource, downloads) when cookies are blocked. */
 export function withToken(url: string): string {
+  const params: string[] = [];
   const token = getToken();
-  if (!token) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+  if (token) params.push(`token=${encodeURIComponent(token)}`);
+  const ws = getWorkspaceToken();
+  if (ws) params.push(`ws=${encodeURIComponent(ws)}`);
+  if (!params.length) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${params.join("&")}`;
 }
 
 // ================================================================== SSE

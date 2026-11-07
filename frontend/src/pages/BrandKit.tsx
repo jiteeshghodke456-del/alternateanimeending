@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { FileUp, Loader2, Pencil, Plus, Power, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { FileUp, Loader2, Pencil, Plus, Power, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
@@ -22,7 +23,7 @@ import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const surface = "max-h-[90dvh] overflow-y-auto rounded-3xl border-[var(--glass-border)] bg-[var(--glass-strong-bg)] backdrop-blur-2xl";
-const tabCls = "rounded-full px-4 data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white";
+const tabCls = "rounded-full px-4 data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white";
 
 function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: string; children: ReactNode; hint?: string }) {
   return (
@@ -90,7 +91,7 @@ function RuleDialog({ rule, open, onOpenChange, onSaved }: { rule: RuleOut | nul
         </div>
         <DialogFooter className="gap-2">
           <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!valid || busy} onClick={save} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{busy && <Loader2 className="animate-spin" />} Save</Button>
+          <Button disabled={!valid || busy} onClick={save} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">{busy && <Loader2 className="animate-spin" />} Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -148,7 +149,7 @@ function RulesTab({ admin }: { admin: boolean }) {
         {admin && (
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {!importOff && <Button variant="secondary" onClick={() => setImportOpen(true)} className="rounded-full"><FileUp strokeWidth={1.75} /> Import from PDF</Button>}
-            <Button onClick={() => setAdding(true)} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Plus strokeWidth={2} /> Add rule</Button>
+            <Button onClick={() => setAdding(true)} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Plus strokeWidth={2} /> Add rule</Button>
           </span>
         )}
       </div>
@@ -159,7 +160,7 @@ function RulesTab({ admin }: { admin: boolean }) {
             <span className="font-semibold">{pending.length} imported rule{pending.length === 1 ? " is" : "s are"} switched off.</span>{" "}
             They don't affect checks until you turn on the switch on the right of each rule ({pending.map((r) => r.code).join(", ")}).
           </p>
-          <Button size="sm" disabled={enablingAll} onClick={enableAll} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{enablingAll && <Loader2 className="animate-spin" />} Enable all</Button>
+          <Button size="sm" disabled={enablingAll} onClick={enableAll} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">{enablingAll && <Loader2 className="animate-spin" />} Enable all</Button>
           <Button size="icon" variant="ghost" aria-label="Dismiss" className="size-8 rounded-full" onClick={() => setFresh([])}><X strokeWidth={1.75} /></Button>
         </div>
       )}
@@ -231,7 +232,7 @@ function TermDialog({ term, open, onOpenChange, onSaved }: { term: TermOut | nul
         <Field label="Use instead" htmlFor="t-rep" hint="Optional. Shown as the suggested replacement."><Input id="t-rep" value={f.replacement ?? ""} onChange={(e) => setF((s) => ({ ...s, replacement: e.target.value }))} /></Field>
         <DialogFooter className="gap-2">
           <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!f.value.trim() || busy} onClick={save} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{busy && <Loader2 className="animate-spin" />} Save</Button>
+          <Button disabled={!f.value.trim() || busy} onClick={save} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">{busy && <Loader2 className="animate-spin" />} Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -248,7 +249,7 @@ function WordsTab({ admin }: { admin: boolean }) {
   if (terms.length === 0 && !admin) return <EmptyState title="No words yet" description="Banned words and preferred wording appear here." />;
   return (
     <>
-      {admin && <div className="mb-4 flex justify-end"><Button onClick={() => setAdding(true)} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Plus strokeWidth={2} /> Add word</Button></div>}
+      {admin && <div className="mb-4 flex justify-end"><Button onClick={() => setAdding(true)} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Plus strokeWidth={2} /> Add word</Button></div>}
       <div className="grid gap-4 md:grid-cols-3">
         {(Object.keys(KIND_LABEL) as TermKind[]).map((k) => {
           const rows = terms.filter((t) => t.kind === k);
@@ -354,7 +355,7 @@ function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | nul
         </div>
         <DialogFooter className="gap-2">
           <Button variant="ghost" className="rounded-full" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!f.code.trim() || !f.statement.trim() || busy} onClick={save} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{busy && <Loader2 className="animate-spin" />} Save</Button>
+          <Button disabled={!f.code.trim() || !f.statement.trim() || busy} onClick={save} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">{busy && <Loader2 className="animate-spin" />} Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -370,7 +371,7 @@ function FactsTab({ admin }: { admin: boolean }) {
   const facts = q.data ?? [];
   return (
     <>
-      {admin && <div className="mb-4 flex justify-end"><Button onClick={() => setAdding(true)} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Plus strokeWidth={2} /> Add fact</Button></div>}
+      {admin && <div className="mb-4 flex justify-end"><Button onClick={() => setAdding(true)} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Plus strokeWidth={2} /> Add fact</Button></div>}
       {facts.length === 0 ? <EmptyState title="No approved facts yet" description="Add facts so claims in content can be checked against them." /> : (
         <ul className="glass-strong divide-y divide-border overflow-hidden">
           {facts.map((f) => (
@@ -401,7 +402,8 @@ export default function BrandKit() {
     <>
       <PageHeader
         title="Brand Kit"
-        subtitle={`${brand.data?.name ?? "Saffron & Steam Coffee Co."}. Rules, words, palette and approved facts.${admin ? "" : " You're viewing read-only; brand admins can edit."}`}
+        subtitle={`${brand.data?.name ? `${brand.data.name}. ` : ""}Rules, words, palette and approved facts.${admin ? "" : " You're viewing read-only; brand admins can edit."}`}
+        actions={admin ? <Button asChild variant="secondary" className="rounded-full"><Link to="/setup"><Wand2 strokeWidth={1.75} /> Setup guide</Link></Button> : undefined}
       />
       <Tabs defaultValue="rules">
         <TabsList className="mb-5 h-11 flex-wrap rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">

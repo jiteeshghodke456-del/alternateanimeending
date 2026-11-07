@@ -67,9 +67,9 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
   const diff = shownFix && f.quote ? wordDiff(f.quote, shownFix) : null;
   const closed = f.status !== "open";
   const linked = !!group && !group.isLead; // fix lives on the lead card of its group
-  const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? "finding";
+  const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? x.category;
   const locked = !canAct;
-  const code = f.rule_code ?? f.fact_code ?? "Finding";
+  const code = f.rule_code ?? f.fact_code ?? null; // claim findings in a brand with no rules have neither
 
   async function accept() {
     setBusy("accept");
@@ -82,7 +82,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
 
   return (
     <article
-      aria-label={`${band.label}: ${code}`}
+      aria-label={`${band.label}: ${code ?? f.category}`}
       onClick={() => onSelect?.(f.id)}
       className={cn("glass-strong p-5", active && "ring-2 ring-[#0A84FF]/60", closed && "opacity-80")}
     >
@@ -92,7 +92,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           {SEVERITY_LABEL[f.severity]}
         </span>
         <span className="rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium capitalize">{f.category}</span>
-        <span className="font-mono text-caption text-muted-foreground">{code}</span>
+        {code && <span className="font-mono text-caption text-muted-foreground">{code}</span>}
         {f.claim_status && (
           <span className={cn("rounded-full px-2.5 py-1 text-caption font-medium capitalize", f.claim_status === "supported" ? "bg-pass/14 text-pass-text" : "bg-human/15 text-human-text")}>
             Claim {f.claim_status}
@@ -174,7 +174,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           <label htmlFor={`edit-${f.id}`} className="text-caption font-medium text-muted-foreground">Your replacement text</label>
           <Textarea id={`edit-${f.id}`} value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} className="rounded-2xl bg-background/60 text-footnote" />
           <div className="flex gap-2">
-            <Button size="sm" disabled={!draft.trim() || busy === "edit"} onClick={saveEdit} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+            <Button size="sm" disabled={!draft.trim() || busy === "edit"} onClick={saveEdit} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "edit" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} Save edit
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="rounded-full">Cancel</Button>
@@ -209,7 +209,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       {!editing && f.status === "open" && (
         <div className="mt-4 flex flex-wrap gap-2">
           {!linked && (
-            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+            <Button size="sm" disabled={!f.fix || locked || busy !== null} onClick={(e) => { e.stopPropagation(); void accept(); }} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {busy === "accept" ? <Loader2 className="animate-spin" /> : <Check strokeWidth={2} />} {group && group.others.length > 0 ? `Accept fix for ${group.others.length + 1} findings` : "Accept fix"}
             </Button>
           )}

@@ -22,7 +22,7 @@ export default function Content() {
       <PageHeader
         title="Content"
         subtitle="Everything that has been checked, and where it is in review."
-        actions={<Button asChild className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Link to="/content/new"><Plus strokeWidth={2} /> New content</Link></Button>}
+        actions={<Button asChild className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]"><Link to="/content/new"><Plus strokeWidth={2} /> New content</Link></Button>}
       />
       <div className="mb-4 flex flex-wrap items-center gap-4">
         <Select value={state} onValueChange={(v) => setState(v as ItemState | "all")}>

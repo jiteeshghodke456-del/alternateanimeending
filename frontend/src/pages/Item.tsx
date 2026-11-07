@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import {
-  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
+  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Info, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -388,7 +388,7 @@ export default function Item() {
               key={v.id}
               aria-pressed={v.id === vid}
               onClick={() => { setVid(v.id); setActive(undefined); }}
-              className={cn("rounded-full px-3.5 py-1.5 text-footnote font-medium transition-colors", v.id === vid ? "bg-[#0A84FF] text-white" : "bg-foreground/8 hover:bg-foreground/12")}
+              className={cn("rounded-full px-3.5 py-1.5 text-footnote font-medium transition-colors", v.id === vid ? "bg-[var(--accent-fill)] text-white" : "bg-foreground/8 hover:bg-foreground/12")}
             >
               v{v.n}{v.id === item.latest_version_id ? " (latest)" : ""}
             </button>
@@ -409,6 +409,15 @@ export default function Item() {
             running={running}
           />}
 
+          {!running && (stats.warnings ?? []).length > 0 && (
+            <div role="status" className="glass-strong mt-4 flex flex-wrap items-start gap-3 !rounded-2xl px-4 py-3 text-footnote">
+              <Info className="mt-0.5 size-4 shrink-0 text-[var(--accent-text)]" strokeWidth={1.75} aria-hidden />
+              <div className="min-w-0 flex-1 basis-60 space-y-1">{(stats.warnings ?? []).map((w) => <p key={w}>{w}</p>)}</div>
+              {user?.role === "admin" && (stats.warnings ?? []).some((w) => /add rules/i.test(w)) && (
+                <Link to="/setup?step=3" className="rounded-full bg-[var(--accent-fill)] px-3 py-1.5 text-caption font-semibold text-white hover:bg-[var(--accent-fill-hover)]">Add rules</Link>
+              )}
+            </div>
+          )}
           {streamError && (
             <div className="mt-4"><ErrorState title="The live check stopped" message={streamError.message} onRetry={() => setAttempt((a) => a + 1)} className="!py-8" /></div>
           )}
@@ -424,7 +433,7 @@ export default function Item() {
               <span className="mr-2 text-footnote font-medium text-muted-foreground">Next step</span>
               {isCreator && (
                 <>
-                  <TipButton reason={submitWhy} disabled={busy !== null} onClick={onSubmit} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+                  <TipButton reason={submitWhy} disabled={busy !== null} onClick={onSubmit} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
                     {busy === "submit" ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />} Submit for review
                   </TipButton>
                   <TipButton reason={resubmitWhy} disabled={busy !== null} onClick={onResubmit} variant="secondary" className="rounded-full">
@@ -471,10 +480,10 @@ export default function Item() {
             <div className="min-w-0">
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="h-11 w-full rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
-                  <TabsTrigger value="findings" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Findings{list.length ? ` (${openCount})` : ""}</TabsTrigger>
-                  {!item.confidential && <TabsTrigger value="audience" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Audience</TabsTrigger>}
-                  <TabsTrigger value="comments" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Comments</TabsTrigger>
-                  <TabsTrigger value="history" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">History</TabsTrigger>
+                  <TabsTrigger value="findings" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Findings{list.length ? ` (${openCount})` : ""}</TabsTrigger>
+                  {!item.confidential && <TabsTrigger value="audience" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Audience</TabsTrigger>}
+                  <TabsTrigger value="comments" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">Comments</TabsTrigger>
+                  <TabsTrigger value="history" className="flex-1 rounded-full data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white">History</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="findings" className="mt-4 space-y-4">
@@ -575,7 +584,7 @@ function CommentsTab({ itemId, canComment, why }: { itemId: number; canComment: 
         <ul className="space-y-3">
           {q.data!.map((c) => (
             <li key={c.id} className="glass-strong flex gap-3 p-4">
-              <UserAvatar id={c.user_id} name={c.user_name} className="size-8 text-footnote" />
+              <UserAvatar id={c.user_id} name={c.user_name} role={c.role} className="size-8 text-footnote" />
               <div className="min-w-0">
                 <p className="text-footnote"><span className="font-semibold">{c.user_name}</span> <span className="text-muted-foreground">· {ROLE_LABELS[c.role]} · {timeAgo(c.created_at)}</span></p>
                 <p className="mt-1 whitespace-pre-wrap break-words text-body">{c.body}</p>
@@ -589,7 +598,7 @@ function CommentsTab({ itemId, canComment, why }: { itemId: number; canComment: 
         <Textarea id="new-comment" value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Add a comment" disabled={!canComment} className="resize-none rounded-2xl bg-background/60" />
         <div className="flex items-center justify-between gap-3">
           <p className="text-caption text-muted-foreground">{!canComment ? why ?? "You can't comment on this item." : ""}</p>
-          <Button disabled={!canComment || busy || !body.trim()} onClick={send} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">
+          <Button disabled={!canComment || busy || !body.trim()} onClick={send} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
             {busy ? <Loader2 className="animate-spin" /> : <Send strokeWidth={1.75} />} Comment
           </Button>
         </div>

@@ -14,7 +14,7 @@ export function ErrorState({ title = "That did not work", message = "Something w
       <h3 className="mt-5 text-title3">{title}</h3>
       <p className="mt-1.5 max-w-[42ch] text-body text-muted-foreground">{message}</p>
       {onRetry && (
-        <Button onClick={onRetry} className="mt-6 rounded-full bg-[#0A84FF] px-5 text-white hover:bg-[#0A84FF]/90">
+        <Button onClick={onRetry} className="mt-6 rounded-full bg-[var(--accent-fill)] px-5 text-white hover:bg-[var(--accent-fill-hover)]">
           <RefreshCw strokeWidth={1.75} /> Try again
         </Button>
       )}

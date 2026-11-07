@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api, CHANNELS, DEMO_ITEM_KEY, type Channel } from "@/lib/api";
+import { api, CHANNELS, DEMO_ITEM_KEY, namesWithRole, type Channel } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -78,7 +78,7 @@ export default function ContentNew() {
   const [params] = useSearchParams();
   const demo = params.get("demo") === "1";
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, users } = useSession();
   const [kind, setKind] = useState<Kind>("text");
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
@@ -126,7 +126,7 @@ export default function ContentNew() {
   const ready = kind === "text" ? text.trim().length > 0 && !textTooLong : !!file && !fileError;
   const derivedTitle = title.trim() || (kind === "text" ? text.trim().split("\n")[0].slice(0, 60) : file?.name ?? "Untitled");
   const disabledReason = !canCreate
-    ? "Only creators and brand admins can add content. Switch to Rohan or Asha."
+    ? `Only creators and brand admins can add content. Switch to ${namesWithRole(users, "creator", "admin")}.`
     : kind === "text" && !text.trim() ? "Paste some text to check."
     : kind !== "text" && !file ? "Choose a file to check."
     : fileError ?? (textTooLong ? `The text is ${text.length.toLocaleString()} characters. The limit is ${MAX_TEXT.toLocaleString()}.` : null);
@@ -209,7 +209,7 @@ export default function ContentNew() {
         {confidential && <p className="mt-3 flex items-center gap-2 text-footnote text-muted-foreground"><ShieldCheck className="size-4 text-pass-text" strokeWidth={1.5} /> Only local checks will run. No outside AI sees this.</p>}
 
         <div className="mt-6">
-          <TipButton disabled={!ready || busy || !canCreate} reason={!ready || !canCreate ? disabledReason : null} onClick={submit} className="rounded-full bg-[#0A84FF] px-8 text-white hover:bg-[#0A84FF]/90">
+          <TipButton disabled={!ready || busy || !canCreate} reason={!ready || !canCreate ? disabledReason : null} onClick={submit} className="rounded-full bg-[var(--accent-fill)] px-8 text-white hover:bg-[var(--accent-fill-hover)]">
             {busy && <Loader2 className="animate-spin" />} Check
           </TipButton>
         </div>
