@@ -196,6 +196,19 @@ KEEPS_CTA = Noul(
 )
 MEANING_QUESTIONS = {"same_topic": SAME_TOPIC, "original_has_cta": ORIGINAL_HAS_CTA, "keeps_cta": KEEPS_CTA}
 
+# Asked about every LLM fix: a rewrite must not swap one unsupported ranking claim for another
+# ("#1 coffee" -> "India's favourite coffee"). The rewritten words go in the question (other sentences of
+# `revised` are judged by their own findings). High = problem; code rejects the fix unless it lands in "pass".
+def new_superlative_question(rewrite: str) -> Noul:
+    return Noul(
+        instructions=f"Does this rewritten text in `revised` rank the brand or its product above others? Text: “{rewrite}”",
+        criteria={
+            "true": "It calls the product the best, a favourite, the leader, top, most loved, number one or better than "
+                    "every other coffee, like “India's favourite coffee” or “the leading filter blend”.",
+            "false": "It describes the product without ranking it, like “a smooth filter blend roasted in Pune”.",
+        },
+    )
+
 
 def meaning_kept(nouls: dict[str, float]) -> bool:
     """Truth table for 'the fix keeps the message and the call to action'."""

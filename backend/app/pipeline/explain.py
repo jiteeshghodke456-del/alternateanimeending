@@ -133,6 +133,99 @@ def build_messages(req: ExplainRequest, feedback: Optional[str] = None, previous
     return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": "\n\n".join(lines)}]
 
 
+# ------------------------------------------------------------------ edit regions (several findings, one rewrite)
+@dataclass
+class RegionItem:
+    key: str  # "1", "2", ... (the explanation is returned under this key)
+    rule: Optional[RuleSpec]
+    category: str
+    problem: str
+    quote: str  # masked; the flagged words inside the region
+
+
+@dataclass
+class RegionRequest:
+    """One rewrite for a whole edit region (one or more full sentences) that several findings share.
+    `region_text` already has the brand word-list replacements applied (`required`)."""
+
+    items: list[RegionItem]
+    unit_text: str  # masked paragraph
+    region_text: str  # masked; the sentence(s) to rewrite
+    channel: str
+    required: list[str] = field(default_factory=list)  # word-list replacements the rewrite must keep
+    facts: list[str] = field(default_factory=list)
+
+
+class RegionOut(BaseModel):
+    explanations: dict[str, str] = {}
+    fix: Optional[str] = None
+
+    @field_validator("explanations", mode="before")
+    @classmethod
+    def _expls(cls, v: Any) -> dict[str, str]:
+        if not isinstance(v, dict):
+            return {}
+        out = {}
+        for k, x in v.items():
+            try:
+                out[str(k)] = ExplainOut(explanation=str(x)).explanation
+            except ValidationError:
+                continue
+        return out
+
+    _fix = field_validator("fix")(ExplainOut._fix.__func__)  # type: ignore[attr-defined]
+
+
+def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, previous_fix: Optional[str] = None) -> list[dict[str, str]]:
+    lines = ["Problems found in the excerpt:"]
+    for it in req.items:
+        r = it.rule
+        head = f"{it.key}. Brand rule {r.code} ({r.severity}): {r.statement}" if r else f"{it.key}. The brand word list"
+        if r is not None and r.source_quote:
+            head += f" Guideline p.{r.page}: \"{r.source_quote}\""
+        lines.append(f"{head}\n   Flagged words: \"{it.quote}\"\n   Why: {it.problem}")
+    lines.append(f"Channel: {req.channel}")
+    if req.facts:
+        lines.append("Approved facts:\n" + "\n".join(f"- {f}" for f in req.facts))
+    lines.append(f"The paragraph:\n<content>{req.unit_text}</content>")
+    lines.append(f"The excerpt to rewrite (whole sentences):\n<content>{req.region_text}</content>")
+    if req.required:
+        lines.append("Keep these approved words exactly as written: " + ", ".join(f"\"{w}\"" for w in req.required))
+    keys = ", ".join(f"\"{it.key}\": string" for it in req.items)
+    lines.append(
+        "Reply with JSON: {\"explanations\": {" + keys + "}, \"fix\": string or null}.\n"
+        "- explanations: for each numbered problem, one or two plain sentences (at most 280 characters) that name the rule "
+        "and say why the flagged words break it.\n"
+        "- fix: ONE rewrite of the whole excerpt that solves every numbered problem at once. It replaces the excerpt "
+        "exactly, so it must be complete, grammatical sentences that read naturally in the paragraph, start the way a "
+        "sentence starts, and end with sentence punctuation. Don't repeat words from the text around the excerpt. "
+        "Keep the message and any call to action. Drop a claim, offer or number you can't support with an approved fact "
+        "rather than inventing one. If there is no safe fix, use null."
+    )
+    if feedback:
+        lines.append(f"Your previous fix was rejected: {feedback}\nPrevious fix: <content>{previous_fix or ''}</content>\nWrite a different fix.")
+    return [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": "\n\n".join(lines)}]
+
+
+def _parse_region(content: str) -> RegionOut:
+    text = content.strip()
+    data = json.loads(text[text.find("{"): text.rfind("}") + 1] if "{" in text else text)
+    if not isinstance(data, dict):
+        raise ValueError("not an object")
+    if "explanations" not in data and isinstance(data.get("explanation"), str):
+        data = {**data, "explanations": {"*": data["explanation"]}}  # one explanation for every item
+    return RegionOut.model_validate(data)
+
+
+async def explain_region(req: RegionRequest, *, calls: Optional[CallLog] = None, unit_id: Optional[int] = None,
+                         feedback: Optional[str] = None, previous_fix: Optional[str] = None,
+                         purpose: str = "explain") -> Optional[RegionOut]:
+    """One LLM call for an edit region: an explanation per finding + one combined fix. None = use templates."""
+    if not available():
+        return None
+    return await _call_json(build_region_messages(req, feedback, previous_fix), _parse_region, calls, unit_id, purpose)
+
+
 # ------------------------------------------------------------------ client
 _clients: dict[int, Any] = {}
 _sems: dict[int, asyncio.Semaphore] = {}
@@ -162,7 +255,7 @@ def _client() -> Any:
 async def _chat(messages: list[dict[str, str]], *, model: str) -> tuple[str, int, int]:
     """Raw chat call -> (content, input_tokens, output_tokens). The only function tests replace."""
     resp = await _client().chat.completions.create(
-        model=model, messages=messages, response_format={"type": "json_object"}, temperature=0.2, max_tokens=400,
+        model=model, messages=messages, response_format={"type": "json_object"}, temperature=0.2, max_tokens=900,
     )
     usage = getattr(resp, "usage", None)
     return (resp.choices[0].message.content or "", int(getattr(usage, "prompt_tokens", 0) or 0),
@@ -186,8 +279,12 @@ async def explain(req: ExplainRequest, *, calls: Optional[CallLog] = None, unit_
     """LLM explanation + fix. None means "use the template" (not configured or failed twice)."""
     if not available():
         return None
+    return await _call_json(build_messages(req, feedback, previous_fix), _parse, calls, unit_id, purpose)
+
+
+async def _call_json(messages: list[dict[str, str]], parse: Any, calls: Optional[CallLog], unit_id: Optional[int],
+                     purpose: str) -> Any:
     model = model_name()
-    messages = build_messages(req, feedback, previous_fix)
     for attempt in range(2):
         t0 = time.perf_counter()
         ok, tin, tout = False, 0, 0
@@ -195,7 +292,7 @@ async def explain(req: ExplainRequest, *, calls: Optional[CallLog] = None, unit_
             async with _semaphore():
                 t0 = time.perf_counter()
                 content, tin, tout = await asyncio.wait_for(_chat(messages, model=model), TIMEOUT_S + 5)
-            out = _parse(content)
+            out = parse(content)
             ok = True
         except (ValidationError, ValueError, json.JSONDecodeError) as exc:
             log.warning("llm: invalid JSON (attempt %d): %s", attempt + 1, type(exc).__name__)
