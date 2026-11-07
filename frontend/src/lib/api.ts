@@ -99,8 +99,13 @@ export interface BrandOut {
 // ------------------------------------------------------------------ workspaces
 export type WorkspaceKind = "demo" | "blank";
 export interface WorkspaceCreateIn { kind: WorkspaceKind }
-export interface WorkspaceCreated { id: string; kind: WorkspaceKind; brand: { name: string }; created_at: IsoDateTime }
+export interface WorkspaceCreated {
+  id: string; kind: WorkspaceKind; brand: { name: string }; created_at: IsoDateTime;
+  /** Signed workspace token (= the bg_ws cookie). Kept for browsers that block cookies; see setWorkspaceToken. */
+  token?: string;
+}
 export interface WorkspaceOut extends WorkspaceCreated {
+  token?: string;
   expires_at: IsoDateTime | null;
   limits: { max_workspaces: number; ttl_hours: number };
 }
@@ -264,6 +269,8 @@ export interface VersionStats {
   elapsed_ms?: number;
   cost_usd?: number;
   pii_masked?: number;
+  /** Human notes about the check, e.g. "Add rules first: ..." in a brand with no rules. */
+  warnings?: string[];
   [k: string]: unknown;
 }
 
@@ -582,6 +589,23 @@ export class ApiError extends Error {
 
 const BASE = "/api";
 const TOKEN_KEY = "bg-token";
+const WS_KEY = "bg-ws";
+const WS_HEADER = "X-BG-Workspace";
+
+let memWs: string | null = null;
+/** Workspace token: sent as X-BG-Workspace (and ?ws= on URLs) so workspaces work where cookies are blocked. */
+export function getWorkspaceToken(): string | null {
+  if (memWs) return memWs;
+  try { memWs = sessionStorage.getItem(WS_KEY); } catch { /* storage blocked */ }
+  return memWs;
+}
+export function setWorkspaceToken(token: string | null): void {
+  memWs = token;
+  try {
+    if (token) sessionStorage.setItem(WS_KEY, token);
+    else sessionStorage.removeItem(WS_KEY);
+  } catch { /* storage blocked */ }
+}
 
 let memToken: string | null = null;
 
@@ -637,6 +661,8 @@ export async function request<T>(
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
+  const ws = getWorkspaceToken();
+  if (ws) headers[WS_HEADER] = ws;
   let body: BodyInit | undefined;
   if (opts.form) body = opts.form;
   else if (opts.json !== undefined) {
@@ -652,6 +678,9 @@ export async function request<T>(
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     throw new ApiError(0, "Can't reach the server. Check your connection and try again.", e);
   }
+  // A response that had to create a workspace hands back its token; keep it for cookie-less browsers.
+  const newWs = res.headers.get(WS_HEADER);
+  if (newWs) setWorkspaceToken(newWs);
   const text = await res.text();
   let data: unknown = null;
   if (text) {
@@ -688,8 +717,17 @@ export const api = {
 
   // workspaces (newer servers: 404 on older ones; callers degrade gracefully)
   /** 201; sets the workspace cookie and clears the login. Follow with me() and login(). */
-  createWorkspace: (kind: WorkspaceKind) => post<WorkspaceCreated>("/workspaces", { kind } satisfies WorkspaceCreateIn),
-  workspace: () => get<WorkspaceOut>("/workspace"),
+  async createWorkspace(kind: WorkspaceKind): Promise<WorkspaceCreated> {
+    const out = await post<WorkspaceCreated>("/workspaces", { kind } satisfies WorkspaceCreateIn);
+    setToken(null); // the server cleared the login: the old user doesn't exist in the new workspace
+    if (out.token) setWorkspaceToken(out.token);
+    return out;
+  },
+  async workspace(): Promise<WorkspaceOut> {
+    const out = await get<WorkspaceOut>("/workspace");
+    if (out.token) setWorkspaceToken(out.token);
+    return out;
+  },
 
   // brand kit
   brand: () => get<BrandOut>("/brand"),
@@ -812,9 +850,13 @@ export function serverFeatures(): Promise<ServerFeatures> {
 
 /** Append the session token to a same-origin URL (for <img src>, EventSource, downloads) when cookies are blocked. */
 export function withToken(url: string): string {
+  const params: string[] = [];
   const token = getToken();
-  if (!token) return url;
-  return `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+  if (token) params.push(`token=${encodeURIComponent(token)}`);
+  const ws = getWorkspaceToken();
+  if (ws) params.push(`ws=${encodeURIComponent(ws)}`);
+  if (!params.length) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${params.join("&")}`;
 }
 
 // ================================================================== SSE

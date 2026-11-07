@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import {
-  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
+  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Info, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -409,6 +409,15 @@ export default function Item() {
             running={running}
           />}
 
+          {!running && (stats.warnings ?? []).length > 0 && (
+            <div role="status" className="glass-strong mt-4 flex flex-wrap items-start gap-3 !rounded-2xl px-4 py-3 text-footnote">
+              <Info className="mt-0.5 size-4 shrink-0 text-[var(--accent-text)]" strokeWidth={1.75} aria-hidden />
+              <div className="min-w-0 flex-1 basis-60 space-y-1">{(stats.warnings ?? []).map((w) => <p key={w}>{w}</p>)}</div>
+              {user?.role === "admin" && (stats.warnings ?? []).some((w) => /add rules/i.test(w)) && (
+                <Link to="/setup?step=3" className="rounded-full bg-[var(--accent-fill)] px-3 py-1.5 text-caption font-semibold text-white hover:bg-[var(--accent-fill-hover)]">Add rules</Link>
+              )}
+            </div>
+          )}
           {streamError && (
             <div className="mt-4"><ErrorState title="The live check stopped" message={streamError.message} onRetry={() => setAttempt((a) => a + 1)} className="!py-8" /></div>
           )}

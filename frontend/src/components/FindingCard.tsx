@@ -67,9 +67,9 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
   const diff = shownFix && f.quote ? wordDiff(f.quote, shownFix) : null;
   const closed = f.status !== "open";
   const linked = !!group && !group.isLead; // fix lives on the lead card of its group
-  const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? "finding";
+  const codeOf = (x: FindingOut) => x.rule_code ?? x.fact_code ?? x.category;
   const locked = !canAct;
-  const code = f.rule_code ?? f.fact_code ?? "Finding";
+  const code = f.rule_code ?? f.fact_code ?? null; // claim findings in a brand with no rules have neither
 
   async function accept() {
     setBusy("accept");
@@ -82,7 +82,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
 
   return (
     <article
-      aria-label={`${band.label}: ${code}`}
+      aria-label={`${band.label}: ${code ?? f.category}`}
       onClick={() => onSelect?.(f.id)}
       className={cn("glass-strong p-5", active && "ring-2 ring-[#0A84FF]/60", closed && "opacity-80")}
     >
@@ -92,7 +92,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           {SEVERITY_LABEL[f.severity]}
         </span>
         <span className="rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium capitalize">{f.category}</span>
-        <span className="font-mono text-caption text-muted-foreground">{code}</span>
+        {code && <span className="font-mono text-caption text-muted-foreground">{code}</span>}
         {f.claim_status && (
           <span className={cn("rounded-full px-2.5 py-1 text-caption font-medium capitalize", f.claim_status === "supported" ? "bg-pass/14 text-pass-text" : "bg-human/15 text-human-text")}>
             Claim {f.claim_status}
