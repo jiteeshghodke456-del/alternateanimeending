@@ -28,8 +28,8 @@ from app.models import (
     utcnow,
 )
 from app.pipeline import units as U
-from app.schemas import (
 from app.clock import local_today
+from app.schemas import (
     CitationOut,
     FactOut,
     FactRef,

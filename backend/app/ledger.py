@@ -24,8 +24,8 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from app.models import AuditEvent, ClaimRecord, Comment, ContentItem, Fact, User, Version
-from app.schemas import (
 from app.clock import local_today
+from app.schemas import (
     ExpiringFact,
     FactImpactOut,
     ImpactItem,
