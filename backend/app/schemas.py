@@ -255,6 +255,9 @@ class FactOut(_Out):
     source: str
     valid_until: Optional[date]
     expired: bool
+    # claims ledger: items whose latest version relies on this fact (GET /facts fills these)
+    used_by: int = 0
+    used_by_approved: int = 0
 
 
 class FactCreate(BaseModel):
@@ -724,3 +727,119 @@ class EvalLatestOut(_Out):
 class EvalRunOut(_Out):
     started: bool
     message: str
+
+
+# ---------------------------------------------------------------- claims ledger (Round 3, improvement 1)
+LedgerStatus = Literal["supported", "unsupported", "contradicted", "outdated"]
+ImpactAction = Literal["changes_requested", "recheck", "none"]
+
+
+class LedgerClaim(_Out):
+    id: int
+    item_id: int
+    item_title: str
+    item_state: ItemState
+    channel: Channel
+    version_id: int
+    version_n: int
+    latest: bool  # from the item's latest version
+    text: str
+    span_start: Optional[int]
+    span_end: Optional[int]
+    status: LedgerStatus
+    via: str  # jev|numbers|no_facts|no_jev
+    fact_code: Optional[str]
+    fact_codes: list[str]
+    support_p: Optional[float]  # Jev: probability the fact supports the claim
+    fact_valid_until: Optional[date]  # as it was when the check ran
+    stale: bool  # the fact expired or changed after this check: the item needs a re-check
+
+
+class LedgerFact(_Out):
+    id: int
+    code: str
+    statement: str
+    value: str
+    source: str
+    valid_until: Optional[date]
+    expired: bool
+    days_left: Optional[int]  # negative once expired; null without valid_until
+
+
+class LedgerGroup(_Out):
+    fact: Optional[LedgerFact]  # null = "Unsupported claims" (no fact behind them)
+    items_approved: int
+    items_in_progress: int
+    claims: list[LedgerClaim]
+
+
+class ClaimsLedgerOut(_Out):
+    """GET /claims?status=&channel=&state=&fact=&all_versions="""
+
+    groups: list[LedgerGroup]
+    totals: dict[str, int]  # by status, over the returned claims
+    items: int  # distinct items in the returned claims
+    checked_items: int  # items whose latest version has been checked (ledger coverage)
+    expiring_days: int
+
+
+class ExpiringFact(_Out):
+    fact: LedgerFact
+    items_approved: int
+    items_in_progress: int
+
+
+class ExpiringOut(_Out):
+    """GET /claims/expiring?days=14: facts expiring within `days` (and expired ones) that content relies on."""
+
+    days: int
+    expiring: list[ExpiringFact]
+    expired: list[ExpiringFact]
+
+
+class ImpactItem(_Out):
+    item_id: int
+    title: str
+    channel: Channel
+    state: ItemState
+    creator_name: str
+    version_id: int
+    version_n: int
+    claims: list[LedgerClaim]
+    action: ImpactAction  # what "send back" does to this item
+    action_reason: str
+
+
+class FactImpactOut(_Out):
+    """GET /facts/{id}/impact"""
+
+    fact: LedgerFact
+    reason: Literal["expired", "expiring", "changed", "current"]
+    changed_at: Optional[UtcDatetime]  # last edit of the fact's statement or value
+    items: list[ImpactItem]
+    approved: int
+    in_progress: int
+
+
+class SendBackIn(BaseModel):
+    recheck: bool = True  # also re-run the check on every affected item's latest version
+    note: Optional[str] = Field(default=None, max_length=500)
+
+
+class SendBackResult(_Out):
+    item_id: int
+    title: str
+    from_state: ItemState
+    to_state: ItemState
+    rechecked: bool
+    skipped_reason: Optional[str] = None
+
+
+class SendBackOut(_Out):
+    """POST /facts/{id}/impact/send-back (Brand Admin)"""
+
+    fact_code: str
+    reason: Literal["expired", "expiring", "changed", "current"]
+    results: list[SendBackResult]
+    moved: int
+    rechecked: int

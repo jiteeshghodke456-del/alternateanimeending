@@ -36,6 +36,7 @@ from app.schemas import (
     TermUpdate,
 )
 from app.services import NoBrandError, audit, current_brand, save_upload, to_fact_out
+from app.ledger import fact_usage  # claims ledger (Round 3)
 
 router = APIRouter(tags=["brand"])
 
@@ -261,7 +262,10 @@ def update_term(term_id: int, body: TermUpdate, session: SessionDep, user: Admin
 @router.get("/facts", response_model=list[FactOut])
 def list_facts(session: SessionDep, user: CurrentUser) -> list[FactOut]:
     brand = _brand(session)
-    return [to_fact_out(f) for f in session.exec(select(Fact).where(Fact.brand_id == brand.id).order_by(Fact.code)).all()]
+    usage = fact_usage(session, brand.id)  # claims ledger: items relying on each fact
+    return [to_fact_out(f).model_copy(update={"used_by": len(usage.get(f.code, (set(), set()))[0]),
+                                              "used_by_approved": len(usage.get(f.code, (set(), set()))[1])})
+            for f in session.exec(select(Fact).where(Fact.brand_id == brand.id).order_by(Fact.code)).all()]
 
 
 @router.post("/facts", response_model=FactOut, status_code=201)
@@ -282,13 +286,15 @@ def update_fact(fact_id: int, body: FactUpdate, session: SessionDep, user: Admin
     fact = session.get(Fact, fact_id)
     if fact is None:
         raise HTTPException(status_code=404, detail="That fact doesn't exist.")
+    changed = [k for k, v in body.model_dump(exclude_unset=True).items() if getattr(fact, k) != v]
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(fact, k, v)
     session.add(fact)
-    audit(session, "fact_updated", user_id=user.id, detail={"code": fact.code})
+    audit(session, "fact_updated", user_id=user.id, detail={"code": fact.code, "changed": changed})
     session.commit()
     session.refresh(fact)
-    return to_fact_out(fact)
+    usage = fact_usage(session, fact.brand_id).get(fact.code, (set(), set()))
+    return to_fact_out(fact).model_copy(update={"used_by": len(usage[0]), "used_by_approved": len(usage[1])})
 
 
 MAX_FACT_ROWS = 500
