@@ -10,7 +10,7 @@ import { MeshBackground } from "@/components/MeshBackground";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAvatar } from "@/components/UserAvatar";
 import { HighlightedText } from "@/components/HighlightedText";
-import { api, ROLE_LABELS, type Role } from "@/lib/api";
+import { api, ROLE_LABELS, serverFeatures, type Role } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 
@@ -73,19 +73,21 @@ function ProductPreview() {
 }
 
 export default function Landing() {
-  const { users, features, login, startWorkspace } = useSession();
+  const { users, login, startWorkspace } = useSession();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
 
   async function tryDemo() {
     setBusy("demo");
     try {
-      const creator = users.find((u) => u.role === "creator") ?? users[0];
+      // The user list may still be loading if the button is clicked right away.
+      const list = users.length ? users : (await api.me()).users;
+      const creator = list.find((u) => u.role === "creator") ?? list[0];
       if (creator) await login(creator.id);
       // If this browser is in its own (blank) workspace, open a fresh copy of the demo brand instead.
       let demoBrand = !!creator;
       if (creator) { try { demoBrand = (await api.brand()).demo; } catch { /* keep going */ } }
-      if (!demoBrand && features?.workspaces) await startWorkspace("demo", "creator");
+      if (!demoBrand && (await serverFeatures()).workspaces) await startWorkspace("demo", "creator");
       navigate("/content/new?demo=1");
     } catch (e) {
       reportError(e, "We could not start the demo. Please try again.");
@@ -95,7 +97,7 @@ export default function Landing() {
   }
 
   async function startFresh() {
-    if (features && !features.workspaces) {
+    if (!(await serverFeatures()).workspaces) {
       toast.info("Starting with your own brand isn't available on this server yet. Try the demo brand for now.");
       return;
     }
