@@ -85,9 +85,7 @@ function Relevance({ t }: { t: AudienceTotals }) {
   return (
     <p className="text-caption text-muted-foreground tabular-nums">
       <span className="font-medium text-foreground">Relevance:</span>{" "}
-      {t.not_for_them_pct > 0
-        ? <><span className="font-medium text-foreground">{pct(t.not_for_them_pct)}%</span> say it isn&apos;t for them</>
-        : "everyone finds it relevant to them"}
+      <span className="font-medium text-foreground">{pct(t.not_for_them_pct)}%</span> say it isn&apos;t for them
       <span className="sr-only"> (not counted in the credibility score)</span>
     </p>
   );
