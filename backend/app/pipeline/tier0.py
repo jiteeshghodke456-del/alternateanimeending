@@ -748,7 +748,7 @@ def run_tier0_image(unit: UnitIn, ctx: CheckContext) -> list[Tier0Hit]:
         p = rule.params or {}
         if "palette_delta_e" in p and unit.image_path:
             hits += check_palette(rule, unit.image_path, ctx.palette)
-        if p.get("requires_alt_text"):
+        if p.get("requires_alt_text") and ctx.version_kind != "web":  # web: per-image alt audit (webpage.py)
             hits += check_alt_text(rule, ctx.alt_text)
     return hits
 

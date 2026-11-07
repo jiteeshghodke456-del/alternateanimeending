@@ -24,7 +24,7 @@ FindingTier = Literal["tier0", "jev", "claim", "visual", "logo", "provenance"]
 ClaimStatus = Literal["supported", "unsupported", "outdated"]
 CheckStatus = Literal["not_run", "queued", "running", "done", "error"]
 UnitKind = Literal["text", "image", "caption", "alt_text"]
-VersionKind = Literal["text", "image", "pdf"]
+VersionKind = Literal["text", "image", "pdf", "web"]
 DismissReason = Literal["false_alarm", "approved_exception", "rule_outdated", "other"]
 CheckStage = Literal["queued", "units", "tier0", "jev", "claims", "explain", "selfcheck", "done", "error"]
 
@@ -402,6 +402,26 @@ class VersionSummary(_Out):
     created_at: UtcDatetime
 
 
+class WebSource(_Out):
+    """Where a web-page version came from (kind == "web"): the fetch record, without the page's HTML."""
+
+    url: str  # what was pasted (normalised)
+    final_url: str  # after redirects
+    title: str
+    fetched_at: UtcDatetime
+    elapsed_ms: int
+    bytes: int
+    paragraphs: int
+    headings: int
+    images: int
+    images_skipped: int
+    truncated: int  # text blocks left out (over 40 blocks or the character limit)
+    a11y_issues: int
+    lang: str
+    robots: str  # "allowed" | "no robots.txt"
+    block_tags: list[str] = []  # per text unit, in order: h1..h6 | p | li | ... (so the UI can show headings)
+
+
 class VersionOut(_Out):
     id: int
     item_id: int
@@ -415,6 +435,7 @@ class VersionOut(_Out):
     stats: dict[str, Any]  # units_total, units_done, judgments, elapsed_ms, cost_usd, pii_masked
     created_at: UtcDatetime
     units: list[UnitOut]
+    source: Optional[WebSource] = None  # web pages only
 
 
 class ActionPermission(_Out):
@@ -589,6 +610,7 @@ class AIUsageOut(_Out):
     total_cost_usd: float
     summary: str  # plain-language line, e.g. "No external services used ..."
     groups: list[AIUsageGroup]  # grouped by provider + purpose (model = distinct models joined by ", ")
+    fetches: list[str] = []  # web pages: "Fetched https://… (no third-party service)"
 
 
 # ---------------------------------------------------------------- audience (P1)

@@ -1,4 +1,4 @@
-import { Cpu, Loader2, ShieldCheck } from "lucide-react";
+import { Cpu, Globe, Loader2, ShieldCheck } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -51,6 +51,14 @@ function Body({ itemId, refreshKey }: { itemId: number; refreshKey: unknown }) {
           <Separator />
           <div className="flex justify-between text-body"><span>Total cost</span><span className="font-semibold tabular-nums">${data.total_cost_usd.toFixed(4)}</span></div>
         </>
+      )}
+      {(data.fetches ?? []).length > 0 && (
+        <div>
+          <h4 className="flex items-center gap-2 text-callout font-semibold"><Globe className="size-4 text-muted-foreground" strokeWidth={1.5} /> Page fetch</h4>
+          <ul className="mt-2 divide-y divide-border rounded-2xl bg-foreground/5">
+            {data.fetches!.map((f) => <li key={f} className="break-all px-4 py-3 text-footnote">{f}</li>)}
+          </ul>
+        </div>
       )}
       <p className="text-footnote text-muted-foreground">
         Personal data masked: <span className="font-medium text-foreground">{data.pii_masked}</span>.

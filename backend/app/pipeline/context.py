@@ -69,13 +69,14 @@ class CheckContext:
     palette: list[tuple[str, str]] = field(default_factory=list)  # (name, hex)
     tone_labels: list[str] = field(default_factory=list)
     channel_targets: dict[str, Any] = field(default_factory=dict)
-    version_kind: str = "text"  # text|image|pdf
+    version_kind: str = "text"  # text|image|pdf|web
     alt_text: Optional[str] = None
     post_text: str = ""  # Version.text (all text units), for post-level checks
     confidential: bool = False
     version_id: Optional[int] = None
     today: date = field(default_factory=date.today)
     logo_path: Optional[str] = None  # the approved logo file (Asset kind=logo, meta.variant=approved), for P1 logo fidelity
+    web_issues: list[dict[str, Any]] = field(default_factory=list)  # web pages: accessibility issues found at fetch time
 
     def enabled_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if r.enabled and rule_applies_to_channel(r, self.channel, self.version_kind)]

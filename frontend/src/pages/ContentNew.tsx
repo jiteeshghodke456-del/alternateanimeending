@@ -9,8 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api, CHANNELS, DEMO_ITEM_KEY, namesWithRole, type Channel } from "@/lib/api";
-import { reportError } from "@/lib/hooks";
+import { api, CHANNELS, DEMO_ITEM_KEY, namesWithRole, type Channel, type WebSource } from "@/lib/api";
+import { checkWebUrl, WebUrlField } from "@/components/WebUrlField";
+import { reportError, toApiError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ const MAX_TEXT = 20_000;
 const IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
 const IMAGE_MIME = ["image/png", "image/jpeg", "image/webp"];
 
-type Kind = "text" | "image" | "pdf";
+type Kind = "text" | "image" | "pdf" | "web";
 
 /** Same limits and wording as the server (pipeline/units.py), so a bad file is caught before it is sent. */
 function checkFile(file: File, kind: "image" | "pdf"): string | null {
@@ -89,6 +90,10 @@ export default function ContentNew() {
   const [caption, setCaption] = useState("");
   const [altText, setAltText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState("");
+  const [webPreview, setWebPreview] = useState<WebSource | null>(null);
+  const [webError, setWebError] = useState<string | null>(null); // the server's message for the last fetch
+  const web = checkWebUrl(url);
   const [demoState, setDemoState] = useState<"idle" | "loading" | "loaded" | "missing">(demo ? "loading" : "idle");
 
   useEffect(() => {
@@ -117,16 +122,18 @@ export default function ContentNew() {
   }
   function switchKind(k: string) {
     setKind(k as Kind);
+    if (k === "web") setChannel("website");
     setFile(null);
     setFileError(null);
   }
 
   const canCreate = user?.role === "creator" || user?.role === "admin";
   const textTooLong = text.length > MAX_TEXT;
-  const ready = kind === "text" ? text.trim().length > 0 && !textTooLong : !!file && !fileError;
-  const derivedTitle = title.trim() || (kind === "text" ? text.trim().split("\n")[0].slice(0, 60) : file?.name ?? "Untitled");
+  const ready = kind === "web" ? !!web.url : kind === "text" ? text.trim().length > 0 && !textTooLong : !!file && !fileError;
+  const derivedTitle = title.trim() || (kind === "web" ? "" : kind === "text" ? text.trim().split("\n")[0].slice(0, 60) : file?.name ?? "Untitled");
   const disabledReason = !canCreate
     ? `Only creators and brand admins can add content. Switch to ${namesWithRole(users, "creator", "admin")}.`
+    : kind === "web" ? (web.error ?? (web.url ? null : "Paste the address of a web page."))
     : kind === "text" && !text.trim() ? "Paste some text to check."
     : kind !== "text" && !file ? "Choose a file to check."
     : fileError ?? (textTooLong ? `The text is ${text.length.toLocaleString()} characters. The limit is ${MAX_TEXT.toLocaleString()}.` : null);
@@ -135,6 +142,12 @@ export default function ContentNew() {
     if (!ready || !canCreate) return;
     setBusy(true);
     try {
+      if (kind === "web") {
+        const out = await api.createItemFromUrl({ url: web.url!, title: title.trim() || undefined, channel, confidential });
+        setWebPreview(out.page);
+        navigate(`/items/${out.item_id}`);
+        return;
+      }
       const out = await api.createItem(
         kind === "text"
           ? { title: derivedTitle, channel, confidential, text }
@@ -142,6 +155,7 @@ export default function ContentNew() {
       );
       navigate(`/items/${out.item_id}`);
     } catch (e) {
+      if (kind === "web") setWebError(toApiError(e).message);
       reportError(e);
     } finally {
       setBusy(false);
@@ -150,13 +164,14 @@ export default function ContentNew() {
 
   return (
     <>
-      <PageHeader title="New content" subtitle="Paste text, or add an image or PDF. We check it against the brand guidelines before anyone publishes." />
+      <PageHeader title="New content" subtitle="Paste text, add an image or PDF, or check a live web page. We check it against the brand guidelines before anyone publishes." />
       <div className="glass-strong p-5 md:p-7">
         <Tabs value={kind} onValueChange={switchKind}>
           <TabsList className="rounded-full bg-foreground/6 p-1">
             <TabsTrigger value="text" className="rounded-full px-4">Text</TabsTrigger>
             <TabsTrigger value="image" className="rounded-full px-4">Image</TabsTrigger>
             <TabsTrigger value="pdf" className="rounded-full px-4">PDF</TabsTrigger>
+            <TabsTrigger value="web" className="rounded-full px-4">Web page</TabsTrigger>
           </TabsList>
 
           <TabsContent value="text" className="mt-5 space-y-4">
@@ -189,12 +204,16 @@ export default function ContentNew() {
           <TabsContent value="pdf" className="mt-5">
             <FileDrop kind="pdf" file={file} error={fileError} onFile={pick} />
           </TabsContent>
+
+          <TabsContent value="web" className="mt-5">
+            <WebUrlField value={url} onChange={(v) => { setUrl(v); setWebPreview(null); setWebError(null); }} error={web.error ?? webError} busy={busy} preview={webPreview} />
+          </TabsContent>
         </Tabs>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="space-y-1.5">
             <label htmlFor="title" className="text-footnote font-medium">Title <span className="font-normal text-muted-foreground">(optional)</span></label>
-            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={derivedTitle || "Name this piece"} maxLength={120} />
+            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={derivedTitle || (kind === "web" ? "The page's title" : "Name this piece")} maxLength={120} />
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
@@ -210,7 +229,7 @@ export default function ContentNew() {
 
         <div className="mt-6">
           <span data-tour="check-button" className="inline-flex rounded-full"><TipButton disabled={!ready || busy || !canCreate} reason={!ready || !canCreate ? disabledReason : null} onClick={submit} className="rounded-full bg-[var(--accent-fill)] px-8 text-white hover:bg-[var(--accent-fill-hover)]">
-            {busy && <Loader2 className="animate-spin" />} Check
+            {busy && <Loader2 className="animate-spin" />} {kind === "web" ? (busy ? "Fetching…" : "Fetch and check") : "Check"}
           </TipButton></span>
         </div>
       </div>

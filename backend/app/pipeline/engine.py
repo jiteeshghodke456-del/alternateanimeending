@@ -66,6 +66,7 @@ class FindingDraft:
     hit_start: Optional[int] = None  # Version.text offsets of the flagged words
     hit_end: Optional[int] = None
     fix_group: Optional[str] = None  # same value = same region = same fix (applied once)
+    local_only: bool = False  # explained by code (web accessibility audit): no LLM explanation or fix
 
 
 @dataclass
@@ -253,7 +254,7 @@ class _Run:
                      if logo_rule else None)
         rules = self.image_rules()
         res: Optional[jev.JevResult] = None
-        if self.use_jev and (rules or logo_rule) and u.image_path:
+        if self.use_jev and (rules or (logo_rule and self.ctx.version_kind != "web")) and u.image_path:
             qs: dict[str, Any] = {}
             pre: dict[str, str] = {}
             for r in rules:
@@ -262,7 +263,7 @@ class _Run:
                 if pc:
                     qs[pc[0]] = pc[1]
                     pre[r.code] = pc[0]
-            if logo_rule:
+            if logo_rule and self.ctx.version_kind != "web":  # web images: logo.decide_web uses geometry only
                 qs["has_logo"] = Q.HAS_LOGO
             try:
                 from typesafe_sdk import Image
@@ -344,7 +345,7 @@ class _Run:
             self.res.warnings.append(f"Logo check could not run ({m.error}).")
             self.res.logo.append({"unit_idx": u.idx, "verdict": None, "error": m.error})
             return []
-        v = L.decide(m, has_logo)
+        v = L.decide_web(m) if self.ctx.version_kind == "web" else L.decide(m, has_logo)
         self.res.logo.append({"unit_idx": u.idx, "verdict": v.verdict, "band": v.band, "reason": v.reason,
                               "inliers": m.inliers, "raw_inliers": m.raw_inliers, "good_matches": m.good_matches,
                               "has_logo": None if has_logo is None else round(has_logo, 4), "stretched": v.stretched,
@@ -443,7 +444,7 @@ class _Run:
         rule = self.rule(d.rule_code)
         if not d.explanation:
             d.explanation = X.template_explanation(rule, d.detail)
-        if d.tier in ("logo", "provenance"):  # measured locally; the LLM can't see the image and has nothing to add
+        if d.tier in ("logo", "provenance") or d.local_only:  # measured locally; the LLM can't see the image and has nothing to add
             return d
         if d.band == "pass" or not self.explain_findings or self.is_vague(rule):
             d.fix = d.det_fix
@@ -605,12 +606,31 @@ class _Run:
         drafts = await self.cta_post()
         await asyncio.gather(*[self.emit(d) for d in drafts])
 
+    async def web_task(self) -> None:
+        """Web pages: the accessibility issues found in the HTML at fetch time become findings (code only)."""
+        if not self.ctx.web_issues:
+            return
+        from app.pipeline.webpage import finding_specs
+
+        for sp in finding_specs(self.ctx.web_issues, self.rules):
+            u = next((x for x in self.units if x.idx == sp["unit_idx"]), None) if sp["unit_idx"] is not None else None
+            has_span = u is not None and u.is_text and sp["local_start"] is not None and sp["local_end"] is not None
+            rule = sp["brand_rule"]
+            d = self.draft(u, rule, band=sp["band"], tier="tier0", p=None, start=sp["local_start"] if has_span else None,
+                           end=sp["local_end"] if has_span else None, rule_code=sp["rule_code"], category="accessibility",
+                           severity=sp["severity"], detail=sp["detail"], problem=sp["detail"], local_only=True,
+                           explanation=sp["explanation"] or X.template_explanation(rule, sp["detail"]))
+            if not has_span and sp["quote"]:
+                d.quote = sp["quote"]
+            await self.emit(d)
+
     async def run(self) -> EngineResult:
         t0 = time.perf_counter()
         tier0 = run_tier0_units(self.units, self.ctx)
         self.context_post = renamed_post(self.ctx.post_text, self.units, tier0)
         await self.on_progress("tier0", self.res)
-        await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task())
+        await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task(),
+                             self.web_task())
         self.res.elapsed_ms = int((time.perf_counter() - t0) * 1000)
         return self.res
 

@@ -33,7 +33,7 @@ from app.schemas import (
     NoteIn,
     OverrideIn,
 )
-from app.services import audit, to_finding_out, to_item_summary, to_version_summary, touch
+from app.services import audit, to_finding_out, to_item_summary, to_version_summary, touch, web_source
 
 router = APIRouter(tags=["review"])
 
@@ -220,7 +220,9 @@ def ai_usage(item_id: int, session: SessionDep, user: CurrentUser) -> AIUsageOut
         summary += f" Personal data masked: {pii}." if pii else " No personal data needed masking."
         if item.confidential:
             summary += " Warning: this item is marked confidential but external calls were recorded."
+    fetches = [f"Fetched {src.final_url} (no third-party service)" for src in (web_source(v) for v in versions) if src]
     return AIUsageOut(
+        fetches=fetches,
         item_id=item.id, confidential=item.confidential, no_external_services=len(calls) == 0,
         external_calls=len(calls), pii_masked=pii, total_cost_usd=total, summary=summary,
         groups=[AIUsageGroup(provider=p, model=", ".join(sorted({c.model for c in cs})), purpose=pu, count=len(cs),
