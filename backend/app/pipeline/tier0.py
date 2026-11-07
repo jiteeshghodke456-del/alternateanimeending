@@ -158,7 +158,9 @@ def find_phrases(text: str, phrases: Iterable[str], case_insensitive: bool = Tru
     return sorted(out)
 
 
-_QUOTED = re.compile(r"[\"'‘“]([^\"'’”]{2,40})[\"'’”]")
+# A quoted word in a rule statement. An apostrophe between letters ("the brand's name", "Swiggy's") is not a
+# quote mark: opening quotes can't follow a letter, closing quotes can't precede one.
+_QUOTED = re.compile(r"(?<!\w)[\"'‘“]((?:[^\"'‘’“”\n]|(?<=\w)['’](?=\w)){2,40}?)[\"'’”](?!\w)")
 
 
 NEVER_SAY = re.compile(r"^\s*(never|don'?t|do not|avoid|no)\s+(say|use|write|saying|using|writing)\b", re.IGNORECASE)
@@ -192,14 +194,28 @@ def is_must_use(rule: RuleSpec) -> bool:
     return not _NEGATION.search(rule.statement[: first_quote.start()] if first_quote else rule.statement)
 
 
+# Hashtags and @handles are written however the platform account or tag is spelled ("#swiggy", "@swiggy"):
+# they are names of accounts and tags, not copy, so a spelling rule leaves them alone. (URLs, domains and
+# emails are protected for every rule: see protected_spans.)
+_TAG_OR_HANDLE = re.compile(r"(?<![\w@#])[#@][\w]+", re.UNICODE)
+_POSSESSIVE = re.compile(r"['’]([sS])(?!\w)")
+
+
 def check_must_use(rule: RuleSpec, text: str) -> list[Tier0Hit]:
     """Flag any spelling of a required word that differs from it (case or small typos are not guessed:
-    only the same letters in a different case, e.g. SWIGGY or swiggy for 'Swiggy')."""
+    only the same letters in a different case, e.g. SWIGGY or swiggy for 'Swiggy'). A possessive is part of
+    the word ("SWIGGY'S" -> "Swiggy's"); "Swiggy's" itself is correct."""
+    tags = [(m.start(), m.end()) for m in _TAG_OR_HANDLE.finditer(text)]
     hits = []
     for w in statement_words(rule.statement):
         for s, e, _ in find_phrases(text, [w], case_insensitive=True):
-            if text[s:e] != w:
-                hits.append(_hit(rule, text, s, e, fix=w, kind="term", detail=f"Write it exactly as “{w}”."))
+            if text[s:e] == w or in_protected(s, e, tags):
+                continue
+            fix = w
+            poss = _POSSESSIVE.match(text, e)
+            if poss and not w.endswith(("'s", "’s")):
+                e, fix = poss.end(), w + text[e] + "s"
+            hits.append(_hit(rule, text, s, e, fix=fix, kind="term", detail=f"Write it exactly as “{w}”."))
     return hits
 
 

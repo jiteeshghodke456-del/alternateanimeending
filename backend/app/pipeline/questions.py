@@ -107,6 +107,13 @@ BRAND_MARK = Noul(
     instructions="Does `image` show a company logo or brand mark?",
     criteria={"true": "`image` shows a logo: a brand symbol, an app icon or a brand name set as a wordmark.",
               "false": "`image` shows no logo: only photos, products, people, scenery or ordinary text."})
+# Type rules ("Set headlines in Gilroy") are about the copy set in an image, not the letters of a logo: a
+# logo-only image passed "has_text" (its wordmark is words) and was flagged at 0.84 for its headline typeface.
+HAS_COPY = Noul(
+    instructions="Does `image` contain written words outside of any logo?",
+    criteria={"true": "`image` shows copy set in type apart from the logo, such as a headline, a price, an offer or a slogan.",
+              "false": "`image` has no words, or every word in it is part of a logo: a wordmark, or the brand name and "
+                       "line around a badge."})
 _LOGO_WORDS = re.compile(r"\b(logo|logotype|wordmark|word mark|brand mark|s-pin|squircle|lockup|emblem)\b", re.IGNORECASE)
 _TYPE_WORDS = re.compile(r"\b(headlines?|typeface|font|type size|body copy|sub-?heads?|typography|sentence case|title case)\b",
                          re.IGNORECASE)
@@ -127,8 +134,55 @@ def image_precondition(rule: RuleSpec) -> Optional[tuple[str, Noul]]:
     if _LOGO_WORDS.search(rule.statement):
         return ("brand_mark", BRAND_MARK)
     if _TYPE_WORDS.search(rule.statement):
-        return IMAGE_PRECONDITIONS["min_contrast"]
+        return ("has_copy", HAS_COPY)
     return None
+
+
+def gated_probability(p: float, gate: float) -> float:
+    """Truth table for a rule read only when its companion Noul (precondition) holds: clearly not -> 0 (pass);
+    unsure -> at most "needs a human look"; clearly yes -> the rule's own probability."""
+    if gate < HUMAN_AT:
+        return 0.0
+    if gate < PRECONDITION_AT:
+        return min(p, FLAG_AT - 0.01)
+    return p
+
+
+# ------------------------------------------------------------------ own-site context (text rules)
+# Disguised advertising (IN-CCPA-05, params.needs_outside_voice) means brand content posing as someone else's:
+# a news story, an independent review, a customer's own post. A press note or blog post on the brand's OWN site,
+# under its own name, poses as nothing. Real-brand test (8 Nov): 11 paragraphs of a brand's dated press note on
+# its own blog were flagged at p 0.72-0.86. Code knows where the page is published (webpage.brand_owns_host), so
+# on the brand's own site this companion Noul is asked in the same call, and code reads the rule only when it
+# holds (gated_probability). Off the brand's site (or for posts with no known host) nothing changes.
+OUTSIDE_VOICE = "outside_voice"
+
+
+def outside_voice_question(brand: str, host: str) -> Noul:
+    """High = `text` speaks as someone other than the brand. Where it is published goes in this question only."""
+    b = re.sub(r"\s*\([^)]*\)", "", brand or "").strip() or "the brand"  # "Acme (demo brand)" -> "Acme"
+    return Noul(
+        instructions=f"`text` is a paragraph published on {host}, {b}'s own website. Is `text` written as if by "
+                     f"someone other than {b}, such as a customer, an independent reviewer or a journalist?",
+        criteria={
+            "true": f"`text` itself poses as an outsider's own words about {b}: a customer's review or testimonial "
+                    "written in their voice (“Honest review from a regular customer, not sponsored”), or an "
+                    "independent reporter's news story.",
+            "false": f"`text` is {b} speaking about itself under its own name: a dated press note (“Mumbai, 3 March "
+                     f"2026: {b} today announced …”), its own blog post, or other people's words "
+                     f"that {b} quotes and names as a customer's or its team's.",
+        },
+    )
+
+
+def needs_outside_voice(rule: RuleSpec) -> bool:
+    return bool((rule.params or {}).get("needs_outside_voice"))
+
+
+def post_level(rule: RuleSpec) -> bool:
+    """A rule about the post as a whole (a disguised ad, a missing "Ad" label): judged per paragraph, but
+    reported once per post (engine.post_level_drafts), at the paragraph Jev rates highest."""
+    return bool((rule.params or {}).get("post_level"))
 
 
 # ------------------------------------------------------------------ tone + claims

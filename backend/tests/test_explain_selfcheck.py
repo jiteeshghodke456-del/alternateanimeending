@@ -77,7 +77,7 @@ def test_selfcheck_gives_up_after_one_retry(monkeypatch) -> None:  # noqa: ANN00
 
 
 def test_selfcheck_meaning_check_fails_fix(monkeypatch) -> None:  # noqa: ANN001
-    llm = FakeLLM(fix_for=lambda q, attempt: "Buy something else today.")
+    llm = FakeLLM(fix_for=lambda q, attempt: "Our tea is something else entirely.")
     res = _run("Our cold brew detoxes your body.", monkeypatch, FakeJev(meaning=0.1), llm)
     [d] = [d for d in res.findings if d.rule_code == "R-LEGAL-01"]
     assert d.fix_verified is False and any("message" in r for r in d.selfcheck_reasons)

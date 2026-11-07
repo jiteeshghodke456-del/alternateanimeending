@@ -137,6 +137,21 @@ def get_pack(pack_id: str) -> Pack:
     raise PackNotFound(pack_id)
 
 
+def current_params(row: Rule) -> dict[str, Any]:
+    """A rule's params for a check. For a pack rule, how it is checked (patterns, flag_only, post_level, ...) comes
+    from the pack file as it is now, so a fix to a pack's behaviour reaches brands that applied an older version
+    without re-applying it. The stored citation, links and the brand's own rules are unchanged."""
+    params = dict(row.params or {})
+    pack_id = row.pack_id or params.get("pack")
+    if not pack_id:
+        return params
+    try:
+        pr = next((r for r in get_pack(str(pack_id)).rules if r.code == row.code), None)
+    except PackNotFound:
+        return params
+    return {**params, **pr.params} if pr is not None else params
+
+
 # ------------------------------------------------------------------ citation
 def citation_dict(pack: Pack, r: PackRule) -> dict[str, Any]:
     src = pack.source(r.citation.source)

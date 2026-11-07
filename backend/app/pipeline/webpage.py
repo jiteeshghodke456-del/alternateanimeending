@@ -678,3 +678,37 @@ def load_record(path: Optional[str]) -> dict[str, Any]:
         return json.loads(Path(path).read_text(encoding="utf-8")) if path else {}
     except (OSError, ValueError):
         return {}
+
+
+def page_host(record: dict[str, Any]) -> Optional[str]:
+    """The host a web version was fetched from, after redirects ("blog.swiggy.com"), or None."""
+    host = urlsplit(str(record.get("final_url") or record.get("url") or "")).hostname
+    return host.lower().rstrip(".") if host else None
+
+
+# Words in a brand's name that never appear in its domain ("Saffron & Steam Coffee Co." -> saffronsteam.in).
+_NAME_FILLER = {"the", "and", "co", "company", "inc", "llc", "ltd", "limited", "pvt", "private", "corp", "corporation",
+                "group", "india", "technologies", "technology"}
+
+
+def brand_owns_host(brand_name: str, host: Optional[str], domains: Optional[list[str]] = None) -> bool:
+    """Code decides whether a page is on the brand's own site: one of the brand's domains (if listed), or a host
+    whose name is the brand's name ("blog.swiggy.com" for Swiggy; "saffronsteam.in" for Saffron & Steam Coffee
+    Co.). A brand name found inside a longer label (a reseller "swiggyoffers.example") does not count."""
+    if not host:
+        return False
+    host = host.lower().rstrip(".")
+    for d in domains or []:
+        d = str(d).lower().strip().lstrip(".").removeprefix("www.")
+        if d and (host == d or host.endswith("." + d)):
+            return True
+    name = re.sub(r"\([^)]*\)", " ", brand_name or "").lower().replace("&", " ")
+    words = [w for w in re.findall(r"[a-z0-9]+", name) if w not in _NAME_FILLER]
+    if not words:
+        return False
+    prefixes = {"".join(words[:k]) for k in range(1, len(words) + 1)}
+    labels = host.split(".")[:-1]  # the top-level domain never names the brand
+    if len(labels) >= 2 and labels[-1] in ("co", "com", "net", "org", "gov", "ac"):  # swiggy.co.in
+        labels = labels[:-1]
+    site = labels[-1] if labels else ""  # the registrable name: "swiggy" in blog.swiggy.com, not a subdomain
+    return site in prefixes and len(site) >= 4

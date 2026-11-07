@@ -162,8 +162,10 @@ def _unregister(version_id: int, entry: tuple) -> None:
 def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckContext:
     """Rules, terms, facts, palette and brand settings as plain specs (also used by the eval runner)."""
     brand = s.get(Brand, brand_id)
+    from app.packs import current_params
+
     rules = [RuleSpec(code=r.code, category=r.category, severity=r.severity, statement=r.statement,
-                      check_method=r.check_method, params=dict(r.params or {}), source_quote=r.source_quote,
+                      check_method=r.check_method, params=current_params(r), source_quote=r.source_quote,
                       page=r.page, version=r.version, examples_violating=list(r.examples_violating or []),
                       examples_ok=list(r.examples_ok or []), enabled=r.enabled)
              for r in s.exec(select(Rule).where(Rule.brand_id == brand_id).order_by(Rule.id)).all()]
@@ -181,7 +183,7 @@ def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckCo
     fonts = [str((a.meta or {}).get("name", "")) for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "font")).all()
              if (a.meta or {}).get("name")]
     return CheckContext(
-        channel=channel, rules=rules, terms=terms, facts=facts, palette=palette,
+        channel=channel, rules=rules, terms=terms, facts=facts, palette=palette, brand_name=brand.name if brand else "",
         logo_path=approved.path if approved else None,
         tone_labels=list(brand.tone_labels or []) if brand else [],
         channel_targets=targets, channel_limits=CH.effective_limits(channel, targets), brand_fonts=fonts, **kw,
@@ -211,7 +213,12 @@ def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContex
     if v.kind == "web":
         from app.pipeline.webpage import load_record
 
-        ctx.web_issues = list(load_record(v.file_path).get("a11y", []))
+        from app.pipeline.webpage import brand_owns_host, page_host
+
+        rec = load_record(v.file_path)
+        ctx.web_issues = list(rec.get("a11y", []))
+        ctx.source_host = page_host(rec)
+        ctx.own_site = brand_owns_host(ctx.brand_name, ctx.source_host) if ctx.source_host else None
     return ctx, units
 
 

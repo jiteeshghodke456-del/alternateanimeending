@@ -1,6 +1,6 @@
 {
   "id": "india_regulatory",
-  "version": 1,
+  "version": 2,
   "name": "India regulatory pack",
   "description": "Checks for Indian advertising law and self-regulation: the CCPA dark-patterns and misleading-advertisement guidelines, the ASCI Code and ASCI's influencer guidelines. Each rule cites the clause it comes from. These are checks, not legal advice: a person still decides.",
   "retrieved": "2026-11-07",
@@ -221,7 +221,9 @@
         }
       ],
       "params": {
-        "flag_only": true
+        "flag_only": true,
+        "post_level": true,
+        "needs_outside_voice": true
       },
       "examples_violating": [
         "BREAKING: Pune's coffee lovers can't stop talking about this new roast. Order yours at saffronsteam.in.",
@@ -279,7 +281,8 @@
           "instagram",
           "linkedin"
         ],
-        "flag_only": true
+        "flag_only": true,
+        "post_level": true
       },
       "examples_violating": [
         "Loving my morning brew from @saffronsteam, use my code PRIYA10! #coffee #pune #mornings #ad",
@@ -340,7 +343,8 @@
         }
       ],
       "params": {
-        "flag_only": true
+        "flag_only": true,
+        "post_level": true
       },
       "examples_violating": [
         "Meet Aanya, our new brand ambassador (we created her with AI)! She tried the monsoon roast and loved it.",

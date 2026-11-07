@@ -71,6 +71,56 @@ def superlatives_in(text: str, ctx: Optional[CheckContext] = None) -> list[str]:
     return found
 
 
+# Calls to action, found in code (a fix is checked with no model involved). A sentence that starts with one of
+# these verbs ("Order now.", "Visit your nearest cafe.") or contains one of the fixed phrases ("use code", "link
+# in bio") asks the reader to act. Brands can add their own regexes in the CTA rule's params.cta_patterns.
+CTA_VERBS = (
+    "order", "visit", "buy", "shop", "subscribe", "follow", "share", "tag", "download", "install", "sign up",
+    "register", "join", "book", "reserve", "call", "click", "tap", "grab", "get", "try", "claim", "redeem",
+    "pick up", "come", "drop by", "swing by", "stop by", "head to", "head over", "find", "check out", "discover",
+    "explore", "dm", "message", "apply", "start", "enjoy", "treat yourself", "don't miss", "do not miss",
+)
+_CTA_START = re.compile(r"^[^\w]*(?:(?:please|so|just|now|go|and)\s+)?(?:" + "|".join(re.escape(v).replace("\\ ", r"\s+")
+                        for v in CTA_VERBS) + r")\b", re.IGNORECASE)
+_CTA_ANYWHERE = re.compile(
+    r"\b(?:(?:order|shop|buy|book|download|subscribe|sign\s+up|join|visit)\s+(?:now|today|online|here)"
+    r"|use\s+(?:the\s+)?code|link\s+in\s+(?:our\s+)?bio|tap\s+the\s+link|click\s+(?:here|the\s+link))\b", re.IGNORECASE)
+
+
+def cta_sentences(text: str, ctx: Optional[CheckContext] = None) -> list[str]:
+    """The sentences of `text` that ask the reader to do something (code, deterministic)."""
+    from app.pipeline.tier0 import sentences
+
+    extra: list[re.Pattern[str]] = []
+    for r in (ctx.enabled_rules() if ctx is not None else []):
+        for pat in (r.params or {}).get("cta_patterns") or []:
+            try:
+                extra.append(re.compile(str(pat), re.IGNORECASE))
+            except re.error:
+                continue
+    out = []
+    for a, b in sentences(text):
+        sent = text[a:b].strip()
+        if sent and (_CTA_START.search(sent) or _CTA_ANYWHERE.search(sent) or any(x.search(sent) for x in extra)):
+            out.append(sent)
+    return out
+
+
+def added_cta(text: str, start: int, end: int, fix: str, ctx: Optional[CheckContext] = None) -> Optional[str]:
+    """A reason when the fix asks the reader to do something the replaced text didn't ask (more call-to-action
+    sentences than before), else None. A fix corrects a rule; it never needs a new call to action, and the post's
+    own one usually sits in another paragraph, so an added "Order now." breaks the one-CTA rule (R-MSG-02)."""
+    before, after = cta_sentences(text[start:end], ctx), cta_sentences(fix, ctx)
+    if len(after) <= len(before):
+        return None
+    new = next((sn for sn in after if sn not in before), after[-1])
+    rest = cta_sentences(text[:start] + "\n" + text[end:], ctx)
+    if ctx is not None and ctx.post_text:
+        rest = rest or cta_sentences(ctx.post_text.replace(text, "\n"), ctx)
+    where = f"; the post already asks the reader to act elsewhere (“{rest[0]}”) and keeps one call to action" if rest else ""
+    return f"the fix adds a call to action the original text didn't have (“{new}”){where}"
+
+
 _TERMINAL = ".!?…।॥"  # includes the Devanagari danda and double danda
 _SENT_END = _TERMINAL + "\"”')"
 _DOUBLED = re.compile(r"\b(\w+)\s+\1\b", re.I)
@@ -153,6 +203,9 @@ async def verify_fix(
         sup = superlatives_in(fix, ctx)
         if sup:
             return SelfCheckResult(False, [f"the fix uses an unsupported superlative (“{sup[0]}”)"], fixed)
+        cta = added_cta(original, start, end, fix, ctx)
+        if cta:
+            return SelfCheckResult(False, [cta], fixed)
 
     # 1. Tier 0
     post = ctx.post_text
