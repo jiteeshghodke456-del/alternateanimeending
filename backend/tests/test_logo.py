@@ -92,6 +92,40 @@ def test_stretched_logo_is_altered(tmp_path: Path) -> None:
     assert m.inliers >= L.GENUINE_AT and v.verdict == "altered" and v.stretched and v.band == "flag"
 
 
+def test_possibly_altered_band_returns_box_and_quad(tmp_path: Path) -> None:
+    """A small copy lands in the 10-39 inlier band. RANSAC still found a valid placement, so the UI gets
+    a box and quad to draw the red outline."""
+    m = L.match_logo(_paste(tmp_path, "small", 60, 60), LOGO)
+    v = L.decide(m)
+    assert L.POSSIBLE_AT <= m.inliers < L.GENUINE_AT and m.valid_outline
+    assert (v.verdict, v.band) == ("altered", "human")
+    assert len(m.quad) == 4 and set(m.box) == {"top", "left", "bottom", "right"}
+    assert m.box["left"] == pytest.approx(60 / 1080, abs=0.01) and m.box["top"] == pytest.approx(650 / 1080, abs=0.01)
+    assert m.box["right"] - m.box["left"] == pytest.approx(60 / 1080, abs=0.015)
+
+
+def test_not_found_logo_has_no_box(matches) -> None:  # noqa: ANN001
+    m = matches["ad_wronglogo"]
+    assert m.box is None and m.quad is None  # no valid placement: null, never a guessed box
+    assert "outline" in L.decide(m, 0.9).reason  # the finding says why there is no outline
+
+
+def test_small_logo_finding_carries_box_and_quad(client: TestClient, monkeypatch, tmp_path: Path) -> None:  # noqa: ANN001
+    install(monkeypatch, FakeJev(rules={"has_logo": 0.95}), FakeLLM())
+    login(client, "creator")
+    data = Path(_paste(tmp_path, "smallapi", 60, 60)).read_bytes()
+    r = client.post("/api/items", data={"title": "small", "channel": "instagram", "confidential": "true", "caption": "Hi there."},
+                    files={"file": ("ad.png", data, "image/png")})
+    vid = r.json()["version_id"]
+    t0 = time.time()
+    while client.get(f"/api/versions/{vid}").json()["check_status"] not in ("done", "error"):
+        assert time.time() - t0 < 20
+        time.sleep(0.05)
+    fs = [f for f in client.get(f"/api/versions/{vid}/findings").json() if f["tier"] == "logo"]
+    assert len(fs) == 1 and fs[0]["band"] == "human" and fs[0]["explanation"].startswith("Logo looks redrawn or altered.")
+    assert len(fs[0]["quad"]) == 4 and fs[0]["box"]["left"] == pytest.approx(60 / 1080, abs=0.01)
+
+
 def test_recoloured_logo_is_off_palette(tmp_path: Path) -> None:
     m = L.match_logo(_paste(tmp_path, "recol", 300, 300, recolour=True), LOGO, palette=PALETTE)
     assert L.decide(m).verdict == "genuine"  # same drawing ...

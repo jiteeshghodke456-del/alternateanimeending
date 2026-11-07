@@ -108,7 +108,7 @@ export function ImageWithLogo({ src, alt, shapes, activeFindingId, onSelectFindi
                 >
                   <Icon className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
                   <span><span className="font-semibold">{st.label}.</span>{" "}
-                    <span className="text-foreground/85">{s.reason ?? ""}{!s.quad && s.verdict === "altered" ? " The outline couldn't be placed on the image." : ""}</span>
+                    <span className="text-foreground/85">{s.reason ?? ""}{!s.quad && s.verdict === "altered" && !/outline/i.test(s.reason ?? "") ? " The outline couldn't be placed on the image." : ""}</span>
                   </span>
                 </button>
               </li>

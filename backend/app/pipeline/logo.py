@@ -45,6 +45,8 @@ HAS_LOGO_FLAG_AT = 0.70  # Jev `has_logo` p >= this + no geometric match -> "alt
 HAS_LOGO_HUMAN_AT = 0.30  # 0.30..0.70 -> "altered" in the human band; below -> no logo seen
 
 Verdict = Literal["genuine", "altered", "not_found"]
+# Said when Jev sees a logo but RANSAC found no valid placement (no box/quad can be returned, e.g. ad_wronglogo.png).
+NO_OUTLINE = " It doesn't line up closely enough with the approved logo to outline where it is."
 
 
 @dataclass
@@ -237,10 +239,10 @@ def decide(m: LogoMatch, has_logo_p: Optional[float] = None) -> LogoVerdict:
                            f"usually has {GENUINE_AT}+). It may be altered, or just very small.")
     if has_logo_p is not None and has_logo_p >= HAS_LOGO_FLAG_AT:
         return LogoVerdict("altered", "flag", "The image shows a logo, but it doesn't match the approved logo "
-                           "file, so it looks redrawn or altered.")
+                           "file, so it looks redrawn or altered." + NO_OUTLINE)
     if has_logo_p is not None and has_logo_p >= HAS_LOGO_HUMAN_AT:
         return LogoVerdict("altered", "human", "The image may show a logo, but nothing in it matches the approved "
-                           "logo file.")
+                           "logo file." + NO_OUTLINE)
     if has_logo_p is not None:
         return LogoVerdict("not_found", "pass", "No logo in this image.")
     return LogoVerdict("not_found", "human", "The approved logo wasn't found in this image. If the image shows a "
