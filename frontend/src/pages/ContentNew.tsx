@@ -209,9 +209,9 @@ export default function ContentNew() {
         {confidential && <p className="mt-3 flex items-center gap-2 text-footnote text-muted-foreground"><ShieldCheck className="size-4 text-pass-text" strokeWidth={1.5} /> Only local checks will run. No outside AI sees this.</p>}
 
         <div className="mt-6">
-          <TipButton disabled={!ready || busy || !canCreate} reason={!ready || !canCreate ? disabledReason : null} onClick={submit} className="rounded-full bg-[var(--accent-fill)] px-8 text-white hover:bg-[var(--accent-fill-hover)]">
+          <span data-tour="check-button" className="inline-flex rounded-full"><TipButton disabled={!ready || busy || !canCreate} reason={!ready || !canCreate ? disabledReason : null} onClick={submit} className="rounded-full bg-[var(--accent-fill)] px-8 text-white hover:bg-[var(--accent-fill-hover)]">
             {busy && <Loader2 className="animate-spin" />} Check
-          </TipButton>
+          </TipButton></span>
         </div>
       </div>
     </>

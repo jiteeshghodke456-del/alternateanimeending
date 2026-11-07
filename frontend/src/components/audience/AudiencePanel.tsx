@@ -107,7 +107,7 @@ function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: 
   const afterText = dir === "better" ? "text-pass-text" : dir === "worse" ? "text-flag-text" : "text-foreground";
 
   return (
-    <section aria-label={`Before and after: version ${prevN} against version ${thisN}`} className="glass-strong relative overflow-hidden p-5">
+    <section aria-label={`Before and after: version ${prevN} against version ${thisN}`} data-tour="audience-compare" className="glass-strong relative overflow-hidden p-5">
       <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-[#30D158]/15 blur-3xl" />
       <div className="relative">
         <h3 className="text-headline">Before and after</h3>
@@ -267,7 +267,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
 
   return (
     <div className="space-y-4">
-      <section className="glass-strong p-5" aria-label="Audience preview">
+      <section className="glass-strong p-5" aria-label="Audience preview" data-tour="audience-panel">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1 basis-56">
             <h3 className="text-headline">Audience preview</h3>

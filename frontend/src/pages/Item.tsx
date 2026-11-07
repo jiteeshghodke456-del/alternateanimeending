@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useSearchParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import {
   CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Info, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
@@ -72,10 +72,10 @@ function ContentPanel({ version, findings, active, onSelect, palette, culprit }:
     return (
       <div className="space-y-4">
         {version.file_url && (
-          <ImageWithLogo
+          <div data-tour="logo-image"><ImageWithLogo
             src={version.file_url} alt={alt || "Uploaded image under review"}
             shapes={logoShapes(version, findings)} activeFindingId={active} onSelectFinding={onSelect}
-          />
+          /></div>
         )}
         {palette.length > 0 && (
           <div>
@@ -148,8 +148,15 @@ function ContentPanel({ version, findings, active, onSelect, palette, culprit }:
 
 /* ------------------------------------------------------------------ page */
 
-export default function Item() {
+/** Each navigation to an item (also from the guided tour) opens it fresh: `?tab=` and `?v=` pick the tab and version. */
+export default function ItemRoute() {
+  const loc = useLocation();
+  return <Item key={loc.key} />;
+}
+
+function Item() {
   const params = useParams();
+  const [search] = useSearchParams();
   const id = Number(params.id);
   const { user } = useSession();
   const detailQ = useAsync(() => api.item(id), [id]);
@@ -158,7 +165,7 @@ export default function Item() {
   const detail = detailQ.data;
   const item = detail?.item;
 
-  const [vid, setVid] = useState<number | null>(null);
+  const [vid, setVid] = useState<number | null>(() => Number(search.get("v")) || null);
   const [version, setVersion] = useState<VersionOut | null>(null);
   const [findings, setFindings] = useState<Record<number, FindingOut>>({});
   const [loadError, setLoadError] = useState<ApiError | null>(null);
@@ -169,7 +176,10 @@ export default function Item() {
   const [active, setActive] = useState<number | undefined>();
   const [lastDiff, setLastDiff] = useState<{ vid: number; segments: DiffSegment[] } | null>(null);
   const [prevText, setPrevText] = useState<{ vid: number; text: string } | null>(null);
-  const [tab, setTab] = useState("findings");
+  const [tab, setTab] = useState(() => {
+    const t = search.get("tab");
+    return t === "audience" || t === "comments" || t === "history" ? t : "findings";
+  });
   const [culprit, setCulprit] = useState<AudienceCulprit | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [dismissFor, setDismissFor] = useState<FindingOut | null>(null);
@@ -181,6 +191,10 @@ export default function Item() {
   useEffect(() => {
     if (item && vid == null) setVid(item.latest_version_id);
   }, [item, vid]);
+  // a ?v= link to a version of another item falls back to this item's latest version
+  useEffect(() => {
+    if (detail && vid != null && !detail.versions.some((v) => v.id === vid)) setVid(detail.item.latest_version_id);
+  }, [detail, vid]);
 
   const refreshVersion = useCallback(async (versionId: number) => {
     const [v, fs] = await Promise.all([api.version(versionId), api.findings(versionId, { include_pass: true })]);
@@ -400,14 +414,14 @@ export default function Item() {
         <ErrorState title="Can't load this version" message={loadError.message} onRetry={() => setAttempt((a) => a + 1)} />
       ) : (
         <>
-          {!version ? <Skeleton className="h-[132px]" /> : <LiveMeter
+          <div data-tour="live-meter">{!version ? <Skeleton className="h-[132px]" /> : <LiveMeter
             paragraphs={running ? unitsDone : (unitsTotal ?? unitsDone)} paragraphsTotal={unitsTotal}
             judgments={judgments}
             judgmentsPerSec={elapsedMs > 0 ? judgments / (elapsedMs / 1000) : 0}
             seconds={elapsedMs / 1000}
             costUsd={ev?.cost_usd ?? stats.cost_usd ?? 0}
             running={running}
-          />}
+          />}</div>
 
           {!running && (stats.warnings ?? []).length > 0 && (
             <div role="status" className="glass-strong mt-4 flex flex-wrap items-start gap-3 !rounded-2xl px-4 py-3 text-footnote">
@@ -429,7 +443,7 @@ export default function Item() {
           )}
 
           {showWorkflow && (
-            <section aria-label="Workflow" className="glass-strong mt-4 flex flex-wrap items-center gap-2 p-4">
+            <section aria-label="Workflow" data-tour="workflow" className="glass-strong mt-4 flex flex-wrap items-center gap-2 p-4">
               <span className="mr-2 text-footnote font-medium text-muted-foreground">Next step</span>
               {isCreator && (
                 <>
@@ -443,9 +457,9 @@ export default function Item() {
               )}
               {canReview && (
                 <>
-                  <TipButton reason={approveWhy} disabled={busy !== null} onClick={onApprove} className="rounded-full bg-[#167A34] text-white hover:bg-[#167A34]/90">
+                  <span data-tour="approve-button" className="inline-flex"><TipButton reason={approveWhy} disabled={busy !== null} onClick={onApprove} className="rounded-full bg-[#167A34] text-white hover:bg-[#167A34]/90">
                     {busy === "approve" ? <Loader2 className="animate-spin" /> : <CheckCheck strokeWidth={1.75} />} Approve
-                  </TipButton>
+                  </TipButton></span>
                   <TipButton reason={reviewWhy("request_changes")} disabled={busy !== null} onClick={() => setNoteAction("request")} variant="secondary" className="rounded-full">
                     <Undo2 strokeWidth={1.75} /> Request changes
                   </TipButton>
@@ -467,7 +481,7 @@ export default function Item() {
               </section>
 
               {diffSegs && version && (
-                <section className="glass-strong p-5 md:p-6" aria-label="Changes from the previous version">
+                <section className="glass-strong p-5 md:p-6" aria-label="Changes from the previous version" data-tour="diff">
                   <h2 className="mb-1 flex items-center gap-2 text-headline"><GitCompare className="size-4" strokeWidth={1.5} /> What changed from v{version.n - 1}</h2>
                   <p className="mb-3 text-footnote text-muted-foreground">Removed words are struck through; added words are highlighted.</p>
                   <DiffView segments={diffSegs} />
@@ -499,9 +513,9 @@ export default function Item() {
                     ) : null
                   )}
                   <AnimatePresence initial={false}>
-                    {list.map((f) => (
+                    {list.map((f, i) => (
                       <AnimatedListItem key={f.id}>
-                        <div id={`finding-${f.id}`}>
+                        <div id={`finding-${f.id}`} data-tour={i === 0 ? "first-blocking" : undefined}>
                           <FindingCard
                             finding={f} group={groupOf.get(f.id) ?? null} onJump={jumpTo} active={active === f.id} onSelect={setActive}
                             canAct={!locked && isLatest && !checking && (isCreator || canReview)}
