@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Coffee, Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowRight, BookOpenCheck, CircleAlert, FileCheck2, Loader2, Plus, ShieldCheck, Users, Wand2, type LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BlurFade } from "@/components/ui/blur-fade";
 import { Logo } from "@/components/Logo";
@@ -8,57 +10,83 @@ import { MeshBackground } from "@/components/MeshBackground";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserAvatar } from "@/components/UserAvatar";
 import { HighlightedText } from "@/components/HighlightedText";
-import { api, ROLE_LABELS, type RuleOut } from "@/lib/api";
+import { api, ROLE_LABELS, type Role } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 
-const LANDING_HOME: Record<string, string> = { asha: "/brand", rohan: "/content/new?demo=1", meera: "/review", kabir: "/review" };
-const BLURB: Record<string, string> = {
+const ROLE_HOME: Record<Role, string> = { admin: "/brand", creator: "/content/new?demo=1", reviewer: "/review", approver: "/review" };
+const BLURB: Record<Role, string> = {
   admin: "Owns the guidelines, facts and palette.",
   creator: "Writes the posts and sends them for review.",
   reviewer: "Reads every flagged line before it moves on.",
-  approver: "Gives the final yes. Never on his own work.",
+  approver: "Gives the final yes. Never on their own work.",
 };
 
-const SAMPLE = "Meet our new blend, the #1 coffee in India. Fresh every morning.";
-const SPAN = "the #1 coffee in India";
+// A neutral, made-up example (not tied to any brand) that shows the shape of a finding.
+const SAMPLE = "Our new planner app is the #1 tool for small teams. Try it free today.";
+const SPAN = "the #1 tool for small teams";
+const FIX = "a planner built for small teams";
 
-/** The real "#1 / superlatives" rule from the brand kit, so the example never drifts from the guideline. */
-function pickClaimRule(rules: RuleOut[]): RuleOut | undefined {
+const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: BookOpenCheck, title: "Cites the exact rule", body: "Every issue quotes the guideline line and page it comes from, so nobody has to take it on trust." },
+  { icon: FileCheck2, title: "Checks claims against facts", body: "Numbers, awards and superlatives are matched to your approved facts, including when they expire." },
+  { icon: Users, title: "People make the call", body: "Creator, reviewer and approver each see what they need. The model answers; your team decides." },
+];
+
+const spring = { type: "spring", stiffness: 380, damping: 30 } as const;
+
+function ProductPreview() {
+  const start = SAMPLE.indexOf(SPAN);
   return (
-    rules.find((r) => r.code === "R-CLAIM-01") ??
-    rules.find((r) => r.category === "claims" && /#\s?1|superlative|number one|best/i.test(`${r.statement} ${r.source_quote}`))
+    <div className="relative mx-auto w-full max-w-[680px]">
+      <div aria-hidden className="hero-glow" />
+      <div className="glass-strong relative overflow-hidden text-left shadow-[0_30px_80px_-20px_rgba(0,40,120,0.25)]">
+        <div className="flex items-center gap-2 border-b border-border/70 px-4 py-2.5">
+          <span aria-hidden className="flex gap-1.5"><i className="size-2.5 rounded-full bg-foreground/15" /><i className="size-2.5 rounded-full bg-foreground/15" /><i className="size-2.5 rounded-full bg-foreground/15" /></span>
+          <span className="ml-2 text-caption font-medium text-muted-foreground">Illustrative example</span>
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-flag/12 px-2.5 py-0.5 text-caption font-medium text-flag-text">
+            <CircleAlert className="size-3.5" strokeWidth={2} aria-hidden /> 1 finding
+          </span>
+        </div>
+        <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
+          <div className="p-5 md:p-6">
+            <p className="text-caption font-medium uppercase tracking-[0.06em] text-muted-foreground">Draft post</p>
+            <HighlightedText className="mt-2 text-callout leading-7" text={SAMPLE} spans={[{ start, end: start + SPAN.length, band: "flag" }]} />
+          </div>
+          <div className="border-t border-border/70 bg-foreground/[0.025] p-5 md:border-l md:border-t-0 md:p-6">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-full bg-flag/12 px-2 py-0.5 text-caption font-semibold text-flag-text">Blocking</span>
+              <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-caption font-medium">Claims</span>
+            </div>
+            <p className="mt-2 text-footnote font-semibold">No superlatives without an approved fact</p>
+            <p className="mt-1 text-footnote text-muted-foreground">“#1” needs a source. No approved fact backs it, so readers may doubt it.</p>
+            <div className="mt-3 rounded-xl bg-pass/10 px-3 py-2 text-footnote">
+              <span className="font-medium text-pass-text">Suggested fix: </span>
+              <span className="line-through decoration-flag/70 opacity-70">{SPAN}</span>{" "}
+              <span className="font-medium">{FIX}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
 export default function Landing() {
-  const { user, users, ready, demoMode, login } = useSession();
+  const { users, features, login, startWorkspace } = useSession();
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
-  const [rule, setRule] = useState<RuleOut | null | undefined>(undefined); // undefined = loading, null = unavailable
 
-  // The brand kit needs a session. In demo mode we open a quiet preview session so the example quotes a real rule.
-  useEffect(() => {
-    if (!ready) return;
-    let alive = true;
-    (async () => {
-      try {
-        if (!user && demoMode && users.length) await login(users.find((u) => u.role === "creator")?.id ?? users[0].id);
-        const rules = await api.rules();
-        if (alive) setRule(pickClaimRule(rules) ?? null);
-      } catch {
-        if (alive) setRule(null);
-      }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready]);
-
-  async function enter(id: string, to: string) {
-    setBusy(id);
+  async function tryDemo() {
+    setBusy("demo");
     try {
-      await login(id);
-      navigate(to);
+      const creator = users.find((u) => u.role === "creator") ?? users[0];
+      if (creator) await login(creator.id);
+      // If this browser is in its own (blank) workspace, open a fresh copy of the demo brand instead.
+      let demoBrand = !!creator;
+      if (creator) { try { demoBrand = (await api.brand()).demo; } catch { /* keep going */ } }
+      if (!demoBrand && features?.workspaces) await startWorkspace("demo", "creator");
+      navigate("/content/new?demo=1");
     } catch (e) {
       reportError(e, "We could not start the demo. Please try again.");
     } finally {
@@ -66,8 +94,36 @@ export default function Landing() {
     }
   }
 
+  async function startFresh() {
+    if (features && !features.workspaces) {
+      toast.info("Starting with your own brand isn't available on this server yet. Try the demo brand for now.");
+      return;
+    }
+    setBusy("blank");
+    try {
+      await startWorkspace("blank", "admin");
+      navigate("/setup");
+    } catch (e) {
+      reportError(e, "We could not create a workspace. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function enter(id: string, to: string) {
+    setBusy(id);
+    try {
+      await login(id);
+      navigate(to);
+    } catch (e) {
+      reportError(e, "We could not sign you in. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
-    <div className="min-h-dvh">
+    <div className="min-h-dvh overflow-x-clip">
       <MeshBackground />
       <header className="mx-auto flex max-w-[1200px] items-center justify-between px-4 py-5 md:px-8">
         <Logo />
@@ -75,97 +131,112 @@ export default function Landing() {
       </header>
 
       <main className="mx-auto max-w-[1200px] px-4 pb-16 md:px-8">
-        <section className="mx-auto flex max-w-[860px] flex-col items-center pb-16 pt-12 text-center md:pb-20 md:pt-20">
+        <section className="mx-auto flex max-w-[920px] flex-col items-center pb-14 pt-8 text-center md:pb-20 md:pt-16">
           <BlurFade delay={0.05}>
-            <span className="glass inline-flex items-center gap-2 !rounded-full px-3.5 py-1.5 text-footnote text-foreground/85">
-              <Coffee className="size-3.5 text-[var(--accent-text)]" strokeWidth={1.75} aria-hidden />
-              Fictional demo brand: Saffron &amp; Steam Coffee Co.
+            <span className="glass inline-flex items-center gap-2 !rounded-full px-3.5 py-1.5 text-footnote font-medium text-foreground/85">
+              <ShieldCheck className="size-4 text-[var(--accent-text)]" strokeWidth={1.75} aria-hidden />
+              Brand checks before you publish
             </span>
           </BlurFade>
           <BlurFade delay={0.12}>
-            <h1 className="mt-7 text-display">Brand Gate</h1>
+            <h1 className="mt-6 text-display text-balance">
+              Catch off-brand content <span className="hero-gradient-text">before it goes live.</span>
+            </h1>
           </BlurFade>
           <BlurFade delay={0.2}>
-            <p className="mt-4 text-[clamp(22px,3.4vw,32px)] font-semibold leading-[1.15] tracking-[-0.03em] text-foreground/90">
-              Catch off-brand content before it goes live.
+            <p className="mx-auto mt-5 max-w-[58ch] text-callout text-muted-foreground md:text-[18px] md:leading-[28px]">
+              Load your guidelines, approved facts and palette once. Every post, image and PDF is then checked against them. Each issue cites the exact rule, explains why in plain words, and offers a fix that keeps your message.
             </p>
           </BlurFade>
-          <BlurFade delay={0.28}>
-            <p className="mx-auto mt-5 max-w-[56ch] text-callout text-muted-foreground">
-              Every post, image and PDF is checked against your guidelines and approved facts. Each issue cites the exact rule, explains why in plain words, and offers a fix that keeps your message.
+          <BlurFade delay={0.28} className="w-full">
+            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} transition={spring} className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  disabled={busy !== null}
+                  onClick={tryDemo}
+                  className="h-12 w-full rounded-full bg-[var(--accent-fill)] px-7 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(0,113,227,0.35)] hover:bg-[var(--accent-fill-hover)] sm:w-auto"
+                >
+                  {busy === "demo" ? <Loader2 className="animate-spin" /> : null}
+                  Try the demo brand <ArrowRight strokeWidth={2} />
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} transition={spring} className="w-full sm:w-auto">
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  disabled={busy !== null}
+                  onClick={startFresh}
+                  className="glass h-12 w-full !rounded-full px-7 text-callout font-semibold text-foreground hover:bg-foreground/6 sm:w-auto"
+                >
+                  {busy === "blank" ? <Loader2 className="animate-spin" /> : <Plus strokeWidth={2} />}
+                  Start fresh with your brand
+                </Button>
+              </motion.div>
+            </div>
+            <p className="mt-3 text-caption text-muted-foreground">
+              Demo: a fictional brand with sample rules, signed in as its Creator. Fresh: an empty workspace and a five-step setup.
             </p>
-          </BlurFade>
-          <BlurFade delay={0.36}>
-            <Button
-              size="lg"
-              disabled={busy !== null}
-              onClick={() => enter("rohan", "/content/new?demo=1")}
-              className="mt-9 h-12 rounded-full bg-[#0A84FF] px-8 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(10,132,255,0.4)] hover:bg-[#0A84FF]/90"
-            >
-              {busy === "rohan" ? <Loader2 className="animate-spin" /> : null}
-              Try the demo <ArrowRight strokeWidth={2} />
-            </Button>
-            <p className="mt-3 text-caption text-muted-foreground">One click. You will sign in as Rohan, a Creator.</p>
           </BlurFade>
 
-          <BlurFade delay={0.46} className="mt-14 w-full">
-            <div className="glass-strong mx-auto max-w-[620px] p-5 text-left md:p-6">
-              <div className="mb-3 flex items-center justify-between text-caption text-muted-foreground">
-                <span>Example check</span>
-                <span className="rounded-full bg-flag/12 px-2.5 py-1 font-medium text-flag-text">1 finding</span>
-              </div>
-              <HighlightedText text={SAMPLE} spans={[{ start: SAMPLE.indexOf(SPAN), end: SAMPLE.indexOf(SPAN) + SPAN.length, band: "flag" }]} />
-              <div className="mt-3 border-t border-border pt-3 text-footnote text-muted-foreground">
-                {rule === undefined ? (
-                  <div className="space-y-2" aria-hidden><div className="h-3 w-3/4 animate-pulse rounded bg-foreground/8" /><div className="h-3 w-1/2 animate-pulse rounded bg-foreground/8" /></div>
-                ) : rule ? (
-                  <>
-                    <p>
-                      <span className="font-mono text-caption">{rule.code}</span>
-                      {rule.page != null && <> · Guideline p.{rule.page}</>}
-                      {" · "}{rule.severity}
-                    </p>
-                    <p className="mt-1 italic text-foreground/80">&ldquo;{rule.source_quote || rule.statement}&rdquo;</p>
-                  </>
-                ) : (
-                  <p>Every finding cites the exact guideline rule and page it comes from.</p>
-                )}
-              </div>
-            </div>
+          <BlurFade delay={0.38} className="mt-12 w-full md:mt-16">
+            <ProductPreview />
           </BlurFade>
         </section>
 
-        <section aria-labelledby="roles-h" className="pb-14">
-          <BlurFade inView>
-            <h2 id="roles-h" className="mb-1 text-center text-title2">Step into any role</h2>
-            <p className="mb-8 text-center text-body text-muted-foreground">Four people, one workflow. Pick one and look around.</p>
-          </BlurFade>
-          <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-            {users.map((u, i) => (
-              <li key={u.id}>
+        <section aria-labelledby="how-h" className="pb-16">
+          <h2 id="how-h" className="sr-only">What it does</h2>
+          <ul className="grid gap-3 sm:gap-4 md:grid-cols-3">
+            {FEATURES.map(({ icon: Icon, title, body }, i) => (
+              <li key={title}>
                 <BlurFade inView delay={0.05 * i} className="h-full">
-                  <button
-                    onClick={() => enter(u.id, LANDING_HOME[u.id] ?? "/dashboard")}
-                    disabled={busy !== null}
-                    className="glass group flex h-full w-full flex-col items-start p-4 text-left sm:p-6 transition-transform duration-200 hover:-translate-y-0.5 focus-visible:-translate-y-0.5 disabled:opacity-70"
-                  >
-                    <UserAvatar id={u.id} name={u.name} className="size-11 text-title3 sm:size-12" />
-                    <span className="mt-4 text-headline">{u.name}</span>
-                    <span className="text-footnote font-medium text-[var(--accent-text)]">{ROLE_LABELS[u.role]}</span>
-                    <span className="mt-2 text-footnote text-muted-foreground">{BLURB[u.role]}</span>
-                    <span className="mt-4 inline-flex items-center gap-1 text-footnote font-medium text-foreground/80 transition-transform group-hover:translate-x-0.5">
-                      {busy === u.id ? <Loader2 className="size-4 animate-spin" /> : <>Continue as {u.name} <ArrowRight className="size-4" strokeWidth={1.75} /></>}
-                    </span>
-                  </button>
+                  <div className="glass h-full p-5 sm:p-6">
+                    <span className="grid size-10 place-items-center rounded-xl bg-[#0A84FF]/12 text-[var(--accent-text)]"><Icon className="size-5" strokeWidth={1.5} aria-hidden /></span>
+                    <h3 className="mt-4 text-headline">{title}</h3>
+                    <p className="mt-1 text-footnote text-muted-foreground">{body}</p>
+                  </div>
                 </BlurFade>
               </li>
             ))}
           </ul>
         </section>
+
+        {users.length > 0 && (
+          <section aria-labelledby="roles-h" className="pb-14">
+            <BlurFade inView>
+              <h2 id="roles-h" className="mb-1 text-center text-title2">Step into any role</h2>
+              <p className="mb-8 text-center text-body text-muted-foreground">{users.length} people, one workflow. Pick one and look around.</p>
+            </BlurFade>
+            <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              {users.map((u, i) => (
+                <li key={u.id}>
+                  <BlurFade inView delay={0.05 * i} className="h-full">
+                    <motion.button
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.985 }}
+                      transition={spring}
+                      onClick={() => enter(u.id, ROLE_HOME[u.role] ?? "/dashboard")}
+                      disabled={busy !== null}
+                      className="glass group flex h-full w-full flex-col items-start p-4 text-left disabled:opacity-70 sm:p-6"
+                    >
+                      <UserAvatar id={u.id} name={u.name} role={u.role} className="size-11 text-title3 sm:size-12" />
+                      <span className="mt-4 text-headline">{u.name}</span>
+                      <span className="text-footnote font-medium text-[var(--accent-text)]">{ROLE_LABELS[u.role]}</span>
+                      <span className="mt-2 text-footnote text-muted-foreground">{BLURB[u.role]}</span>
+                      <span className="mt-4 inline-flex items-center gap-1 text-footnote font-medium text-foreground/80 transition-transform group-hover:translate-x-0.5">
+                        {busy === u.id ? <Loader2 className="size-4 animate-spin" /> : <>Continue as {u.name} <ArrowRight className="size-4" strokeWidth={1.75} /></>}
+                      </span>
+                    </motion.button>
+                  </BlurFade>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
 
-      <footer className="mx-auto max-w-[1200px] px-4 pb-10 text-center text-footnote text-muted-foreground md:px-8">
-        Powered by Jev (TypeSafe AI)
+      <footer className="mx-auto flex max-w-[1200px] flex-col items-center gap-1 px-4 pb-10 text-center text-footnote text-muted-foreground md:px-8">
+        <span className="inline-flex items-center gap-1.5"><Wand2 className="size-3.5" strokeWidth={1.75} aria-hidden /> Powered by Jev (TypeSafe AI)</span>
       </footer>
     </div>
   );
