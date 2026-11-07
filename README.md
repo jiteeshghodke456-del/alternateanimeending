@@ -127,7 +127,7 @@ Names only, from `.env.example`. Set them in `.env` locally, or as secret enviro
 - `SESSION_SECRET`: a long random string. The development default is not safe.
 - `DB_PATH`, `UPLOAD_DIR`: where the SQLite file and uploads are stored.
 - `SEED_DIR`, `FRONTEND_DIST`: optional overrides.
-- `WORKSPACES_DIR`, `MAX_WORKSPACES`, `WORKSPACE_TTL_H`: where per-visitor workspaces live, how many are kept, and how long an idle one lasts.
+- `WORKSPACES_DIR`, `MAX_WORKSPACES` (200), `MAX_WORKSPACES_HARD` (300), `WORKSPACE_TTL_H` (12): where per-visitor workspaces live, how many are kept, and how long an idle one lasts.
 - `MAX_CONCURRENT_CHECKS`, `JEV_CONCURRENCY`, `IMAGE_MAX_SIDE`, `SIFT_MAX_SIDE`, `PRERUN_DELAY_S`: memory and speed limits for a small server.
 
 Without `TYPESAFE_API_KEY`, the app still runs. Tier 0 and the local image checks work, and the UI shows a "Jev not configured" notice. Without the LLM key, findings still appear, with template explanations and no rewritten fixes.
@@ -165,8 +165,11 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 
 ## Limitations
 
-- **Workspaces are temporary.** Each visitor's workspace is a SQLite file on the server. It is deleted after 12 idle hours, and the free host wipes all of them when it restarts or sleeps after 15 idle minutes. The demo brand is rebuilt automatically.
+- **Workspaces are temporary.** Each visitor's workspace is a SQLite file on the server. It is deleted after 12 idle hours, and the free host wipes all of them when it restarts or sleeps after 15 idle minutes. The demo brand is rebuilt automatically. Just viewing the landing page creates nothing; a workspace is created when you pick a role, try the demo or start fresh, and one used in the last hour is never deleted to make room. If yours expired, you get a fresh demo and a notice.
 - **Demo sign-in only.** There are no real accounts. Sign-in uses demo users per workspace, and the tokens are kept in the browser's session storage and a cookie.
+- **Upload limits.** Images: PNG, JPG or WEBP up to 10 MB and 40 megapixels (24 MP for PNG and WEBP). Every image is stored once at up to 2048 px on the long side, which keeps a check under about 300 MiB on the 512 MiB free server. PDFs: up to 20 pages.
+- **Cold start.** After a deploy or 15 idle minutes, the free server takes a moment to start. The page shows "Starting the server…" and opens by itself.
+- **Reset waits for running work.** While a check, Audience Preview or PDF import is running, Reset asks you to wait.
 - **Scanned PDFs are not read.** A PDF with no text layer gets a "No text found" message.
 - **Image judging is early.** Jev's image support is early-stage. If an image call fails, the image gets code-only checks and the finding says so.
 - **Logo authenticity is not checked by Jev.** Jev has no copy of the official logo, so a redrawn logo is not caught by the Jev checks.
