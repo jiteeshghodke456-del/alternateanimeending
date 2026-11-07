@@ -88,6 +88,13 @@ def main(seed, evald):
          "text": "Slow mornings, steady brews. Freshly roasted in Pune. Find your nearest cafe.", "file": "ad_wronglogo.png"},
         {"title": "Monsoon promo flyer (PDF)", "channel": "website", "creator": "Rohan", "state": "changes_requested", "confidential": False,
          "text": " ".join(promo_text), "file": "promo.pdf"},
+        # Round 3 claims ledger: an approved item that relies on current facts (F-04, F-18, F-19), so expiring
+        # or editing one of them shows approved content in the fact impact view; and a figure that a current
+        # fact contradicts (Rs 599 vs F-17 Rs 799).
+        {"title": "Our cafes: website about page", "channel": "website", "creator": "Rohan", "state": "approved", "confidential": False,
+         "text": "We run 12 cafes across Pune, Mumbai and Bengaluru, open from 8 am to 10 pm every day. Every barista completes 40 hours of training before serving guests.", "file": None},
+        {"title": "Free shipping banner", "channel": "website", "creator": "Rohan", "state": "draft", "confidential": False,
+         "text": "Free shipping on online orders above Rs 599. The roast date is printed on every bag.", "file": None},
     ]
     w(f"{seed}/content/items.json", items)
 

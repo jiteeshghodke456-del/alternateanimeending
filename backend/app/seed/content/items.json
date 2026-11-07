@@ -71,5 +71,23 @@
     "confidential": false,
     "text": "MONSOON MANIA SALE Flat 20% off our Steam Classic, the healthy coffee that is good for your heart. Pick up a bag at any Saffron & Steam cafe. Fictional demo promo.",
     "file": "promo.pdf"
+  },
+  {
+    "title": "Our cafes: website about page",
+    "channel": "website",
+    "creator": "Rohan",
+    "state": "approved",
+    "confidential": false,
+    "text": "We run 12 cafes across Pune, Mumbai and Bengaluru, open from 8 am to 10 pm every day. Every barista completes 40 hours of training before serving guests.",
+    "file": null
+  },
+  {
+    "title": "Free shipping banner",
+    "channel": "website",
+    "creator": "Rohan",
+    "state": "draft",
+    "confidential": false,
+    "text": "Free shipping on online orders above Rs 599. The roast date is printed on every bag.",
+    "file": null
   }
 ]
