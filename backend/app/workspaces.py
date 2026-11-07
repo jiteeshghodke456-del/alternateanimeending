@@ -426,6 +426,54 @@ def create(kind: str = "demo") -> Meta:
     return m
 
 
+def _columns(con: sqlite3.Connection, table: str) -> list[str]:
+    return [r[1] for r in con.execute(f'PRAGMA table_info("{table}")') if r[1] != "id"]
+
+
+def _copy_version_results(ws_db: Path, tpl_db: Path, version_id: int) -> bool:
+    """Copy one finished template check (version status/stats, findings, AI calls, check audit events)
+    into a workspace whose copy of that version was never checked. Seeded ids are identical in every
+    copy of the template, so unit ids and version ids line up."""
+    con = sqlite3.connect(str(ws_db), timeout=30)
+    try:
+        con.execute("ATTACH DATABASE ? AS t", (str(tpl_db),))
+        cur = con.execute(
+            "UPDATE version SET check_status = (SELECT check_status FROM t.version WHERE id = :v), "
+            "stats = (SELECT stats FROM t.version WHERE id = :v) "
+            "WHERE id = :v AND check_status = 'not_run' "
+            "AND (SELECT check_status FROM t.version WHERE id = :v) = 'done'", {"v": version_id})
+        if cur.rowcount != 1:
+            con.rollback()
+            return False
+        for table, extra in (("finding", ""), ("aicall", ""),
+                             ("auditevent", " AND action IN ('check_started', 'check_done', 'check_failed')")):
+            cols = ", ".join(f'"{c}"' for c in _columns(con, table))
+            con.execute(f'INSERT INTO "{table}" ({cols}) SELECT {cols} FROM t."{table}" WHERE version_id = ?{extra}',
+                        (version_id,))
+        con.commit()
+        return True
+    finally:
+        con.close()
+
+
+def propagate_template_check(version_id: int) -> int:
+    """The demo template's pre-run finished checking a seeded version: give the result to every demo
+    workspace copied before it was ready (a cold start with an early visitor). Returns how many."""
+    tpl_db = db_file(TEMPLATE_IDS["demo"])
+    with _lock:
+        targets = [m.id for m in _meta.values() if m.kind == "demo"]
+    n = 0
+    for ws_id in targets:
+        try:
+            if db_file(ws_id).is_file() and _copy_version_results(db_file(ws_id), tpl_db, version_id):
+                n += 1
+        except Exception:  # noqa: BLE001  (workspace deleted meanwhile, locked, ...)
+            log.warning("workspace %s…: could not copy the template check of version %s", ws_id[:4], version_id)
+    if n:
+        log.info("template check of version %s copied to %d workspace(s)", version_id, n)
+    return n
+
+
 def reset(ws_id: str) -> Meta:
     """Back to a fresh copy of the workspace's own template kind (same id, same cookie)."""
     with _lock:

@@ -277,6 +277,8 @@ async def run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm:
     try:
         async with limits.check_slot():
             await _run_check(version_id, use_jev=use_jev, use_llm=use_llm)
+        if W.current_id() == W.TEMPLATE_IDS["demo"]:  # demo pre-run: share with workspaces copied before it
+            await asyncio.to_thread(W.propagate_template_check, version_id)
     finally:
         _running.discard(W.key(version_id))
 

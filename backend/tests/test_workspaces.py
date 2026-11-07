@@ -322,3 +322,57 @@ def test_copied_workspace_never_inherits_a_running_check(ws_env: Path) -> None:
             v.check_status = "not_run"
             sess.add(v)
             sess.commit()
+
+
+def test_demo_template_respects_seed_dir(ws_env: Path, tmp_path: Path) -> None:
+    import json
+
+    from app.db import get_engine
+    from app.services import current_brand
+
+    kit = tmp_path / "kit"
+    kit.mkdir()
+    (kit / "brand.json").write_text(json.dumps({"name": "Kit Brand", "tone_labels": [], "channel_targets": {}}), encoding="utf-8")
+    (kit / "users.json").write_text(json.dumps([{"id": "kim", "name": "Kim", "role": "admin"}]), encoding="utf-8")
+    (kit / "rules.json").write_text("[]", encoding="utf-8")
+    s = get_settings()
+    saved = s.seed_dir
+    try:
+        s.seed_dir = str(kit)
+        W.build_template("demo")
+        m = W.create("demo")
+        with W.use(m.id), Session(get_engine()) as sess:
+            assert current_brand(sess).name == "Kit Brand"
+    finally:
+        s.seed_dir = saved
+        W.build_template("demo")  # back to the default demo brand (signature changed -> rebuilt)
+
+
+def test_template_prerun_result_reaches_workspaces_copied_before_it(ws_env: Path) -> None:
+    """Cold start: a visitor's demo copy is made before the demo pre-run has checked the seeded items.
+    When the template's check finishes, its results are copied into that workspace."""
+    import asyncio
+
+    from app.db import get_engine
+
+    tpl = W.TEMPLATE_IDS["demo"]
+    with W.use(tpl), Session(get_engine()) as sess:
+        v = sess.exec(select(Version).where(Version.kind == "text", Version.check_status == "not_run")).first()
+        assert v is not None
+        vid = v.id
+    early = W.create("demo")
+    with W.use(early.id), Session(get_engine()) as sess:
+        assert sess.get(Version, vid).check_status == "not_run"
+    with W.use(tpl):
+        asyncio.run(run.run_check(vid))  # Tier 0 only (no keys in tests); then propagated
+    with W.use(tpl), Session(get_engine()) as sess:
+        tpl_findings = sorted((f.rule_code, f.span_start) for f in sess.exec(select(Finding).where(Finding.version_id == vid)))
+    with W.use(early.id), Session(get_engine()) as sess:
+        v = sess.get(Version, vid)
+        assert v.check_status == "done" and v.stats.get("findings_by_band") is not None
+        got = sorted((f.rule_code, f.span_start) for f in sess.exec(select(Finding).where(Finding.version_id == vid)))
+    assert got == tpl_findings and got
+    late = W.create("demo")  # a later copy already has the result, and is not touched twice
+    with W.use(late.id), Session(get_engine()) as sess:
+        assert len(sess.exec(select(Finding).where(Finding.version_id == vid)).all()) == len(tpl_findings)
+    assert W.propagate_template_check(vid) == 0
