@@ -700,8 +700,31 @@ class _Run:
             "here and in later posts; edit any that aren't right.")
         return [d for d in drafts if d not in rem] + [g]
 
+    def group_unsure_visual(self, u: UnitIn, drafts: list[FindingDraft]) -> list[FindingDraft]:
+        """On one image, the visual rules Jev was unsure about ("needs a human look") become ONE finding that lists
+        them, instead of a card per rule (real-brand test: 36 brand-book logo rules gave ~17 unsure cards per blog
+        image). Confident findings (flag) keep their own cards."""
+        if u.kind != "image":
+            return drafts
+        unsure = [d for d in drafts if d.tier == "visual" and d.band == "human" and d.rule_code
+                  and (d.explanation or "") != IMAGE_UNAVAILABLE]
+        if len(unsure) < 3:
+            return drafts
+        unsure.sort(key=lambda d: -(d.probability or 0))
+        g = replace(unsure[0])
+        g.rule_code, g.severity, g.probability = None, "minor", None
+        lines = []
+        for d in unsure:
+            r = self.rule(d.rule_code)
+            lines.append(f"{d.rule_code} ({(d.probability or 0):.0%}): {r.statement if r else ''}".strip())
+        g.detail = g.problem = g.explanation = (
+            f"Jev was unsure about {len(unsure)} visual rules on this image, so a person should look rather than the "
+            "app guessing. Most likely first: " + "; ".join(lines[:8]) + (f"; and {len(lines) - 8} more." if len(lines) > 8 else "."))
+        g.local_only = True
+        return [d for d in drafts if d not in unsure] + [g]
+
     async def unit_emit(self, u: UnitIn, drafts: list[FindingDraft]) -> None:
-        drafts = self.group_reminders(u, drafts)
+        drafts = self.group_unsure_visual(u, self.group_reminders(u, drafts))
         await self.on_progress("explain", self.res)
         await asyncio.gather(*[self.emit(g[0]) if span is None else self.emit_region(u, span, g)
                                for span, g in self.plan_regions(u, drafts)])
