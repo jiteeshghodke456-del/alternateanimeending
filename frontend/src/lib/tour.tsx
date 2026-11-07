@@ -1,5 +1,5 @@
 /**
- * Guided demo tour: a React context that walks a judge through Brand Gate in nine steps.
+ * Guided demo tour: a React context that walks a judge through Rulemint in nine steps.
  *
  * - Every step is driven by app state, not by clicks: a step is "done" when its `check()` says so
  *   (the check finished, version 2 exists, the audience runs are done...), so it works the same
@@ -104,12 +104,12 @@ const Em = ({ children }: { children: ReactNode }) => <span className="font-semi
 export const STEPS: TourStep[] = [
   {
     id: "intro",
-    title: "What Brand Gate does",
+    title: "What Rulemint does",
     role: "creator",
     enter: async (c) => { c.go("/content/new?demo=1"); },
     body: () => (
       <>
-        <p>Brand Gate checks a post, image or PDF against a brand's own rules before it is published, and people approve it.</p>
+        <p>Rulemint checks a post, image or PDF against a brand's own rules before it is published, and people approve it.</p>
         <ul className="mt-2 space-y-1.5">
           <li><Em>Audience Preview:</Em> simulated reader groups rate the post 1 to 5, before and after the fixes.</li>
           <li><Em>Logo Fidelity:</Em> the logo in an ad is matched to the approved logo file (SIFT + RANSAC).</li>

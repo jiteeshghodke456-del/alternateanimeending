@@ -38,7 +38,7 @@ export function WebUrlField({ value, onChange, error, busy, preview }: {
             </p>}
       </div>
       {busy && (
-        <p role="status" className="flex items-center gap-2 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">
+        <p role="status" className="flex items-center gap-2 rounded-2xl bg-[var(--accent-vivid)]/10 p-3 text-footnote text-[var(--accent-text)]">
           <Loader2 className="size-4 animate-spin" aria-hidden /> Fetching the page and its images (up to about 20 seconds)…
         </p>
       )}

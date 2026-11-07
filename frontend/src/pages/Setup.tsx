@@ -50,7 +50,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: str
 
 function Notice({ children, tone = "info" }: { children: ReactNode; tone?: "info" | "warn" }) {
   return (
-    <p role="status" className={cn("flex items-start gap-2 rounded-2xl p-3 text-footnote", tone === "warn" ? "bg-human/12 text-human-text" : "bg-[#0A84FF]/10 text-[var(--accent-text)]")}>
+    <p role="status" className={cn("flex items-start gap-2 rounded-2xl p-3 text-footnote", tone === "warn" ? "bg-human/12 text-human-text" : "bg-[var(--accent-vivid)]/10 text-[var(--accent-text)]")}>
       <Info className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden /> <span>{children}</span>
     </p>
   );

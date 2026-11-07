@@ -38,7 +38,7 @@ function RoleSwitcher() {
         } catch (e) { reportError(e); }
       }}
     >
-      <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full [&>span]:!flex [&>span]:!items-center border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 backdrop-blur-xl sm:min-w-[190px]">
+      <SelectTrigger aria-label="Switch demo role" className="h-10 min-w-0 gap-2 rounded-full [&>span]:!flex [&>span]:!items-center border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1.5 pr-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-colors duration-200 hover:bg-foreground/5 sm:min-w-[190px]">
         {user ? (
           <span className="flex min-w-0 items-center gap-2">
             <UserAvatar id={user.id} name={user.name} role={user.role} className="size-7 text-footnote" />
@@ -66,8 +66,8 @@ function TopBar() {
   const { user, backendOnline, brand } = useSession();
   return (
     <header className="sticky top-0 z-30 px-4 pt-3 md:px-8 md:pt-4">
-      <div className="glass-strong mx-auto flex max-w-[1200px] items-center justify-between gap-2 !rounded-full px-2 py-2 sm:gap-3 md:px-4">
-        <Link to="/dashboard" className="flex min-w-0 items-center gap-2 rounded-full md:hidden" aria-label={`${brand?.name ?? "Brand Gate"}, dashboard`}>
+      <div className="glass-strong glass-chrome mx-auto flex max-w-[1200px] items-center justify-between gap-2 !rounded-full px-2 py-2 sm:gap-3 md:px-4">
+        <Link to="/dashboard" className="flex min-w-0 items-center gap-2 rounded-full md:hidden" aria-label={`${brand?.name ?? "Rulemint"}, dashboard`}>
           <Logo showWord={false} />
           {brand?.name && <span className="truncate text-footnote font-semibold">{brand.name}</span>}
         </Link>
@@ -92,7 +92,7 @@ function BrandCard() {
   const { brand, workspaceKind, user } = useSession();
   if (!brand) return <div className="mt-auto"><Skeleton className="h-16 rounded-2xl" /></div>;
   return (
-    <div className="mt-auto rounded-2xl bg-foreground/5 p-3">
+    <div className="mt-auto rounded-2xl bg-foreground/5 p-3 shadow-[inset_0_0_0_1px_hsl(var(--foreground)/0.05)]">
       <div className="flex items-center gap-2.5">
         <BrandMark brand={brand} />
         <div className="min-w-0">
@@ -120,8 +120,8 @@ function Sidebar() {
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-body font-medium transition-colors",
-                isActive ? "bg-[var(--accent-fill)] text-white shadow-[0_6px_18px_rgba(10,132,255,0.35)]" : "text-foreground/80 hover:bg-foreground/6",
+                "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-body font-medium transition-[background-color,color,transform] duration-200 ease-out active:scale-[0.98]",
+                isActive ? "btn-gloss bg-[var(--accent-fill)] text-white" : "text-foreground/80 hover:bg-foreground/6",
               )
             }
           >
@@ -138,15 +138,15 @@ function Sidebar() {
 function BottomTabs() {
   return (
     <nav aria-label="Main" className="fixed inset-x-3 bottom-3 z-30 md:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="glass-strong flex items-stretch justify-around !rounded-[28px] p-1.5">
+      <div className="glass-strong glass-chrome flex items-stretch justify-around !rounded-[28px] p-1.5">
         {NAV.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium leading-tight",
-                isActive ? "bg-[var(--accent-fill)] text-white" : "text-muted-foreground",
+                "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium leading-tight transition-[background-color,transform] duration-200 active:scale-[0.96]",
+                isActive ? "btn-gloss bg-[var(--accent-fill)] text-white" : "text-muted-foreground",
               )
             }
           >

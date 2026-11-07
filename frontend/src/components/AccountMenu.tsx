@@ -117,7 +117,7 @@ export function AccountMenu() {
         aria-expanded={open}
         aria-label={`Workspace: ${name}, ${workspaceLabel(workspaceKind)}`}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1 pr-2 backdrop-blur-xl transition-colors hover:bg-foreground/6"
+        className="flex h-10 items-center gap-1.5 rounded-full border border-[var(--glass-border)] bg-[var(--glass-bg)] pl-1 pr-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-colors duration-200 hover:bg-foreground/6"
       >
         <BrandMark brand={brand} className="size-8" />
         <ChevronDown className={cn("size-4 text-muted-foreground transition-transform duration-200", open && "rotate-180")} strokeWidth={1.75} aria-hidden />
@@ -137,7 +137,7 @@ export function AccountMenu() {
               <BrandMark brand={brand} className="size-10" />
               <div className="min-w-0">
                 <p className="truncate text-headline">{name}</p>
-                <span className={cn("mt-0.5 inline-flex rounded-full px-2 py-0.5 text-caption font-medium", workspaceKind === "blank" ? "bg-pass/14 text-pass-text" : "bg-[#0A84FF]/12 text-[var(--accent-text)]")}>
+                <span className={cn("mt-0.5 inline-flex rounded-full px-2 py-0.5 text-caption font-medium", workspaceKind === "blank" ? "bg-pass/14 text-pass-text" : "bg-[var(--accent-vivid)]/12 text-[var(--accent-text)]")}>
                   {workspaceLabel(workspaceKind)}
                 </span>
               </div>

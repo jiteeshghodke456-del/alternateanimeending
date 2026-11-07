@@ -13,7 +13,7 @@ export function regulationsOf(f: FindingOut): RuleRef[] {
 export function RegulationChip({ f }: { f: FindingOut }) {
   if (!regulationsOf(f).length) return null;
   return (
-    <span data-testid="regulation-chip" className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF]/12 px-2.5 py-1 text-caption font-medium text-[var(--accent-text)]">
+    <span data-testid="regulation-chip" className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-vivid)]/12 px-2.5 py-1 text-caption font-medium text-[var(--accent-text)]">
       <Landmark className="size-3.5" strokeWidth={1.5} aria-hidden /> {regulationsOf(f)[0]?.pack_id === "platform" ? "Platform spec" : "Regulation"}
     </span>
   );
@@ -29,7 +29,7 @@ export function RegulationCitations({ f }: { f: FindingOut }) {
       {regs.map((r) => {
         const c = r.citation!;
         return (
-          <blockquote key={r.code} className="border-l-2 border-[#0A84FF]/50 pl-3">
+          <blockquote key={r.code} className="border-l-2 border-[var(--accent-vivid)]/50 pl-3">
             <p className="text-caption font-medium text-[var(--accent-text)]">
               {linked ? "Also breaks: " : ""}{c.document}, {c.clause}
             </p>

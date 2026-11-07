@@ -4,8 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#F2F2F7" />
-    <title>Brand Gate</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Rulemint</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/brand/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/brand/rulemint-mark-192.png" />
     <script>
       var t = null; try { t = localStorage.getItem("bg-theme"); } catch (e) {}
       if (t !== "dark" && t !== "light") t = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -17,7 +19,7 @@
       html[data-theme="dark"], html[data-theme="dark"] body { background: #0b0b0e; color: #f5f5f5; }
       .bg-splash { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
       .bg-splash > div { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-      .bg-splash .mark { width: 44px; height: 44px; border-radius: 13px; background: #0a84ff; display: grid; place-items: center; box-shadow: 0 6px 20px rgba(10, 132, 255, 0.4); }
+      .bg-splash .mark { width: 48px; height: 48px; border-radius: 14px; display: block; box-shadow: 0 6px 22px rgba(149, 30, 252, 0.35); }
       .bg-splash .name { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
       .bg-splash .note { font-size: 13px; opacity: 0.6; animation: bg-splash-pulse 1.6s ease-in-out infinite; }
       @keyframes bg-splash-pulse { 50% { opacity: 0.3; } }
@@ -26,8 +28,8 @@
   </head>
   <body>
     <div id="root"><div class="bg-splash" aria-busy="true"><div>
-      <span class="mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-      <span class="name">Brand Gate</span>
+      <img class="mark" src="/brand/rulemint-mark-192.png" alt="" width="48" height="48" />
+      <span class="name">Rulemint</span>
       <span class="note" role="status">Loading…</span>
     </div></div></div>
     <script type="module" src="/src/main.tsx"></script>

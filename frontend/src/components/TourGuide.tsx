@@ -140,7 +140,7 @@ export function TourGuide() {
       {box && (
         <div
           aria-hidden
-          className="pointer-events-none fixed z-[56] rounded-2xl ring-2 ring-[var(--accent-fill)] ring-offset-2 ring-offset-transparent shadow-[0_0_0_6px_rgba(10,132,255,0.18)] transition-[top,left,width,height] duration-200 motion-reduce:transition-none"
+          className="pointer-events-none fixed z-[56] rounded-2xl ring-2 ring-[var(--accent-fill)] ring-offset-2 ring-offset-transparent shadow-[0_0_0_6px_rgba(149,30,252,0.18)] transition-[top,left,width,height] duration-200 motion-reduce:transition-none"
           style={{ top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 }}
           data-testid="tour-highlight"
         />
@@ -193,11 +193,11 @@ export function TourGuide() {
               <AnimatePresence initial={false} mode="wait">
                 {status === "entering" || status === "doing" ? (
                   <motion.p key="busy" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="status"
-                    className="mt-3 flex items-center gap-2 rounded-2xl bg-[#0A84FF]/10 px-3 py-2 text-footnote text-[var(--accent-text)]">
+                    className="mt-3 flex items-center gap-2 rounded-2xl bg-[var(--accent-vivid)]/10 px-3 py-2 text-footnote text-[var(--accent-text)]">
                     <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden /> {progress ?? (status === "entering" ? "Getting this step ready…" : "Working on it…")}
                   </motion.p>
                 ) : status === "ready" && progress ? (
-                  <motion.p key="prog" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3 flex items-center gap-2 rounded-2xl bg-[#0A84FF]/10 px-3 py-2 text-footnote text-[var(--accent-text)]">
+                  <motion.p key="prog" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-3 flex items-center gap-2 rounded-2xl bg-[var(--accent-vivid)]/10 px-3 py-2 text-footnote text-[var(--accent-text)]">
                     <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden /> {progress}
                   </motion.p>
                 ) : status === "done" && step.check ? (

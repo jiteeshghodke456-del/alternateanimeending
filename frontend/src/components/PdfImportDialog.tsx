@@ -156,9 +156,9 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff,
         {phase === "pick" && (
           <label
             htmlFor="pdf-import-file"
-            className="flex cursor-pointer flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-foreground/20 bg-foreground/4 px-6 py-14 text-center transition-colors hover:border-[#0A84FF]/60 hover:bg-[#0A84FF]/6 focus-within:border-[#0A84FF]"
+            className="flex cursor-pointer flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-foreground/20 bg-foreground/4 px-6 py-14 text-center transition-colors hover:border-[var(--accent-vivid)]/60 hover:bg-[var(--accent-vivid)]/6 focus-within:border-[var(--accent-vivid)]"
           >
-            <span className="grid size-14 place-items-center rounded-2xl bg-[#0A84FF]/12 text-[var(--accent-text)]"><FileUp className="size-7" strokeWidth={1.5} aria-hidden /></span>
+            <span className="grid size-14 place-items-center rounded-2xl bg-[var(--accent-vivid)]/12 text-[var(--accent-text)]"><FileUp className="size-7" strokeWidth={1.5} aria-hidden /></span>
             <span className="text-body font-medium">Choose a guideline PDF</span>
             <span className="text-footnote text-muted-foreground">Up to 20 pages and 10 MB. Nothing is added until you confirm.</span>
             <input
@@ -213,7 +213,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff,
                           type="checkbox" aria-label="Select all rules" checked={allOn}
                           ref={(el) => { if (el) el.indeterminate = !allOn && someOn; }}
                           onChange={() => setPicked(allOn ? new Set() : new Set(proposals.map((p) => p.id)))}
-                          className="size-4 cursor-pointer accent-[#0A84FF]"
+                          className="size-4 cursor-pointer accent-[var(--accent-vivid)]"
                         />
                       </th>
                       <th scope="col" className="px-2 py-2.5 font-medium">Rule statement</th>
@@ -235,7 +235,7 @@ export function PdfImportDialog({ open, onOpenChange, onImported, onSwitchedOff,
               <div className="space-y-1">
                 <p className="text-footnote"><span className="font-semibold tabular-nums">{picked.size}</span> of {proposals.length} selected{unverifiedPicked > 0 && <span className="text-human-text"> · {unverifiedPicked} with a quote we couldn't verify</span>}</p>
                 <label className="flex cursor-pointer items-center gap-2 text-footnote text-muted-foreground">
-                  <input type="checkbox" checked={enable} onChange={(e) => setEnable(e.target.checked)} className="size-4 accent-[#0A84FF]" />
+                  <input type="checkbox" checked={enable} onChange={(e) => setEnable(e.target.checked)} className="size-4 accent-[var(--accent-vivid)]" />
                   Switch the new rules on straight away (off by default)
                 </label>
               </div>
@@ -275,8 +275,8 @@ function Row({ p, on, toggle, edit, onEdit }: {
   const category = edit?.category ?? p.rule.category;
   const severity = edit?.severity ?? p.rule.severity;
   return (
-    <tr className={cn("align-top transition-colors", on ? "bg-[#0A84FF]/5" : "opacity-80")}>
-      <td className="px-3 py-3"><input type="checkbox" checked={on} onChange={toggle} aria-label={`Add ${p.id}: ${p.rule.statement.slice(0, 60)}`} className="mt-1 size-4 cursor-pointer accent-[#0A84FF]" /></td>
+    <tr className={cn("align-top transition-colors", on ? "bg-[var(--accent-vivid)]/5" : "opacity-80")}>
+      <td className="px-3 py-3"><input type="checkbox" checked={on} onChange={toggle} aria-label={`Add ${p.id}: ${p.rule.statement.slice(0, 60)}`} className="mt-1 size-4 cursor-pointer accent-[var(--accent-vivid)]" /></td>
       <td className="px-2 py-2.5">
         <Textarea aria-label={`${p.id} statement`} rows={3} value={statement} onChange={(e) => onEdit({ statement: e.target.value })} className="min-h-0 rounded-xl bg-background/60 px-2.5 py-1.5 text-footnote leading-5" />
       </td>

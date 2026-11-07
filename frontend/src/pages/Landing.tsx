@@ -226,7 +226,7 @@ export default function Landing() {
               <li key={title}>
                 <BlurFade inView delay={0.05 * i} className="h-full">
                   <div className="glass h-full p-5 sm:p-6">
-                    <span className="grid size-10 place-items-center rounded-xl bg-[#0A84FF]/12 text-[var(--accent-text)]"><Icon className="size-5" strokeWidth={1.5} aria-hidden /></span>
+                    <span className="grid size-10 place-items-center rounded-xl bg-[var(--accent-vivid)]/12 text-[var(--accent-text)]"><Icon className="size-5" strokeWidth={1.5} aria-hidden /></span>
                     <h3 className="mt-4 text-headline">{title}</h3>
                     <p className="mt-1 text-footnote text-muted-foreground">{body}</p>
                   </div>

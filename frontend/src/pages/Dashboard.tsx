@@ -61,7 +61,7 @@ function SetupCard() {
   const admin = user?.role === "admin";
   return (
     <section aria-labelledby="setup-h" className="glass-strong relative mb-6 overflow-hidden p-5 md:p-6">
-      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[#0A84FF]/15 blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 size-56 rounded-full bg-[var(--accent-vivid)]/15 blur-3xl" />
       <div className="relative flex flex-wrap items-center gap-4">
         <BrandMark brand={brand} className="size-12 rounded-2xl text-headline" />
         <div className="min-w-0 flex-1 basis-60">

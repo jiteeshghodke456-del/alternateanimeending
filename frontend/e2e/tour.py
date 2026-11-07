@@ -1,4 +1,4 @@
-"""Brand Gate guided tour (Playwright, Python). Runs the whole tour from the landing page with
+"""Rulemint guided tour (Playwright, Python). Runs the whole tour from the landing page with
 "Do it for me" on every step, and checks each step's outcome against the API.
 
     python frontend/e2e/tour.py --base http://localhost:7860 --width 1280

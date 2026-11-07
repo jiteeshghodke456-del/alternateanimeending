@@ -117,7 +117,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
     <article
       aria-label={`${band.label}: ${code ?? f.category}`}
       onClick={() => onSelect?.(f.id)}
-      className={cn("glass-strong p-5", active && "ring-2 ring-[#0A84FF]/60", closed && "opacity-80")}
+      className={cn("glass-strong p-5", active && "ring-2 ring-[var(--accent-vivid)]/60", closed && "opacity-80")}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-medium", SEVERITY_STYLE[f.severity])}>
@@ -145,7 +145,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       )}
 
       {f.rule && !f.rule.citation && (
-        <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
+        <blockquote className="mt-3 border-l-2 border-[var(--accent-vivid)]/50 pl-3">
           <p className="text-footnote italic text-foreground/85">&ldquo;{f.rule.source_quote || f.rule.statement}&rdquo;</p>
           <p className="mt-0.5 text-caption text-muted-foreground">
             {f.rule.page != null ? `Guideline p.${f.rule.page}` : "Guideline"} · {f.rule.code} v{f.rule.version}
@@ -154,7 +154,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       )}
       <RegulationCitations f={f} />
       {f.fact && (
-        <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
+        <blockquote className="mt-3 border-l-2 border-[var(--accent-vivid)]/50 pl-3">
           <p className="text-footnote italic text-foreground/85">&ldquo;{f.fact.statement}&rdquo;</p>
           <p className="mt-0.5 text-caption text-muted-foreground">
             Approved fact {f.fact.code} · {f.fact.source}
@@ -182,8 +182,8 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
       <PrecedentLine finding={f} />
 
       {group && group.isLead && group.others.length > 0 && (
-        <p data-testid="fix-group-lead" className="mt-3 flex items-start gap-2 rounded-xl bg-[#0A84FF]/10 px-3 py-2 text-footnote">
-          <Link2 className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.75} aria-hidden />
+        <p data-testid="fix-group-lead" className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--accent-vivid)]/10 px-3 py-2 text-footnote">
+          <Link2 className="mt-0.5 size-4 shrink-0 text-[var(--accent-vivid)]" strokeWidth={1.75} aria-hidden />
           <span>This fix also resolves {group.others.length} other finding{group.others.length === 1 ? "" : "s"}:{" "}
             {group.others.map((o, i) => (
               <span key={o.id}>{i > 0 && ", "}<button type="button" onClick={(e) => { e.stopPropagation(); onJump?.(o.id); }} className="font-mono text-caption underline underline-offset-2">{codeOf(o)}</button></span>
@@ -191,8 +191,8 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
         </p>
       )}
       {linked && (
-        <p data-testid="fix-group-linked" className="mt-3 flex items-start gap-2 rounded-xl bg-[#0A84FF]/10 px-3 py-2 text-footnote">
-          <Link2 className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.75} aria-hidden />
+        <p data-testid="fix-group-linked" className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--accent-vivid)]/10 px-3 py-2 text-footnote">
+          <Link2 className="mt-0.5 size-4 shrink-0 text-[var(--accent-vivid)]" strokeWidth={1.75} aria-hidden />
           <span>Same sentence as <button type="button" onClick={(e) => { e.stopPropagation(); onJump?.(group!.lead.id); }} className="font-mono text-caption underline underline-offset-2">{codeOf(group!.lead)}</button>.{" "}
             {f.status === "open" ? "One rewrite covers both, so accepting the fix there resolves this finding too." : "Resolved together with it."}</span>
         </p>

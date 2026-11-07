@@ -30,7 +30,7 @@ export function DotLegend({ counts, confused, className }: { counts: number[]; c
         </li>
       ))}
       <li className="inline-flex items-center gap-1.5">
-        <span className="grid size-[18px] place-items-center rounded-full bg-foreground/10 text-[11px] font-bold ring-2 ring-[#0A84FF]" aria-hidden>?</span>
+        <span className="grid size-[18px] place-items-center rounded-full bg-foreground/10 text-[11px] font-bold ring-2 ring-[var(--accent-vivid)]" aria-hidden>?</span>
         <span className="font-medium">May misread the main message</span>
         <span className="tabular-nums text-muted-foreground">{confused}</span>
       </li>
@@ -73,7 +73,7 @@ export function DotGrid({ personas, segmentOrder, finished, selected, onSelect, 
               lv ? "scale-100 shadow-[0_1px_2px_rgba(0,0,0,0.25),inset_0_0_0_1px_rgba(255,255,255,0.35)]"
                 : finished && p ? "scale-90 border border-dashed border-foreground/30"
                 : "scale-[0.62] border border-foreground/25 bg-foreground/10",
-              conf && "ring-2 ring-[#0A84FF]",
+              conf && "ring-2 ring-[var(--accent-vivid)]",
               dim && "opacity-25",
               p && "cursor-pointer hover:scale-110",
             )}

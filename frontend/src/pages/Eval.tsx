@@ -62,7 +62,7 @@ export default function Eval() {
     return (
       <>
         <PageHeader title="Evaluation" subtitle="Precision and recall on a labelled test split, from a real run." />
-        {d.brand_note && <p role="note" className="mb-5 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p>}
+        {d.brand_note && <p role="note" className="mb-5 rounded-2xl bg-[var(--accent-vivid)]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p>}
         <EmptyState
           icon={FlaskConical} title="Evaluation hasn't been run on this server yet"
           description="We only show accuracy numbers that come from a real run, so there is nothing to show until one finishes."
@@ -83,7 +83,7 @@ export default function Eval() {
   const cats = categoryRows(m);
   const cal = calibration(m);
   const missCols = d.misses.length ? Object.keys(d.misses[0]).slice(0, 6) : [];
-  const note = d.brand_note ? <p role="note" className="mb-5 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p> : null;
+  const note = d.brand_note ? <p role="note" className="mb-5 rounded-2xl bg-[var(--accent-vivid)]/10 p-3 text-footnote text-[var(--accent-text)]">{d.brand_note}</p> : null;
 
   return (
     <>

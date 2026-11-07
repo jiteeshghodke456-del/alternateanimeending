@@ -15,7 +15,7 @@ export default function Review() {
     <>
       <PageHeader title="Review queue" subtitle="Items waiting for a reviewer or approver." />
       {!canReview && (
-        <p className="mb-4 rounded-2xl bg-[#0A84FF]/10 p-3 text-footnote text-[var(--accent-text)]">
+        <p className="mb-4 rounded-2xl bg-[var(--accent-vivid)]/10 p-3 text-footnote text-[var(--accent-text)]">
           You're signed in as {user?.name}. Only reviewers and approvers can act on these items. Switch to {namesWithRole(users, "reviewer", "approver")} from the top bar to review.
         </p>
       )}

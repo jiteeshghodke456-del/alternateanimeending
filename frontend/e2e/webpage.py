@@ -1,4 +1,4 @@
-"""Brand Gate "Web page" source (Playwright, Python). Run against a server whose page fetcher can reach the web:
+"""Rulemint "Web page" source (Playwright, Python). Run against a server whose page fetcher can reach the web:
 
     python frontend/e2e/webpage.py --base http://127.0.0.1:7860 --url https://basecamp.com/ [--width 390] [--dark]
 
