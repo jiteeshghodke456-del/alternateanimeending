@@ -142,3 +142,4 @@ LLM user message (example for R-CLAIM-01):
   - `FindingOut.probability` can be `null`: claims decided without Jev, and the "Image judged by code checks only" info finding.
   - The rule scan can now draw every judged rule from `version.stats.rule_scan`, including passes.
   - Seeded items can be checked with `POST /versions/{id}/check` (admin or creator), so they no longer need a resubmit.
+- **Backend request (minor):** `GET /api/insights` `by_category` returns a bucket with an empty `key` (visible as "other" in the chart); likely a finding with no category.
