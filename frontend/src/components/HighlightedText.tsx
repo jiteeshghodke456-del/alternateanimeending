@@ -30,15 +30,17 @@ export function HighlightedText({ text, spans, activeId, onSelect, className }: 
         title={s.label ?? b.label}
       >
         {(() => {
-          const seg = text.slice(s.start, end);
-          const k = seg.lastIndexOf(" ") + 1;
+          // Keep the icon glued to the last word. Trailing whitespace/newlines go after it, otherwise a
+          // wrapped highlight ends in an empty pill next to the icon.
+          const [, head, word, tail] = /^([\s\S]*?)(\S*)(\s*)$/.exec(text.slice(s.start, end)) ?? ["", "", "", ""];
           return (
             <>
-              {seg.slice(0, k)}
+              {head}
               <span className="whitespace-nowrap">
-                {seg.slice(k)}
+                {word}
                 <Icon className={cn("ml-1 inline size-3.5 -translate-y-px", b.text)} strokeWidth={2} aria-label={b.label} />
               </span>
+              {tail}
             </>
           );
         })()}
