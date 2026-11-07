@@ -131,6 +131,53 @@ def image_precondition(rule: RuleSpec) -> Optional[tuple[str, Noul]]:
     return None
 
 
+def gated_probability(p: float, gate: float) -> float:
+    """Truth table for a rule read only when its companion Noul (precondition) holds: clearly not -> 0 (pass);
+    unsure -> at most "needs a human look"; clearly yes -> the rule's own probability."""
+    if gate < HUMAN_AT:
+        return 0.0
+    if gate < PRECONDITION_AT:
+        return min(p, FLAG_AT - 0.01)
+    return p
+
+
+# ------------------------------------------------------------------ own-site context (text rules)
+# Disguised advertising (IN-CCPA-05, params.needs_outside_voice) means brand content posing as someone else's:
+# a news story, an independent review, a customer's own post. A press note or blog post on the brand's OWN site,
+# under its own name, poses as nothing. Real-brand test (8 Nov): 11 paragraphs of a brand's dated press note on
+# its own blog were flagged at p 0.72-0.86. Code knows where the page is published (webpage.brand_owns_host), so
+# on the brand's own site this companion Noul is asked in the same call, and code reads the rule only when it
+# holds (gated_probability). Off the brand's site (or for posts with no known host) nothing changes.
+OUTSIDE_VOICE = "outside_voice"
+
+
+def outside_voice_question(brand: str, host: str) -> Noul:
+    """High = `text` speaks as someone other than the brand. Where it is published goes in this question only."""
+    b = re.sub(r"\s*\([^)]*\)", "", brand or "").strip() or "the brand"  # "Acme (demo brand)" -> "Acme"
+    return Noul(
+        instructions=f"`text` is a paragraph published on {host}, {b}'s own website. Is `text` written as if by "
+                     f"someone other than {b}, such as a customer, an independent reviewer or a journalist?",
+        criteria={
+            "true": f"`text` itself poses as an outsider's own words about {b}: a customer's review or testimonial "
+                    "written in their voice (“Honest review from a regular customer, not sponsored”), or an "
+                    "independent reporter's news story.",
+            "false": f"`text` is {b} speaking about itself under its own name: a dated press note (“Mumbai, 3 March "
+                     f"2026: {b} today announced …”), its own blog post, or other people's words "
+                     f"that {b} quotes and names as a customer's or its team's.",
+        },
+    )
+
+
+def needs_outside_voice(rule: RuleSpec) -> bool:
+    return bool((rule.params or {}).get("needs_outside_voice"))
+
+
+def post_level(rule: RuleSpec) -> bool:
+    """A rule about the post as a whole (a disguised ad, a missing "Ad" label): judged per paragraph, but
+    reported once per post (engine.post_level_drafts), at the paragraph Jev rates highest."""
+    return bool((rule.params or {}).get("post_level"))
+
+
 # ------------------------------------------------------------------ tone + claims
 TONE_DESCRIPTIONS = {
     "warm": "Friendly and welcoming, like a barista greeting a regular.",

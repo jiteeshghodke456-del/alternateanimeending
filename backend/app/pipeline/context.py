@@ -82,6 +82,11 @@ class CheckContext:
     channel_limits: Optional[dict[str, Any]] = None
     brand_fonts: list[str] = field(default_factory=list)
     file_path: Optional[str] = None
+    brand_name: str = ""
+    # Web pages: the host the page was fetched from (after redirects) and whether code found it to be the brand's
+    # own site (webpage.brand_owns_host). None = not a web page / unknown.
+    source_host: Optional[str] = None
+    own_site: Optional[bool] = None
 
     def enabled_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if r.enabled and rule_applies_to_channel(r, self.channel, self.version_kind)]

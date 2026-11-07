@@ -127,6 +127,8 @@ class _Run:
         self.rules = ctx.enabled_rules()
         self.masks: dict[int, dict[str, str]] = {}
         self.context_post: str = ctx.post_text
+        # Post-level rules (questions.post_level): each paragraph's judgment, reported once per post.
+        self.post_level_cands: dict[str, list[FindingDraft]] = {}
 
     # ---------------------------------------------------------------- helpers
     def rule(self, code: Optional[str]) -> Optional[RuleSpec]:
@@ -192,6 +194,9 @@ class _Run:
                 qs["tone"] = Q.tone_question(self.ctx.tone_labels)
             qs["has_claim"] = Q.HAS_CLAIM
             qs["claim_type"] = Q.CLAIM_TYPE
+            gated = self.own_site_gated()
+            if gated:
+                qs[Q.OUTSIDE_VOICE] = Q.outside_voice_question(self.ctx.brand_name, self.ctx.source_host or "")
             res = await jev.ask(Q.text_state(masked, self.ctx.channel), qs, purpose="rules", calls=self.calls, unit_id=u.id)
             if not res.ok:
                 self.res.warnings.append(f"Jev rule check failed for paragraph {u.idx + 1} ({res.error}); "
@@ -205,13 +210,19 @@ class _Run:
                         p = Q.tone_violation(r, tone.probabilities, Q.forbidden_tones(self.text_rules()))
                     else:
                         p = res.nouls[r.code]
+                        if r.code in gated:  # published on the brand's own site: only content posing as an outsider
+                            p = Q.gated_probability(p, res.nouls[Q.OUTSIDE_VOICE])
                     b = self.cap_band(r, to_band(p, r.category))
                     self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "rule", 0, len(u.text)))
                     if b != "pass" and r.code not in tier0_rules:
                         problem = (f"Jev reads the tone as “{tone.choice}”; the rule allows {', '.join(Q.allowed_tones(r))}."
                                    if Q.uses_tone_choice(r) and tone else
                                    f"Jev estimates a {p:.0%} chance that this paragraph breaks {r.code}.")
-                        out.append(self.draft(u, r, band=b, tier="jev", p=round(p, 4), start=0, end=len(u.text), problem=problem))
+                        d = self.draft(u, r, band=b, tier="jev", p=round(p, 4), start=0, end=len(u.text), problem=problem)
+                        if Q.post_level(r):
+                            self.post_level_cands.setdefault(r.code, []).append(d)
+                        else:
+                            out.append(d)
                 if "tone" in res.choices:
                     t = res.choices["tone"]
                     self.res.tones.append({"unit_idx": u.idx, "tone": t.choice,
@@ -226,6 +237,26 @@ class _Run:
             if cr.is_finding:
                 out.append(self.from_claim(u, cr))
         await self.on_progress("claims", self.res)
+        return out
+
+    def own_site_gated(self) -> set[str]:
+        """Rules read only when the text poses as an outsider, when code knows the page is the brand's own site."""
+        if not self.ctx.own_site or not self.ctx.source_host:
+            return set()
+        return {r.code for r in self.text_rules() if Q.needs_outside_voice(r) and not Q.uses_tone_choice(r)}
+
+    def post_level_drafts(self) -> dict[int, list[FindingDraft]]:
+        """One finding per post-level rule: the paragraph Jev rated highest (ties: the first), with how many
+        paragraphs were above the line. 11 copies of "this post looks like a disguised ad" are noise."""
+        out: dict[int, list[FindingDraft]] = {}
+        for code, ds in self.post_level_cands.items():
+            best = max(ds, key=lambda d: (d.probability or 0.0, -(d.unit_idx or 0)))
+            if len(ds) > 1:
+                best.problem = (f"Jev estimates a {best.probability or 0:.0%} chance that this post breaks {code} "
+                                f"({len(ds)} paragraphs above the line; this one is the clearest).")
+                best.detail = f"Judged for the whole post: {len(ds)} paragraphs were above the line."
+            out.setdefault(best.unit_idx if best.unit_idx is not None else -1, []).append(best)
+        self.post_level_cands = {}
         return out
 
     async def check_claim(self, u: UnitIn, cl: C.Claim) -> C.ClaimResult:
@@ -283,12 +314,8 @@ class _Run:
                 tier0_rules = {h.rule_code for h in hits}
                 for r in rules:
                     p = res.nouls[r.code]
-                    if r.code in pre:
-                        gate = res.nouls[pre[r.code]]
-                        if gate < Q.HUMAN_AT:
-                            p = 0.0  # nothing to judge (e.g. no text in the image): pass
-                        elif gate < Q.PRECONDITION_AT:
-                            p = min(p, Q.FLAG_AT - 0.01)  # unsure whether it applies: at most a human look
+                    if r.code in pre:  # nothing to judge (e.g. no text in the image) -> pass; unsure -> human at most
+                        p = Q.gated_probability(p, res.nouls[pre[r.code]])
                     b = self.cap_band(r, to_band(p, r.category))
                     self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "image"))
                     if b != "pass" and r.code not in tier0_rules:
@@ -602,14 +629,26 @@ class _Run:
                                   calls=self.calls, deterministic=det, extra_rules=rules[1:], region=True,
                                   meaning_original=u.text[:rs] + base + u.text[re_:], removal_required=removal)
 
-    async def unit_task(self, u: UnitIn, hits: list[Tier0Hit]) -> None:
+    async def unit_drafts(self, u: UnitIn, hits: list[Tier0Hit]) -> list[FindingDraft]:
         hits = merge_by_sentence(u.text, hits) if u.is_text else hits
         if u.kind == "image":
-            drafts = await self.image_unit(u, hits)
-        elif u.is_text:
-            drafts = await self.text_unit(u, hits)
-        else:
-            drafts = [self.from_tier0(u, h) for h in hits]
+            return await self.image_unit(u, hits)
+        if u.is_text:
+            return await self.text_unit(u, hits)
+        return [self.from_tier0(u, h) for h in hits]
+
+    async def unit_task(self, u: UnitIn, hits: list[Tier0Hit]) -> None:
+        await self.unit_emit(u, await self.unit_drafts(u, hits))
+
+    async def units_with_post_level(self, tier0: dict[int, list[Tier0Hit]]) -> None:
+        """Post-level rules need every paragraph's judgment before one finding is chosen, so the drafts of all
+        units are collected first; then each unit's findings (with the chosen post-level ones, which join its
+        edit regions) are explained and self-checked as usual."""
+        drafts = await asyncio.gather(*[self.unit_drafts(u, tier0.get(u.idx, [])) for u in self.units])
+        extra = self.post_level_drafts()
+        await asyncio.gather(*[self.unit_emit(u, ds + extra.get(u.idx, [])) for u, ds in zip(self.units, drafts)])
+
+    async def unit_emit(self, u: UnitIn, drafts: list[FindingDraft]) -> None:
         await self.on_progress("explain", self.res)
         await asyncio.gather(*[self.emit(g[0]) if span is None else self.emit_region(u, span, g)
                                for span, g in self.plan_regions(u, drafts)])
@@ -682,8 +721,11 @@ class _Run:
         tier0 = run_tier0_units(self.units, self.ctx)
         self.context_post = renamed_post(self.ctx.post_text, self.units, tier0)
         await self.on_progress("tier0", self.res)
-        await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task(),
-                             self.web_task(), self.channel_task())
+        if self.use_jev and any(Q.post_level(r) for r in self.text_rules()):
+            units: Any = self.units_with_post_level(tier0)
+        else:
+            units = asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units])
+        await asyncio.gather(units, self.post_task(), self.web_task(), self.channel_task())
         self.res.elapsed_ms = int((time.perf_counter() - t0) * 1000)
         return self.res
 

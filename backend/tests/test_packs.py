@@ -191,7 +191,7 @@ def test_apply_is_idempotent_links_brand_rules_and_remove_cleans_up(client: Test
     assert bangs and all(f["regulations"] == [] for f in bangs), [(f["quote"], f["regulations"]) for f in bangs]
 
     st = next(p for p in client.get("/api/rules/packs").json() if p["id"] == "india_regulatory")
-    assert st["applied"] is True and st["applied_count"] == 9 and st["applied_version"] == 1
+    assert st["applied"] is True and st["applied_count"] == 9 and st["applied_version"] == 2
 
     rm = client.delete("/api/rules/packs/india_regulatory")
     assert rm.status_code == 200 and rm.json()["removed"] == 9
