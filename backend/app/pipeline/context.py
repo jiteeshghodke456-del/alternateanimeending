@@ -74,6 +74,7 @@ class CheckContext:
     confidential: bool = False
     version_id: Optional[int] = None
     today: date = field(default_factory=date.today)
+    logo_path: Optional[str] = None  # the approved logo file (Asset kind=logo, meta.variant=approved), for P1 logo fidelity
 
     def enabled_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if r.enabled and rule_applies_to_channel(r, self.channel, self.version_kind)]

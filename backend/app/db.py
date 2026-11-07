@@ -46,6 +46,35 @@ def init_db() -> None:
     from app import models  # noqa: F401  (register tables)
 
     SQLModel.metadata.create_all(get_engine())
+    add_missing_columns()
+
+
+def add_missing_columns() -> list[str]:
+    """create_all() never alters existing tables. When a DB file from an older build is reused,
+    add any new *nullable or defaulted* columns so it keeps working (SQLite ADD COLUMN only)."""
+    from sqlalchemy import inspect, text
+
+    eng = get_engine()
+    added: list[str] = []
+    insp = inspect(eng)
+    with eng.begin() as conn:
+        for table in SQLModel.metadata.sorted_tables:
+            if not insp.has_table(table.name):
+                continue
+            have = {c["name"] for c in insp.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in have or col.primary_key:
+                    continue
+                ddl = col.type.compile(dialect=eng.dialect)
+                default = col.default.arg if col.default is not None and not callable(col.default.arg) else None
+                if default is None and not col.nullable:
+                    continue  # can't add a NOT NULL column without a default; a reset fixes it
+                sql = f'ALTER TABLE "{table.name}" ADD COLUMN "{col.name}" {ddl}'
+                if default is not None:
+                    sql += f" DEFAULT {default!r}" if isinstance(default, str) else f" DEFAULT {int(default) if isinstance(default, bool) else default}"
+                conn.execute(text(sql))
+                added.append(f"{table.name}.{col.name}")
+    return added
 
 
 def drop_db() -> None:

@@ -72,16 +72,20 @@ IMAGE_RULE_WORDING: dict[str, tuple[str, str, str]] = {
     ),
 }
 
+# "Is there a logo at all?" Companion Noul for R-VIS-03 (clear space) and an input to P1 logo fidelity
+# (logo.decide): a visible logo that doesn't match the approved file geometrically = redrawn/altered.
+HAS_LOGO = Noul(
+    instructions="Does `image` show a brand logo?",
+    criteria={"true": "`image` shows a logo, such as a cup symbol with a brand name.",
+              "false": "`image` shows no logo at all."})
+
 # Companion Nouls: an image rule is only read when its precondition holds (null case in code).
 IMAGE_PRECONDITIONS: dict[str, tuple[str, Noul]] = {
     "min_contrast": ("has_text", Noul(
         instructions="Does `image` contain written words?",
         criteria={"true": "`image` shows words, such as a headline, a price or a slogan.",
                   "false": "`image` is only a picture, with no words in it."})),
-    "logo_clear_space_ratio": ("has_logo", Noul(
-        instructions="Does `image` show a brand logo?",
-        criteria={"true": "`image` shows a logo, such as a cup symbol with a brand name.",
-                  "false": "`image` shows no logo at all."})),
+    "logo_clear_space_ratio": ("has_logo", HAS_LOGO),
 }
 
 

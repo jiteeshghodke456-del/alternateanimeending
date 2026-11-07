@@ -150,8 +150,11 @@ def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckCo
     palette = [(str(a.meta.get("name", "")), str(a.meta.get("hex", "")))
                for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "palette")).all()
                if (a.meta or {}).get("hex")]
+    logos = [a for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "logo")).all() if a.path]
+    approved = next((a for a in logos if (a.meta or {}).get("variant", "approved") == "approved"), None)
     return CheckContext(
         channel=channel, rules=rules, terms=terms, facts=facts, palette=palette,
+        logo_path=approved.path if approved else None,
         tone_labels=list(brand.tone_labels or []) if brand else [],
         channel_targets=dict(brand.channel_targets or {}) if brand else {}, **kw,
     )
@@ -210,6 +213,7 @@ def _stats(res: E.EngineResult, calls: jev.CallLog, ctx: CheckContext, findings:
         "warnings": res.warnings, "jev": jev_state, "llm": llm_state,
         "models": {"jev": jev.model_name() if res.jev_used else None, "llm": X.model_name() if res.llm_used else None},
         "external_calls": len(calls.records), "error": False, "error_message": None,
+        "logo": res.logo,
     }
 
 
@@ -219,6 +223,7 @@ def _finding_row(version_id: int, d: E.FindingDraft) -> Finding:
         fact_code=d.fact_code, tier=d.tier, category=d.category or "", severity=d.severity, band=d.band,
         probability=d.probability, claim_status=d.claim_status, span_start=d.span_start, span_end=d.span_end,
         quote=d.quote or "", explanation=d.explanation, fix=d.fix, fix_verified=d.fix_verified,
+        box=d.box, quad=d.quad,
     )
 
 

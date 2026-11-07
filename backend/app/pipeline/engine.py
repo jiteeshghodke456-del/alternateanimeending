@@ -19,6 +19,7 @@ from typing import Any, Awaitable, Callable, Optional
 from app.pipeline import claims as C
 from app.pipeline import explain as X
 from app.pipeline import jev
+from app.pipeline import logo as L
 from app.pipeline import questions as Q
 from app.pipeline import selfcheck as S
 from app.pipeline.bands import band as to_band
@@ -57,6 +58,8 @@ class FindingDraft:
     problem: str = ""  # plain words for the LLM prompt
     facts_note: list[str] = field(default_factory=list)
     selfcheck_reasons: list[str] = field(default_factory=list)
+    box: Optional[dict] = None  # image region as fractions {top, left, bottom, right} (logo findings)
+    quad: Optional[list] = None  # projected logo corners [[x, y] fractions] TL, TR, BR, BL
 
 
 @dataclass
@@ -82,6 +85,7 @@ class EngineResult:
     tones: list[dict] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     pii_masked: int = 0
+    logo: list[dict] = field(default_factory=list)  # P1 logo fidelity per image unit (for the overlay)
     units_total: int = 0
     units_done: int = 0
     elapsed_ms: int = 0
@@ -125,9 +129,10 @@ class _Run:
     def draft(self, u: Optional[UnitIn], rule: Optional[RuleSpec], *, band: str, tier: str, p: Optional[float],
               start: Optional[int], end: Optional[int], category: str = "", severity: str = "minor", **kw: Any) -> FindingDraft:
         given_code = kw.pop("rule_code", None)
+        override = kw.pop("severity_override", None)  # code-decided (e.g. P1 logo findings), never a model's
         d = FindingDraft(
             unit_id=u.id if u else None, unit_idx=u.idx if u else None, rule_code=rule.code if rule else given_code,
-            category=rule.category if rule else category, severity=rule.severity if rule else severity, band=band,
+            category=rule.category if rule else category, severity=override or (rule.severity if rule else severity), band=band,
             tier=tier, probability=p, local_start=start, local_end=end,
             rule_version=rule.version if rule else None, **kw)
         if u is not None and start is not None and end is not None:
@@ -220,45 +225,96 @@ class _Run:
             self.res.warnings.append(f"Jev claim check failed in paragraph {u.idx + 1} ({cr.error}); the claim needs a human look.")
         return cr
 
+    def logo_rule(self) -> Optional[RuleSpec]:
+        return next((r for r in self.rules if "logo_file" in (r.params or {})), None)
+
     async def image_unit(self, u: UnitIn, hits: list[Tier0Hit]) -> list[FindingDraft]:
         out = [self.from_tier0(u, h) for h in hits]
+        logo_rule = self.logo_rule() if (self.ctx.logo_path and u.image_path) else None
+        # Logo fidelity is local (OpenCV): it runs for confidential items too, alongside the Jev call.
+        logo_task = (asyncio.ensure_future(asyncio.to_thread(L.match_logo, u.image_path, self.ctx.logo_path,
+                                                             palette=self.ctx.palette, colour_threshold=self.palette_threshold()))
+                     if logo_rule else None)
         rules = self.image_rules()
-        if not self.use_jev or not rules or not u.image_path:
-            return out
-        qs: dict[str, Any] = {}
-        pre: dict[str, str] = {}
-        for r in rules:
-            qs[r.code] = Q.image_rule_question(r)
-            pc = Q.image_precondition(r)
-            if pc:
-                qs[pc[0]] = pc[1]
-                pre[r.code] = pc[0]
-        try:
-            from typesafe_sdk import Image
+        res: Optional[jev.JevResult] = None
+        if self.use_jev and (rules or logo_rule) and u.image_path:
+            qs: dict[str, Any] = {}
+            pre: dict[str, str] = {}
+            for r in rules:
+                qs[r.code] = Q.image_rule_question(r)
+                pc = Q.image_precondition(r)
+                if pc:
+                    qs[pc[0]] = pc[1]
+                    pre[r.code] = pc[0]
+            if logo_rule:
+                qs["has_logo"] = Q.HAS_LOGO
+            try:
+                from typesafe_sdk import Image
 
-            state: Any = {"image": Image(jev.prepare_image(u.image_path))}
-            res = await jev.ask(state, qs, purpose="rules_image", calls=self.calls, unit_id=u.id, images=True)
-        except Exception as exc:  # noqa: BLE001  (image prep or SDK asset errors)
-            res = jev.JevResult(ok=False, error=type(exc).__name__)
-        if not res.ok:
-            self.res.warnings.append(f"Jev image check failed ({res.error}).")
-            out.append(self.draft(u, None, band="human", tier="visual", p=None, start=None, end=None, category="visual",
-                                  severity="minor", explanation=IMAGE_UNAVAILABLE, detail=IMAGE_UNAVAILABLE))
-            return out
-        tier0_rules = {h.rule_code for h in hits}
-        for r in rules:
-            p = res.nouls[r.code]
-            if r.code in pre:
-                gate = res.nouls[pre[r.code]]
-                if gate < Q.HUMAN_AT:
-                    p = 0.0  # nothing to judge (e.g. no text in the image): pass
-                elif gate < Q.PRECONDITION_AT:
-                    p = min(p, Q.FLAG_AT - 0.01)  # unsure whether it applies: at most a human look
-            b = self.cap_band(r, to_band(p, r.category))
-            self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "image"))
-            if b != "pass" and r.code not in tier0_rules:
-                out.append(self.draft(u, r, band=b, tier="visual", p=round(p, 4), start=None, end=None,
-                                      problem=f"Jev estimates a {p:.0%} chance that the image breaks {r.code}."))
+                state: Any = {"image": Image(jev.prepare_image(u.image_path))}
+                res = await jev.ask(state, qs, purpose="rules_image", calls=self.calls, unit_id=u.id, images=True)
+            except Exception as exc:  # noqa: BLE001  (image prep or SDK asset errors)
+                res = jev.JevResult(ok=False, error=type(exc).__name__)
+            if not res.ok:
+                self.res.warnings.append(f"Jev image check failed ({res.error}).")
+                out.append(self.draft(u, None, band="human", tier="visual", p=None, start=None, end=None, category="visual",
+                                      severity="minor", explanation=IMAGE_UNAVAILABLE, detail=IMAGE_UNAVAILABLE))
+            else:
+                tier0_rules = {h.rule_code for h in hits}
+                for r in rules:
+                    p = res.nouls[r.code]
+                    if r.code in pre:
+                        gate = res.nouls[pre[r.code]]
+                        if gate < Q.HUMAN_AT:
+                            p = 0.0  # nothing to judge (e.g. no text in the image): pass
+                        elif gate < Q.PRECONDITION_AT:
+                            p = min(p, Q.FLAG_AT - 0.01)  # unsure whether it applies: at most a human look
+                    b = self.cap_band(r, to_band(p, r.category))
+                    self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "image"))
+                    if b != "pass" and r.code not in tier0_rules:
+                        out.append(self.draft(u, r, band=b, tier="visual", p=round(p, 4), start=None, end=None,
+                                              problem=f"Jev estimates a {p:.0%} chance that the image breaks {r.code}."))
+        if logo_task is not None and logo_rule is not None:
+            m: L.LogoMatch = await logo_task
+            has_logo = res.nouls.get("has_logo") if (res is not None and res.ok) else None
+            out += self.logo_findings(u, logo_rule, m, has_logo)
+        return out
+
+    def palette_threshold(self) -> float:
+        r = next((r for r in self.rules if "palette_delta_e" in (r.params or {})), None)
+        try:
+            return float(r.params["palette_delta_e"]) if r else L.DEFAULT_COLOUR_DELTA_E
+        except (TypeError, ValueError):
+            return L.DEFAULT_COLOUR_DELTA_E
+
+    def logo_findings(self, u: UnitIn, rule: RuleSpec, m: L.LogoMatch, has_logo: Optional[float]) -> list[FindingDraft]:
+        """P1-2: code turns the SIFT measurement (+ Jev's has_logo, when asked) into findings."""
+        if m.error:
+            self.res.warnings.append(f"Logo check could not run ({m.error}).")
+            self.res.logo.append({"unit_idx": u.idx, "verdict": None, "error": m.error})
+            return []
+        v = L.decide(m, has_logo)
+        self.res.logo.append({"unit_idx": u.idx, "verdict": v.verdict, "band": v.band, "reason": v.reason,
+                              "inliers": m.inliers, "raw_inliers": m.raw_inliers, "good_matches": m.good_matches,
+                              "has_logo": None if has_logo is None else round(has_logo, 4), "stretched": v.stretched,
+                              "box": m.box, "quad": m.quad, "aspect_deviation": m.aspect_deviation,
+                              "colours": m.colours, "off_palette": m.off_palette, "elapsed_ms": m.elapsed_ms})
+        out: list[FindingDraft] = []
+        cite = X.template_explanation(rule)
+        if v.verdict == "altered":
+            title = "Logo looks stretched." if v.stretched else "Logo looks redrawn or altered."
+            out.append(self.draft(u, rule, band=v.band, tier="logo", p=None, start=None, end=None, severity_override="major",
+                                  detail=v.reason, explanation=f"{title} {v.reason} {cite}", box=m.box, quad=m.quad))
+        elif v.verdict == "not_found" and v.band != "pass" and (rule.params or {}).get("logo_required"):
+            out.append(self.draft(u, rule, band=v.band, tier="logo", p=None, start=None, end=None, severity_override="minor",
+                                  detail=v.reason, explanation=f"No approved logo found. {v.reason} {cite}"))
+        if v.verdict == "genuine" and m.off_palette:
+            desc = "; ".join(f"{c['hex']} ({c['share']:.0%} of the logo, ΔE {c['delta_e']:g} from {c['nearest']})"
+                             for c in m.off_palette)
+            detail = f"Off-palette colours inside the logo: {desc}."
+            out.append(self.draft(u, rule, band="flag", tier="logo", p=None, start=None, end=None, severity_override="minor",
+                                  detail=detail, explanation=f"Logo colour off-palette. {detail} {cite}",
+                                  box=m.box, quad=m.quad))
         return out
 
     async def cta_post(self) -> list[FindingDraft]:
@@ -336,6 +392,8 @@ class _Run:
         rule = self.rule(d.rule_code)
         if not d.explanation:
             d.explanation = X.template_explanation(rule, d.detail)
+        if d.tier == "logo":  # measured locally; the LLM can't see the image and has nothing to add
+            return d
         if d.band == "pass" or not self.explain_findings or self.is_vague(rule):
             d.fix = d.det_fix
             return d

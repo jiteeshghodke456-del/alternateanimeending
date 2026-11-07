@@ -12,6 +12,7 @@ Additions beyond §4 (all optional/defaulted; see DECISIONS.md):
 - Finding: rule_version, tier, claim_status, dismiss_note, edited_text, created_at.
 - AuditEvent.item_id is nullable (brand-kit edits have no item); version_id added.
 - AICall: unit_id (CLAUDE.md asks for it), ok.
+- Finding: box, quad (P1 logo overlay). AudienceRun: status, error, updated_at (P1 audience).
 """
 from __future__ import annotations
 
@@ -163,6 +164,10 @@ class Finding(SQLModel, table=True):
     dismiss_reason: Optional[str] = None
     dismiss_note: Optional[str] = None
     edited_text: Optional[str] = None
+    # P1 logo fidelity: image region as fractions {top, left, bottom, right} and the projected logo
+    # corners [[x, y], ...] (TL, TR, BR, BL), so the UI can draw an overlay. Null for text findings.
+    box: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    quad: Optional[list[Any]] = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -216,5 +221,8 @@ class EvalRun(SQLModel, table=True):
 class AudienceRun(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     version_id: int = Field(foreign_key="version.id", index=True)
+    status: str = "running"  # running|done|error
+    error: Optional[str] = None  # human message when status == "error"
     results: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

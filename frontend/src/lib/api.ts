@@ -265,6 +265,32 @@ export interface FindingOut {
   edited_text: string | null;
   rule: RuleRef | null; // guideline quote + page
   fact: FactRef | null;
+  // P1 logo fidelity overlay (image findings only), fractions of the image size
+  box?: ImageBox | null;
+  quad?: [number, number][] | null; // [x, y] corners TL, TR, BR, BL of the projected approved logo
+}
+
+/** A region of an image as fractions (0..1): top/bottom of the height, left/right of the width. */
+export interface ImageBox { top: number; left: number; bottom: number; right: number }
+
+/** VersionOut.stats.logo[] (P1 logo fidelity, one per image unit; local OpenCV, also for confidential items). */
+export interface LogoCheck {
+  unit_idx: number;
+  verdict: "genuine" | "altered" | "not_found" | null; // null = the check could not run (see `error`)
+  band?: Band;
+  reason?: string;
+  inliers?: number; // SIFT+RANSAC inliers with a valid projected outline (0 if degenerate)
+  raw_inliers?: number;
+  good_matches?: number;
+  has_logo?: number | null; // Jev "does the image show a logo?" (null when not asked, e.g. confidential)
+  stretched?: boolean;
+  box?: ImageBox | null; // draw this (or `quad`) on the image; present for genuine logos too
+  quad?: [number, number][] | null;
+  aspect_deviation?: number | null;
+  colours?: { hex: string; share: number; delta_e: number; nearest: string }[];
+  off_palette?: { hex: string; share: number; delta_e: number; nearest: string }[];
+  elapsed_ms?: number;
+  error?: string;
 }
 
 export interface FindingEditIn { text: string }

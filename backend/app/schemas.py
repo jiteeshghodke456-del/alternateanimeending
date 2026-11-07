@@ -302,6 +302,15 @@ class FactRef(_Out):
     expired: bool
 
 
+class ImageBox(_Out):
+    """A region of an image as fractions (0..1) of its height (top, bottom) and width (left, right)."""
+
+    top: float
+    left: float
+    bottom: float
+    right: float
+
+
 class FindingOut(_Out):
     id: int
     version_id: int
@@ -327,6 +336,9 @@ class FindingOut(_Out):
     edited_text: Optional[str]
     rule: Optional[RuleRef]  # guideline quote + page for the card
     fact: Optional[FactRef]
+    # P1 logo fidelity overlay (image findings only): fractions of the image width/height.
+    box: Optional[ImageBox] = None
+    quad: Optional[list[list[float]]] = None  # [[x, y], ...] TL, TR, BR, BL of the projected approved logo
 
 
 class FindingEditIn(BaseModel):
