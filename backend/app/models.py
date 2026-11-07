@@ -5,6 +5,7 @@ JSON values: always reassign (`row.stats = {**row.stats, "k": v}`), never `row.s
 
 Additions beyond §4 (all optional/defaulted; see DECISIONS.md):
 - User.id is a string slug ("asha"), so seed files and cookies stay readable.
+- ContentItem.key: stable handle from seed items.json (e.g. "demo_flawed_post" for Try the demo).
 - Rule: created_at/updated_at.
 - Version: kind, caption, alt_text, mime.
 - Unit: char_start/char_end (offsets into Version.text for highlighting).
@@ -102,6 +103,7 @@ class ContentItem(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     brand_id: int = Field(foreign_key="brand.id", index=True)
     title: str
+    key: Optional[str] = Field(default=None, index=True)  # stable seed handle, e.g. "demo_flawed_post"
     channel: str
     creator_id: str = Field(foreign_key="user.id", index=True)
     state: str = Field(default="draft", index=True)

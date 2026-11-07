@@ -7,10 +7,10 @@ Rules for everyone:
 """
 from __future__ import annotations
 
-from datetime import date, datetime
-from typing import Any, Literal, Optional
+from datetime import date, datetime, timezone
+from typing import Annotated, Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 Role = Literal["admin", "creator", "reviewer", "approver"]
 ItemState = Literal["draft", "checking", "findings_ready", "in_review", "changes_requested", "approved", "rejected"]
@@ -27,6 +27,14 @@ UnitKind = Literal["text", "image", "caption", "alt_text"]
 VersionKind = Literal["text", "image", "pdf"]
 DismissReason = Literal["false_alarm", "approved_exception", "rule_outdated", "other"]
 CheckStage = Literal["queued", "units", "tier0", "jev", "claims", "explain", "selfcheck", "done", "error"]
+
+
+def _as_utc(d: UtcDatetime) -> datetime:
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+# SQLite returns naive datetimes; all stored times are UTC, so tag them before serialising.
+UtcDatetime = Annotated[datetime, AfterValidator(_as_utc)]
 
 
 class _Out(BaseModel):
@@ -113,7 +121,7 @@ class RuleOut(_Out):
     examples_violating: list[str]
     examples_ok: list[str]
     enabled: bool
-    updated_at: datetime
+    updated_at: UtcDatetime
 
 
 class RuleCreate(BaseModel):
@@ -214,15 +222,18 @@ class ItemCreated(_Out):
 
 
 class ItemSummary(_Out):
+    """GET /items?state=&mine=&key=  (key=demo_flawed_post finds the "Try the demo" post)."""
+
     id: int
+    key: Optional[str]  # stable seed handle; null for user-created items
     title: str
     channel: Channel
     creator_id: str
     creator_name: str
     state: ItemState
     confidential: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: UtcDatetime
+    updated_at: UtcDatetime
     latest_version_id: Optional[int]
     latest_version_n: Optional[int]
     open_findings: int
@@ -245,7 +256,7 @@ class VersionSummary(_Out):
     n: int
     kind: VersionKind
     check_status: CheckStatus
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class VersionOut(_Out):
@@ -259,7 +270,7 @@ class VersionOut(_Out):
     file_url: Optional[str]  # GET /api/versions/{id}/file
     check_status: CheckStatus
     stats: dict[str, Any]  # units_total, units_done, judgments, elapsed_ms, cost_usd, pii_masked
-    created_at: datetime
+    created_at: UtcDatetime
     units: list[UnitOut]
 
 
@@ -362,7 +373,7 @@ class CommentOut(_Out):
     user_name: str
     role: Role
     body: str
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class CommentIn(BaseModel):
@@ -377,7 +388,7 @@ class AuditEventOut(_Out):
     user_name: Optional[str]
     action: str
     detail: dict[str, Any]
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class AIUsageGroup(_Out):
@@ -405,7 +416,7 @@ class AudienceOut(_Out):
     status: Literal["none", "running", "done", "error", "unavailable"]
     label: str = "Simulated audience, directional signal, not a survey"
     results: dict[str, Any] = Field(default_factory=dict)
-    created_at: Optional[datetime] = None
+    created_at: Optional[UtcDatetime] = None
 
 
 # ---------------------------------------------------------------- insights
@@ -442,7 +453,7 @@ class InsightsOut(_Out):
 # ---------------------------------------------------------------- eval
 class EvalLatestOut(_Out):
     available: bool
-    run_at: Optional[datetime] = None
+    run_at: Optional[UtcDatetime] = None
     split: Optional[str] = None
     models: dict[str, str] = Field(default_factory=dict)
     # precision/recall/f1 (overall + per_category), claim_accuracy, latency_ms {median,p95},
