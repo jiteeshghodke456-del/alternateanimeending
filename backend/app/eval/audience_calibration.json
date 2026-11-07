@@ -1,0 +1,123 @@
+{
+ "about": "Audience Preview calibration set. 'expect' labels are AI-assisted draft labels (labelled_by: draft-ai), not survey data: the direction a typical Indian reader would lean (believe / mixed / doubt). 'tune' marks the posts used while changing wording; the others are held out.",
+ "labelled_by": "draft-ai",
+ "posts": [
+  {
+   "id": "swiggy_page",
+   "kind": "playful_first_party",
+   "channel": "website",
+   "expect": "believe_or_mixed",
+   "tune": true,
+   "source": "Swiggy Instamart press note 'How India Instamarted 2025' (22 Dec 2025), as the webpage import extracts it (40 blocks, truncated)",
+   "text": "",
+  },
+  {
+   "id": "swiggy_short",
+   "kind": "playful_first_party",
+   "channel": "website",
+   "expect": "believe_or_mixed",
+   "tune": true,
+   "source": "Same press note, headline and first two paragraphs only (social-post length)",
+   "text": "",
+  },
+  {
+   "id": "dairy_wrapped",
+   "kind": "playful_first_party",
+   "channel": "instagram",
+   "expect": "believe",
+   "tune": true,
+   "source": "Written for this set (fictional dairy brand)",
+   "text": "2025 in milk, by the numbers 🥛\n\nYou drank 3.1 crore litres of Gaay Fresh milk this year. That's a lot of chai. Pune ordered the most paneer (sorry, Mumbai), and one Nashik family bought ghee every single day of the year. We see you.\n\nThank you for an udderly great year! Figures are from our own orders, January to November 2025."
+  },
+  {
+   "id": "cafe_birthday",
+   "kind": "playful_first_party",
+   "channel": "instagram",
+   "expect": "believe",
+   "tune": false,
+   "source": "Written for this set (fictional cafe chain)",
+   "text": "We turned 5! 🎂\n\nFive years, 12 cafes, about 9 lakh cups of filter coffee, and one barista who still can't spell cappuccino. Thank you, Pune.\n\nCome in this Saturday for a free cookie with any coffee. Our treat."
+  },
+  {
+   "id": "plain_diwali_email",
+   "kind": "plain_honest",
+   "channel": "email",
+   "expect": "believe",
+   "tune": false,
+   "source": "Seed item 'Diwali gift box email'",
+   "text": "Subject: Your Diwali gift box\n\nHello,\n\nOur Diwali gift box is here, Rs 1,299 incl. taxes. Flat 15% off with code DIWALI15, valid till 15 November 2026. Order online from our website."
+  },
+  {
+   "id": "plain_about_page",
+   "kind": "plain_honest",
+   "channel": "website",
+   "expect": "believe",
+   "tune": false,
+   "source": "Seed item 'Our cafes: website about page'",
+   "text": "We run 12 cafes across Pune, Mumbai and Bengaluru, open from 8 am to 10 pm every day. Every barista completes 40 hours of training before serving guests."
+  },
+  {
+   "id": "plain_cold_brew",
+   "kind": "plain_honest",
+   "channel": "instagram",
+   "expect": "believe",
+   "tune": true,
+   "source": "Seed item 'Cold Steam Brew caption'",
+   "text": "Cold Steam Brew is steeped for 18 hours, then served cold. Visit your nearest cafe to try a glass."
+  },
+  {
+   "id": "hype_true_sale",
+   "kind": "hype_true",
+   "channel": "instagram",
+   "expect": "mixed",
+   "tune": true,
+   "source": "Written for this set (fictional retailer)",
+   "text": "OUR BIGGEST SALE IS BACK!!! 🔥\n\nUp to 50% off on 2,000+ products this weekend only, 14 to 16 November. Don't miss it, grab your favourites before they're gone!\n\nT&C apply. Prices on the app."
+  },
+  {
+   "id": "hype_unverified",
+   "kind": "hype_unverified",
+   "channel": "instagram",
+   "expect": "mixed_or_doubt",
+   "tune": false,
+   "source": "Written for this set (fictional snack brand)",
+   "text": "India's most loved snack brand! Crores of happy customers can't be wrong.\n\nThe tastiest, healthiest namkeen you will ever eat. Order now!"
+  },
+  {
+   "id": "misleading_health",
+   "kind": "misleading",
+   "channel": "instagram",
+   "expect": "doubt",
+   "tune": false,
+   "source": "Written for this set (fictional supplement brand)",
+   "text": "Our green coffee burns 5 kg of belly fat in 7 days. No diet, no exercise!\n\nDoctors are shocked. Clinically proven formula.\n\nOrder now, only 50 bottles left!!!"
+  },
+  {
+   "id": "scam_prize",
+   "kind": "scam",
+   "channel": "instagram",
+   "expect": "doubt",
+   "tune": true,
+   "source": "Written for this set (typical prize-scam pattern)",
+   "text": "Congratulations!!! You have been selected for a FREE iPhone 17 in our anniversary lucky draw.\n\nJust pay Rs 99 delivery to claim it. Click bit.ly/claim-now within 30 minutes or your prize goes to the next winner!!!"
+  },
+  {
+   "id": "demo_v1",
+   "kind": "misleading",
+   "channel": "instagram",
+   "expect": "doubt",
+   "tune": false,
+   "source": "Seed demo_flawed_post (Try the demo)",
+   "text": "Steam Classic is India's #1 coffee, hands down!!!\n\nRated 4.8 stars by thousands of happy customers, and the best filter blend you will ever taste. Cheap? No way, it is a guaranteed miracle in a cup.\n\nFlat 20% off with code MONSOON20. Only today, hurry, last chance to grab it before stock runs out!!!\n\nOrder now. You would be silly to skip this."
+  },
+  {
+   "id": "demo_v2",
+   "kind": "fixed_demo",
+   "channel": "instagram",
+   "expect": "mixed_or_believe",
+   "tune": false,
+   "source": "Golden path v2 after accepting every suggested fix (a typical run's text)",
+   "text": "Saffron Signature Roast is a coffee we are proud to serve, hands down!\n\nSaffron Signature Roast is a filter blend you will want to taste again and again. We roast fresh in Pune every Tuesday and Friday, and the roast date is printed on every bag.\n\nSaffron Signature Roast is a filter blend worth trying. Order now.\n\nOrder now. You would be silly to skip this."
+  }
+ ]
+}
