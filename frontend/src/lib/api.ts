@@ -412,30 +412,37 @@ export interface AIUsageOut {
 
 // ------------------------------------------------------------------ audience (P1)
 // Shapes mirror backend/app/schemas.py (Audience*). Shares are 0..1; "p" values are Jev probabilities.
-export type AudienceSignal = "distrust" | "confused" | "unsure" | "ok";
+export type AudienceLean = "trust" | "unsure" | "doubt";
 export interface AudiencePersona {
   id: string;
   idx: number;
-  segment: string; // segment key
+  segment: string; // reader-group key
   bio: string; // short: "34, Shop owner, Nagpur, Maharashtra"
-  detail: string; // the dataset's one-line persona
-  distrust: number | null; // null = not answered (its Jev request failed)
-  confused: number | null;
-  signal: AudienceSignal | null; // dot colour, decided in code: distrust red; confused/unsure amber; ok green
+  detail: string; // the group's description and trust / doubt triggers
+  score: number | null; // expected reaction 1 (trusts it, would act) .. 5 (distrusts it, put off); null = not answered
+  level: 1 | 2 | 3 | 4 | 5 | null; // nearest level, decided in code
+  lean: AudienceLean | null; // <= 2.5 trust, >= 3.5 doubt, else unsure (decided in code)
+  confused: number | null; // Jev p that this reader would misunderstand the main message
+  confused_flag: boolean | null; // confused > 0.70
 }
 export interface AudienceTotals {
   n: number;
   answered: number;
-  distrust_pct: number; // share with distrust p > 0.70
+  mean_score: number; // 1..5, lower = more trusting
+  sd: number; // spread of the readers' scores
+  trust_pct: number; // 0..1, share with score <= 2.5
+  unsure_pct: number;
+  doubt_pct: number; // share with score >= 3.5
   confused_pct: number; // share with confused p > 0.70
-  unsure_pct: number; // share with distrust p in 0.30..0.70
-  mean_distrust: number; // mean p; smoother than the shares, use it for small differences
   mean_confused: number;
+  levels: number[]; // readers at each level 1..5
 }
 export interface AudienceSegment extends AudienceTotals {
   key: string;
-  label: string; // "18–24, urban"
-  worst: AudiencePersona[]; // the 3 most negative personas
+  label: string; // "first-time college students"
+  description: string;
+  vs_overall: number; // group mean minus the post's mean (positive = more negative than average)
+  worst: AudiencePersona[]; // the 3 most negative readers
   why: string | null; // optional LLM sentence (an AI guess); null when not asked or the call failed
   why_source: "llm" | null;
 }
@@ -450,10 +457,11 @@ export interface AudienceCulprit {
   probabilities: { index: number; p: number }[];
 }
 export interface AudienceDelta {
-  distrust_pct: number; // this version minus the compared one (negative = trusted more)
-  confused_pct: number;
+  mean_score: number; // this version minus the compared one (negative = reacts better)
+  trust_pct: number;
   unsure_pct: number;
-  mean_distrust: number;
+  doubt_pct: number;
+  confused_pct: number;
   mean_confused: number;
 }
 export interface AudienceCompare {
@@ -473,10 +481,11 @@ export interface AudienceOut {
   label: string; // "Simulated audience, directional signal, not a survey" (always show it)
   attribution: string; // "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)" (licence-required; always show it)
   message: string | null; // human message for error / unavailable
+  audience_source: "brand" | "default" | null; // brand-defined reader groups (audiences.json) or the 6 default groups
   progress: { done: number; total: number } | null;
   overall: AudienceTotals | null;
   segments: AudienceSegment[];
-  personas: AudiencePersona[]; // fills in while running (240 when done)
+  personas: AudiencePersona[]; // fills in while running (all readers when done)
   culprit_paragraph: AudienceCulprit | null;
   compare_to_previous_version: AudienceCompare | null;
   warnings: string[];

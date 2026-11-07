@@ -126,9 +126,17 @@ with sync_playwright() as p:
                     break
                 time.sleep(2)
             assert au["status"] == "done", au.get("message")
-            S["au1"] = au["overall"]
+            o = au["overall"]
+            assert 1.0 <= o["mean_score"] <= 5.0 and o["answered"] > 0, o
+            segs = au["segments"]
+            assert segs and all(1.0 <= s["mean_score"] <= 5.0 and "vs_overall" in s for s in segs), "bad group scores"
+            expect(pg.locator("[role=meter][aria-label='All simulated readers, average reaction']")).to_be_visible(timeout=20000)
+            S["au1"] = o
+            S["au1_groups"] = {s["key"]: s["mean_score"] for s in segs}
             pg.get_by_role("tab", name="Findings").click()
-            return f"distrust {au['overall']['distrust_pct']:.0%} unsure {au['overall']['unsure_pct']:.0%} cost ${au.get('cost_usd')}"
+            rng = max(S["au1_groups"].values()) - min(S["au1_groups"].values())
+            return (f"mean {o['mean_score']:.2f} sd {o['sd']:.2f} trust {o['trust_pct']:.0%} doubt {o['doubt_pct']:.0%}; "
+                    f"group range {rng:.2f}; cost ${au.get('cost_usd')}")
 
     # ------------------------------------------------------------ 2 accept all
     @step("2 accept all fixes (grouped accept refetches)")
@@ -194,16 +202,22 @@ with sync_playwright() as p:
             expect(sec).to_be_visible(timeout=20000)
             big = sec.locator("p.text-\\[44px\\]")
             cls = big.get_attribute("class")
-            d = au["overall"]["distrust_pct"] - S["au1"]["distrust_pct"]
+            d = au["overall"]["mean_score"] - S["au1"]["mean_score"]
             if d < 0:
                 assert "text-flag-text" not in cls, f"improved but big number is red: {cls}"
             summary = sec.locator("p.text-footnote").first.inner_text()
-            if d < 0 and au["overall"]["unsure_pct"] >= 0.5:
-                assert "unsure rather than trusting" in summary, summary
+            if d <= -0.15:
+                assert "react better" in summary, summary
+            elif d >= 0.15:
+                assert "react worse" in summary, summary
             cmp = au["compare_to_previous_version"]
             assert cmp, "no compare"
+            assert len(cmp["segments"]) == len(au["segments"]), "groups missing from the compare"
+            assert sec.locator("li [role=meter]").count() == len(cmp["segments"]), "per-group bars missing"
             shot(pg, "7-audience-compare")
-            return f"distrust {S['au1']['distrust_pct']:.0%}->{au['overall']['distrust_pct']:.0%}; unsure {au['overall']['unsure_pct']:.0%}; '{summary[:90]}'"
+            g = "; ".join(f"{s['label'][:14]} {s['previous']['mean_score']:.2f}->{s['previous']['mean_score'] + s['delta']['mean_score']:.2f}"
+                          for s in cmp["segments"])
+            return f"mean {S['au1']['mean_score']:.2f}->{au['overall']['mean_score']:.2f}; '{summary[:80]}'; {g}"
 
     # ------------------------------------------------------------ 5 Meera / Kabir
     @step("5a Meera comments")

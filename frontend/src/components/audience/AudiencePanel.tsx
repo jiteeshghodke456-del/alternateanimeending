@@ -1,65 +1,88 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowRight, CircleHelp, Eye, Loader2, Minus, OctagonAlert, Play, Quote, RefreshCw, Sparkles, TrendingDown, TrendingUp, Users,
+  ArrowRight, Loader2, Minus, Play, Quote, RefreshCw, Sparkles, TrendingDown, TrendingUp, Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/ErrorState";
-import { DotGrid, DotLegend, TOTAL_DOTS, countKinds } from "@/components/audience/DotGrid";
+import { DotGrid, DotLegend, LEVELS, TOTAL_DOTS, countLevels, levelInfo, scoreColor } from "@/components/audience/DotGrid";
 import type { AudienceCompare, AudienceCulprit, AudienceOut, AudienceSegment, AudienceTotals } from "@/lib/api";
 import { AUDIENCE_ATTRIBUTION, AUDIENCE_LABEL, useAudience } from "@/lib/audience";
 import { cn } from "@/lib/utils";
 
-type Metric = "distrust" | "confused" | "unsure";
-const METRIC = {
-  distrust: { label: "Distrust", icon: OctagonAlert, color: "#FF453A", text: "text-flag-text", hint: "would not trust it" },
-  confused: { label: "Confused", icon: CircleHelp, color: "#FF9F0A", text: "text-human-text", hint: "would not understand it" },
-  unsure: { label: "Unsure", icon: Eye, color: "#0A84FF", text: "text-[var(--accent-text)]", hint: "on the fence about trusting it" },
-} as const;
-
-const share = (t: AudienceTotals, m: Metric): number => t[`${m}_pct` as const];
 const pct = (x: number): number => Math.round(x * 100);
-const points = (d: number): number => Math.round(d * 100);
-const mean = (t: AudienceTotals, m: Metric): number | null => (m === "distrust" ? t.mean_distrust : m === "confused" ? t.mean_confused : null);
+const f1 = (x: number): string => x.toFixed(1);
+const signed = (x: number): string => `${x > 0 ? "+" : x < 0 ? "−" : "±"}${Math.abs(x).toFixed(1)}`;
+/** Plain words for a 1..5 mean. */
+const leanWords = (s: number): string => (s <= 2.5 ? "leans to trust" : s >= 3.5 ? "leans to doubt" : "unsure");
+const MOVE = 0.15; // smaller changes in a mean score are shown as "about the same"
 
 /* ------------------------------------------------------------------ small pieces */
 
-/** Change chip: down is good for every metric here. Icon + words + sign, never colour alone. */
-function DeltaChip({ d, avg, className }: { d: number; avg?: number | null; className?: string }) {
-  const p = points(d);
-  const a = p === 0 && avg != null && Math.abs(avg) >= 0.02 ? avg : null; // shares saturate; the mean score still moves
-  const better = p < 0 || (a != null && a < 0), worse = p > 0 || (a != null && a > 0);
+/** Score change chip: lower is better. Icon + words + sign, never colour alone. */
+function DeltaChip({ d, className }: { d: number; className?: string }) {
+  const better = d <= -MOVE, worse = d >= MOVE;
   const Icon = better ? TrendingDown : worse ? TrendingUp : Minus;
   return (
-    <span className={cn(
+    <span className={[ // plain join: cn() would merge text-caption away against the colour class
       "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-caption font-semibold tabular-nums",
-      better ? "bg-pass/14 text-pass-text" : worse ? "bg-flag/12 text-flag-text" : "bg-foreground/8 text-muted-foreground", className,
-    )}>
+      better ? "bg-pass/14 text-pass-text" : worse ? "bg-flag/12 text-flag-text" : "bg-foreground/8 text-muted-foreground", className ?? "",
+    ].join(" ")}>
       <Icon className="size-3.5" strokeWidth={2} aria-hidden />
-      {p === 0 ? "No change" : `${p > 0 ? "+" : "−"}${Math.abs(p)} pts`}
-      <span className="sr-only">{better ? ", better" : worse ? ", worse" : ""}</span>
+      {better ? `${signed(d)} better` : worse ? `${signed(d)} worse` : "About the same"}
     </span>
   );
 }
 
-function Bar({ value, color, muted, label }: { value: number; color: string; muted?: boolean; label: string }) {
+/**
+ * The 1-5 reaction scale with a marker at the mean and a band for the spread (mean ± sd).
+ * The marker carries the number; the ends are labelled in words.
+ */
+function ScaleBar({ mean, sd, label, ghost, compact }: { mean: number; sd?: number; label: string; ghost?: number | null; compact?: boolean }) {
+  const x = (v: number) => `${((Math.min(5, Math.max(1, v)) - 1) / 4) * 100}%`;
   return (
-    <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-foreground/8" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct(value)}>
+    <div>
       <div
-        className="h-full rounded-full transition-[width] duration-500 ease-out motion-reduce:transition-none"
-        style={{
-          width: `${Math.max(value > 0 ? 2 : 0, value * 100)}%`,
-          background: muted ? "repeating-linear-gradient(135deg, rgba(128,128,128,.55) 0 4px, rgba(128,128,128,.35) 4px 8px)" : color,
-        }}
-      />
+        className="relative h-6" role="meter" aria-label={label} aria-valuemin={1} aria-valuemax={5} aria-valuenow={Number(mean.toFixed(2))}
+        aria-valuetext={`${f1(mean)} of 5, ${leanWords(mean)}${sd != null ? `, spread ${sd.toFixed(2)}` : ""}`}
+      >
+        <div className="absolute inset-x-0 top-1/2 flex h-2 -translate-y-1/2 overflow-hidden rounded-full opacity-35" aria-hidden>
+          {LEVELS.map((l) => <div key={l.n} className="flex-1" style={{ background: l.bg }} />)}
+        </div>
+        {sd != null && sd > 0.01 && (
+          <div className="absolute top-1/2 h-3.5 -translate-y-1/2 rounded-full bg-foreground/20" style={{ left: x(mean - sd), width: `calc(${x(mean + sd)} - ${x(mean - sd)})` }} aria-hidden />
+        )}
+        {ghost != null && (
+          <div className="absolute top-1/2 grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-dashed border-foreground/40 bg-background/60" style={{ left: x(ghost) }} aria-hidden />
+        )}
+        <div className="absolute top-1/2 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full text-[10px] font-bold text-black/80 shadow-[0_1px_3px_rgba(0,0,0,0.3)] ring-2 ring-white dark:ring-neutral-900" style={{ left: x(mean), background: scoreColor(mean) }} aria-hidden>
+          {f1(mean)}
+        </div>
+      </div>
+      {!compact && (
+        <div className="mt-0.5 flex justify-between text-[11px] text-muted-foreground" aria-hidden>
+          <span>1 trusts</span><span>3 unsure</span><span>5 distrusts</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Shares({ t }: { t: AudienceTotals }) {
+  return (
+    <p className="text-caption text-muted-foreground tabular-nums">
+      <span className="font-medium text-foreground">{pct(t.trust_pct)}%</span> lean to trust ·{" "}
+      <span className="font-medium text-foreground">{pct(t.unsure_pct)}%</span> unsure ·{" "}
+      <span className="font-medium text-foreground">{pct(t.doubt_pct)}%</span> lean to doubt
+      {t.confused_pct > 0 && <> · <span className="font-medium text-foreground">{pct(t.confused_pct)}%</span> may misread it</>}
+    </p>
   );
 }
 
 function Footnote({ data }: { data: AudienceOut | null }) {
   return (
     <footer className="px-1 text-caption text-muted-foreground">
-      <p>{data?.label ?? AUDIENCE_LABEL}</p>
+      <p>{data?.label ?? AUDIENCE_LABEL}. Scores are 1 (trusts it and would act) to 5 (distrusts it or is put off), averaged from each simulated reader&apos;s answer probabilities.</p>
       <p className="opacity-90">{data?.attribution ?? AUDIENCE_ATTRIBUTION}</p>
     </footer>
   );
@@ -68,96 +91,70 @@ function Footnote({ data }: { data: AudienceOut | null }) {
 /* ------------------------------------------------------------------ before / after */
 
 function Comparison({ cmp, now, segments, thisN }: { cmp: AudienceCompare; now: AudienceTotals; segments: AudienceSegment[]; thisN: number }) {
-  const [metric, setMetric] = useState<Metric>("distrust");
-  const M = METRIC[metric];
   const prevN = cmp.version_n ?? "earlier";
-  const before = share(cmp.overall, metric), after = share(now, metric);
+  const before = cmp.overall.mean_score, after = now.mean_score;
   const d = after - before;
-  const mb = mean(cmp.overall, metric), ma = mean(now, metric);
+  const dir: "better" | "worse" | "same" = d <= -MOVE ? "better" : d >= MOVE ? "worse" : "same";
   const byKey = new Map(segments.map((s) => [s.key, s]));
-  const dir: "better" | "worse" | "same" = points(d) < 0 ? "better" : points(d) > 0 ? "worse" : "same";
-  const mostUnsure = metric === "distrust" && now.unsure_pct >= 0.5;
+  const moved = cmp.segments.map((s) => ({ s, cur: byKey.get(s.key) })).filter((x) => x.cur);
+  const improved = moved.filter((x) => x.s.delta.mean_score <= -MOVE).length;
+  const worse = moved.filter((x) => x.s.delta.mean_score >= MOVE).length;
   const verdict = dir === "better"
-    ? mostUnsure
-      ? `${M.label} fell from ${pct(before)}% to ${pct(after)}%; most simulated readers (${pct(now.unsure_pct)}%) are now unsure rather than trusting.`
-      : `${M.label} went down. The rewrite reads better to this audience.`
-    : dir === "worse" ? `${M.label} went up. The rewrite reads worse to this audience.`
-    : mb != null && ma != null && Math.abs(ma - mb) >= 0.03
-      ? `The share barely moved, but the average ${M.label.toLowerCase()} score ${ma < mb ? "dropped" : "rose"}.`
-      : `${M.label} did not change much.`;
-  // colour follows direction, not the metric: green when it improves, red only when it gets worse
+    ? `Readers react better to v${thisN}: the average moved from ${f1(before)} to ${f1(after)} (lower is more trusting)${now.mean_score > 2.5 ? ", but on average they are still not leaning to trust it" : ""}.`
+    : dir === "worse" ? `Readers react worse to v${thisN}: the average moved from ${f1(before)} to ${f1(after)}.`
+    : `The average reaction barely moved (${f1(before)} to ${f1(after)}).`;
+  const groupLine = moved.length ? ` ${improved} of ${moved.length} groups react better${worse ? `, ${worse} worse` : ""}.` : "";
   const afterText = dir === "better" ? "text-pass-text" : dir === "worse" ? "text-flag-text" : "text-foreground";
-  const afterColor = dir === "better" ? "#30D158" : dir === "worse" ? "#FF453A" : "#8E8E93";
-  const segColor = (delta: number) => (points(delta) < 0 ? "#30D158" : points(delta) > 0 ? "#FF453A" : "#8E8E93");
 
   return (
     <section aria-label={`Before and after: version ${prevN} against version ${thisN}`} className="glass-strong relative overflow-hidden p-5">
       <div aria-hidden className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-[#30D158]/15 blur-3xl" />
       <div className="relative">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-headline">Before and after</h3>
-          <div role="tablist" aria-label="Compare by" className="inline-flex rounded-full bg-foreground/6 p-0.5">
-            {(Object.keys(METRIC) as Metric[]).map((m) => (
-              <button
-                key={m} role="tab" aria-selected={metric === m} onClick={() => setMetric(m)}
-                className={cn("rounded-full px-3 py-1 text-caption font-medium transition-colors", metric === m ? "bg-[#0A84FF] text-white" : "text-muted-foreground hover:text-foreground")}
-              >{METRIC[m].label}</button>
-            ))}
-          </div>
-        </div>
-
+        <h3 className="text-headline">Before and after</h3>
         <div className="mt-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-caption font-medium text-muted-foreground">v{prevN}</p>
-            <p className="text-[34px] font-semibold leading-none tracking-tight text-muted-foreground tabular-nums line-through decoration-1">{pct(before)}%</p>
+            <p className="text-caption font-medium text-muted-foreground">v{prevN} average</p>
+            <p className="text-[34px] font-semibold leading-none tracking-tight text-muted-foreground tabular-nums line-through decoration-1">{f1(before)}</p>
           </div>
           <ArrowRight className="mb-2 size-5 shrink-0 text-muted-foreground" strokeWidth={1.5} aria-hidden />
           <div className="min-w-0">
             <p className="text-caption font-medium">v{thisN} (this version)</p>
-            <p className={cn("text-[44px] font-semibold leading-none tracking-tight tabular-nums", afterText)}>{pct(after)}%</p>
+            <p className={cn("text-[44px] font-semibold leading-none tracking-tight tabular-nums", afterText)}>{f1(after)}</p>
           </div>
-          <DeltaChip d={d} avg={mb != null && ma != null ? ma - mb : null} className="mb-1 !text-footnote" />
+          <DeltaChip d={d} className="mb-1 !text-footnote" />
         </div>
         <p className="mt-3 text-footnote text-muted-foreground">
-          {pct(before)}% of the simulated readers {M.hint} in v{prevN}; now {pct(after)}%.{" "}
-          {mb != null && ma != null && <>Average score {mb.toFixed(2)} <ArrowRight className="inline size-3" aria-hidden /> {ma.toFixed(2)}. </>}
-          <span className="font-medium text-foreground">{verdict}</span>
+          <span className="font-medium text-foreground">{verdict}</span>{groupLine}
         </p>
 
-        <ul className="mt-5 space-y-4">
-          {cmp.segments.map((s) => {
-            const cur = byKey.get(s.key);
-            if (!cur) return null;
-            const b = share(s.previous, metric), a = share(cur, metric);
-            return (
-              <li key={s.key}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-footnote font-medium">{s.label}</span>
-                  <DeltaChip d={a - b} avg={metric === "distrust" ? s.delta.mean_distrust : metric === "confused" ? s.delta.mean_confused : null} />
-                </div>
-                <div className="mt-1.5 space-y-1">
-                  <div className="flex items-center gap-2"><span className="w-6 text-caption text-muted-foreground">v{prevN}</span><Bar value={b} color={M.color} muted label={`${s.label} ${M.label} in version ${prevN}`} /><span className="w-9 text-right text-caption tabular-nums text-muted-foreground">{pct(b)}%</span></div>
-                  <div className="flex items-center gap-2"><span className="w-6 text-caption font-medium">v{thisN}</span><Bar value={a} color={segColor(a - b)} label={`${s.label} ${M.label} in version ${thisN}`} /><span className="w-9 text-right text-caption font-semibold tabular-nums">{pct(a)}%</span></div>
-                  {mean(s.previous, metric) != null && mean(cur, metric) != null && (
-                    <p className="pl-8 text-caption text-muted-foreground tabular-nums">Average score {mean(s.previous, metric)!.toFixed(2)} <ArrowRight className="inline size-3" aria-hidden /> {mean(cur, metric)!.toFixed(2)}</p>
-                  )}
-                </div>
-              </li>
-            );
-          })}
+        <p className="mt-4 flex justify-between text-[11px] text-muted-foreground" aria-hidden><span>1 trusts it</span><span>3 unsure</span><span>5 distrusts it</span></p>
+        <ul className="mt-2 space-y-4">
+          {moved.map(({ s, cur }) => (
+            <li key={s.key}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-footnote font-medium">{s.label}</span>
+                <DeltaChip d={s.delta.mean_score} />
+              </div>
+              <div className="mt-1">
+                <ScaleBar compact mean={cur!.mean_score} ghost={s.previous.mean_score} label={`${s.label}: version ${prevN} ${f1(s.previous.mean_score)}, version ${thisN} ${f1(cur!.mean_score)}`} />
+              </div>
+              <p className="text-caption text-muted-foreground tabular-nums">v{prevN} {f1(s.previous.mean_score)} <ArrowRight className="inline size-3" aria-hidden /> v{thisN} {f1(cur!.mean_score)}</p>
+            </li>
+          ))}
         </ul>
-        <p className="mt-4 flex items-center gap-1.5 text-caption text-muted-foreground">
-          <span className="inline-block h-2 w-5 rounded-full" style={{ background: "repeating-linear-gradient(135deg, rgba(128,128,128,.55) 0 4px, rgba(128,128,128,.35) 4px 8px)" }} aria-hidden /> earlier version
-          <span className="ml-2 inline-block h-2 w-5 rounded-full" style={{ background: afterColor }} aria-hidden /> this version
+        <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block size-3.5 rounded-full border-2 border-dashed border-foreground/40" aria-hidden /> earlier version</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block size-3.5 rounded-full bg-[#FFD60A] ring-2 ring-white dark:ring-neutral-900" aria-hidden /> this version (number = average)</span>
         </p>
       </div>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------ segments */
+/* ------------------------------------------------------------------ groups */
 
-function SegmentCard({ seg, selected, onSelect, delta, avg }: { seg: AudienceSegment; selected: boolean; onSelect: () => void; delta?: number; avg?: number }) {
+function SegmentCard({ seg, selected, onSelect, delta }: { seg: AudienceSegment; selected: boolean; onSelect: () => void; delta?: number }) {
+  const v = seg.vs_overall;
   return (
     <button
       type="button" aria-pressed={selected} onClick={onSelect}
@@ -166,21 +163,19 @@ function SegmentCard({ seg, selected, onSelect, delta, avg }: { seg: AudienceSeg
         selected && "ring-2 ring-[#0A84FF]",
       )}
     >
-      <span className="flex items-center gap-1.5 text-footnote font-semibold"><Users className="size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />{seg.label}</span>
-      {delta != null && <div className="mt-1.5"><DeltaChip d={delta} avg={avg} /></div>}
-      <div className="mt-3 space-y-2">
-        {(Object.keys(METRIC) as Metric[]).map((m) => {
-          const Ic = METRIC[m].icon, v = share(seg, m);
-          return (
-            <div key={m} className="flex items-center gap-2">
-              <span className="flex w-[76px] shrink-0 items-center gap-1 text-caption text-muted-foreground"><Ic className="size-3.5" strokeWidth={1.75} aria-hidden />{METRIC[m].label}</span>
-              <Bar value={v} color={METRIC[m].color} label={`${seg.label}, ${METRIC[m].label}`} />
-              <span className="w-9 text-right text-caption font-semibold tabular-nums">{pct(v)}%</span>
-            </div>
-          );
-        })}
+      <span className="flex items-start gap-1.5 text-footnote font-semibold"><Users className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden />{seg.label}</span>
+      {seg.description && <span className="mt-0.5 line-clamp-2 block text-caption text-muted-foreground">{seg.description}</span>}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-caption font-semibold tabular-nums">{f1(seg.mean_score)} · {leanWords(seg.mean_score)}</span>
+        <span className={`rounded-full px-2 py-0.5 text-caption font-medium tabular-nums ${
+          v >= MOVE ? "bg-flag/12 text-flag-text" : v <= -MOVE ? "bg-pass/14 text-pass-text" : "bg-foreground/8 text-muted-foreground"}`}>
+          {Math.abs(v) < MOVE ? "About the post average" : `${signed(v)} vs post average`}
+        </span>
+        {delta != null && <DeltaChip d={delta} />}
       </div>
-      <p className="mt-2.5 text-caption text-muted-foreground">Average distrust score {seg.mean_distrust.toFixed(2)} · {seg.answered}/{seg.n} answered</p>
+      <div className="mt-2"><ScaleBar mean={seg.mean_score} sd={seg.sd} label={`${seg.label}, average reaction`} /></div>
+      <div className="mt-1.5"><Shares t={seg} /></div>
+      <p className="mt-1 text-caption text-muted-foreground tabular-nums">Spread {seg.sd.toFixed(2)} · {seg.answered}/{seg.n} answered</p>
     </button>
   );
 }
@@ -199,21 +194,25 @@ function SegmentDetail({ seg, culprit }: { seg: AudienceSegment; culprit: Audien
         </p>
       )}
       <ul className="space-y-2.5">
-        {seg.worst.map((p) => (
-          <li key={p.id} className="rounded-2xl bg-foreground/5 p-3.5">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-footnote font-semibold">{p.bio}</p>
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-flag/12 px-2 py-0.5 text-caption font-medium text-flag-text tabular-nums">
-                <OctagonAlert className="size-3.5" strokeWidth={1.75} aria-hidden /> {p.distrust != null ? p.distrust.toFixed(2) : "n/a"}
-              </span>
-            </div>
-            <p className="mt-1 text-caption leading-5 text-muted-foreground">{p.detail}</p>
-          </li>
-        ))}
+        {seg.worst.map((p) => {
+          const lv = p.score != null ? levelInfo(p.score) : null;
+          return (
+            <li key={p.id} className="rounded-2xl bg-foreground/5 p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-footnote font-semibold">{p.bio}</p>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold text-black/80 tabular-nums" style={{ background: lv?.bg ?? "#ddd" }}>
+                  {p.score != null ? `${f1(p.score)} · ${lv!.label}` : "n/a"}
+                </span>
+              </div>
+              {p.confused_flag && <p className="mt-1 text-caption font-medium text-[var(--accent-text)]">May misread the main message</p>}
+              <p className="mt-1 text-caption leading-5 text-muted-foreground">{p.detail}</p>
+            </li>
+          );
+        })}
       </ul>
       {culprit ? (
         <div className="rounded-2xl border border-[#FF9F0A]/50 bg-human/10 p-3.5">
-          <p className="mb-1 flex items-center gap-1.5 text-caption font-semibold text-human-text"><Quote className="size-3.5" strokeWidth={1.75} aria-hidden /> {culprit.certain ? "Paragraph that worries this audience most" : "Possibly the paragraph that worries this audience most"}</p>
+          <p className="mb-1 flex items-center gap-1.5 text-caption font-semibold text-human-text"><Quote className="size-3.5" strokeWidth={1.75} aria-hidden /> {culprit.certain ? "Paragraph that most reduces trust" : "Possibly the paragraph that most reduces trust"}</p>
           <p className="text-footnote">&ldquo;{culprit.text}&rdquo;</p>
           <p className="mt-1.5 text-caption text-muted-foreground">Marked in the content on the left.</p>
         </div>
@@ -245,9 +244,9 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
   const done = data?.status === "done";
   const segs = data?.segments ?? [];
   const segment = segs.find((s) => s.key === selected) ?? null;
-  const counts = useMemo(() => countKinds(data?.personas ?? []), [data?.personas]);
+  const counts = useMemo(() => countLevels(data?.personas ?? []), [data?.personas]);
   const progress = data?.progress;
-  const answered = progress?.done ?? (data?.personas ?? []).filter((p) => p.signal).length;
+  const answered = progress?.done ?? (data?.personas ?? []).filter((p) => p.level != null).length;
   const total = progress?.total ?? TOTAL_DOTS;
   const cmp = data?.compare_to_previous_version ?? null;
   const cmpDelta = new Map((cmp?.segments ?? []).map((s) => [s.key, s.delta]));
@@ -273,7 +272,9 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
           <div className="min-w-0 flex-1 basis-56">
             <h3 className="text-headline">Audience preview</h3>
             <p className="mt-0.5 text-footnote text-muted-foreground">
-              240 simulated Indian readers react to this version, so you can see who may distrust or misread it before it goes out.
+              {data?.audience_source === "brand"
+                ? `${total} simulated readers from ${segs.length || "the"} reader groups your brand defined react to this version, so you can see which groups may doubt or misread it before it goes out.`
+                : `${total} simulated Indian readers in six groups react to this version, so you can see which groups may doubt or misread it before it goes out.`}
             </p>
           </div>
           {!unavailable && runBtn(done ? "Run again" : "Run audience preview", done ? "again" : "play")}
@@ -293,6 +294,13 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
             <div className="h-1.5 overflow-hidden rounded-full bg-foreground/8"><div className="h-full rounded-full bg-[#0A84FF] transition-[width] duration-300" style={{ width: `${total ? (answered / total) * 100 : 0}%` }} /></div>
           </div>
         )}
+        {done && data?.overall && (
+          <div className="mt-4">
+            <p className="text-footnote"><span className="font-semibold">Post average {f1(data.overall.mean_score)} of 5</span> <span className="text-muted-foreground">({leanWords(data.overall.mean_score)}; spread {data.overall.sd.toFixed(2)})</span></p>
+            <div className="mt-1"><ScaleBar mean={data.overall.mean_score} sd={data.overall.sd} label="All simulated readers, average reaction" /></div>
+            <div className="mt-1"><Shares t={data.overall} /></div>
+          </div>
+        )}
         {done && data && (
           <p className="mt-3 text-caption text-muted-foreground tabular-nums">
             {data.overall?.answered ?? 0} of {data.overall?.n ?? TOTAL_DOTS} answered
@@ -304,7 +312,7 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
       </section>
 
       {(data?.status === "none" || (!data && !error)) && !running && (
-        <p className="px-2 text-center text-footnote text-muted-foreground">Nothing has been run for this version yet. It takes a couple of seconds.</p>
+        <p className="px-2 text-center text-footnote text-muted-foreground">{data?.message ?? "Nothing has been run for this version yet. It takes a couple of seconds."}</p>
       )}
 
       {done && data && cmp && data.overall && <Comparison cmp={cmp} now={data.overall} segments={segs} thisN={versionN} />}
@@ -321,17 +329,18 @@ export function AudiencePanel({ versionId, versionN, onCulprit, onOpenVersion, p
             <h3 className="text-headline">Every reader</h3>
             <span className="text-caption text-muted-foreground">Tap a dot to open its group</span>
           </div>
-          <DotGrid personas={data?.personas ?? []} segmentOrder={segs.map((s) => s.key)} finished={!!done} selected={selected} onSelect={(k) => setSelected((cur) => (cur === k ? null : k))} />
-          <DotLegend counts={counts} className="mt-4" />
+          <DotGrid personas={data?.personas ?? []} segmentOrder={segs.map((s) => s.key)} finished={!!done} total={total} selected={selected} onSelect={(k) => setSelected((cur) => (cur === k ? null : k))} />
+          <DotLegend counts={counts.levels} confused={counts.confused} className="mt-4" />
         </section>
       )}
 
       {done && segs.length > 0 && (
         <>
-          <h3 className="px-1 pt-1 text-headline">Six audience groups</h3>
+          <h3 className="px-1 pt-1 text-headline">{segs.length} reader groups</h3>
+          <p className="-mt-2 px-1 text-caption text-muted-foreground">Tap a group to see its most negative readers{segs.some((s) => s.why) ? " and a likely reason" : ""}.</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {segs.map((s) => (
-              <SegmentCard key={s.key} seg={s} selected={selected === s.key} onSelect={() => setSelected((cur) => (cur === s.key ? null : s.key))} delta={cmpDelta.get(s.key)?.distrust_pct} avg={cmpDelta.get(s.key)?.mean_distrust} />
+              <SegmentCard key={s.key} seg={s} selected={selected === s.key} onSelect={() => setSelected((cur) => (cur === s.key ? null : s.key))} delta={cmpDelta.get(s.key)?.mean_score} />
             ))}
           </div>
           {segment && <SegmentDetail seg={segment} culprit={data?.culprit_paragraph ?? null} />}
