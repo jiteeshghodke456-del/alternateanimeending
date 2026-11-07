@@ -34,6 +34,10 @@ RATIO = 0.75  # Lowe ratio test
 RANSAC_REPROJ_PX = 5.0
 GENUINE_AT = 40  # geometric inliers >= this: the approved logo
 POSSIBLE_AT = 10  # 10..39 with a valid outline: possibly altered (or very small), needs a human look
+# A flat, simple logo has few SIFT keypoints (some have only ~30), so even a pixel-perfect
+# copy can't reach 40 inliers. For such logos the genuine bar is this share of the logo's own keypoints,
+# never above GENUINE_AT and always above POSSIBLE_AT (so the "possibly altered" band still exists).
+GENUINE_SHARE_OF_KEYPOINTS = 0.5
 MAX_ASPECT_DEVIATION = 0.10  # projected width/height vs the logo's own, beyond this = stretched
 MIN_SIDE_PX = 24  # each side of the projected outline, in scene pixels
 MIN_AREA_FRAC = 0.0015  # projected outline must cover at least 0.15% of the image ...
@@ -65,6 +69,7 @@ class LogoMatch:
     off_palette: list[dict] = field(default_factory=list)
     elapsed_ms: int = 0
     error: Optional[str] = None
+    genuine_at: int = GENUINE_AT  # the bar this approved logo can reach (genuine_threshold)
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -222,6 +227,12 @@ def logo_colours(scene_rgb: np.ndarray, H: np.ndarray, logo_shape: tuple[int, in
 
 
 # ------------------------------------------------------------------ measurement
+def genuine_threshold(logo_keypoints: int) -> int:
+    """Inliers needed for "genuine": GENUINE_AT, lowered for logos with few keypoints (code decides)."""
+    share = round(GENUINE_SHARE_OF_KEYPOINTS * max(0, logo_keypoints))
+    return min(GENUINE_AT, max(POSSIBLE_AT + 2, share))
+
+
 def match_logo(image_path: str, logo_path: str, *, palette: Optional[list[tuple[str, str]]] = None,
                colour_threshold: float = DEFAULT_COLOUR_DELTA_E, ratio: float = RATIO) -> LogoMatch:
     """SIFT on the approved logo vs the image, ratio test, RANSAC homography, geometry check,
@@ -251,7 +262,8 @@ def _match_logo(image_path: str, logo_path: str, palette: Optional[list[tuple[st
         scene = _fit(scene, MAX_SCENE_SIDE)
         sh, sw = scene.shape[:2]
         pts2, d2 = sift_features(cv2.cvtColor(scene, cv2.COLOR_BGR2GRAY), side)
-        out = LogoMatch(inliers=0, raw_inliers=0, good_matches=0, valid_outline=False)
+        out = LogoMatch(inliers=0, raw_inliers=0, good_matches=0, valid_outline=False,
+                        genuine_at=genuine_threshold(len(pts1)))
         if d1 is None or d2 is None or len(pts2) < 2:
             out.elapsed_ms = int((time.perf_counter() - t0) * 1000)
             return out
@@ -302,14 +314,15 @@ def decide(m: LogoMatch, has_logo_p: Optional[float] = None) -> LogoVerdict:
     | none / < 10                | < 0.30       | not_found  | pass  |
     | none / < 10                | not asked    | not_found  | human |
     """
-    if m.valid_outline and m.inliers >= GENUINE_AT:
+    genuine_at = m.genuine_at or GENUINE_AT
+    if m.valid_outline and m.inliers >= genuine_at:
         if (m.aspect_deviation or 0.0) > MAX_ASPECT_DEVIATION:
             return LogoVerdict("altered", "flag", f"The approved logo is there ({m.inliers} matching points) but "
                                f"stretched by about {m.aspect_deviation:.0%}.", stretched=True)
         return LogoVerdict("genuine", "pass", f"Matches the approved logo file ({m.inliers} matching points).")
     if m.valid_outline and m.inliers >= POSSIBLE_AT:
         return LogoVerdict("altered", "human", f"Only {m.inliers} points match the approved logo (a genuine copy "
-                           f"usually has {GENUINE_AT}+). It may be altered, or just very small.")
+                           f"usually has {genuine_at}+). It may be altered, or just very small.")
     if has_logo_p is not None and has_logo_p >= HAS_LOGO_FLAG_AT:
         return LogoVerdict("altered", "flag", "The image shows a logo, but it doesn't match the approved logo "
                            "file, so it looks redrawn or altered." + NO_OUTLINE)

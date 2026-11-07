@@ -202,3 +202,46 @@ def test_recoloured_logo_finding_has_box(client: TestClient, monkeypatch, tmp_pa
     fs = [f for f in client.get(f"/api/versions/{vid}/findings").json() if f["tier"] == "logo"]
     assert len(fs) == 1 and fs[0]["severity"] == "minor" and fs[0]["explanation"].startswith("Logo colour off-palette.")
     assert fs[0]["box"]["left"] == pytest.approx(60 / 1080, abs=0.01) and len(fs[0]["quad"]) == 4
+
+
+# ------------------------------------------------------------------ regression: flat logos with few keypoints
+def _flat_logo(path) -> None:  # noqa: ANN001
+    """A simple flat mark (two plain shapes under one arc on a dark square): few SIFT keypoints, like many real logos."""
+    from PIL import Image, ImageDraw
+
+    im = Image.new("RGB", (512, 512), "#202124")
+    d = ImageDraw.Draw(im)
+    d.polygon([(130, 300), (250, 330), (250, 400), (130, 370)], fill="#FFFFFF")
+    d.polygon([(262, 330), (382, 300), (382, 370), (262, 400)], fill="#FFFFFF")
+    d.arc((176, 170, 336, 330), 220, 320, fill="#E8A33D", width=18)
+    im.save(path)
+
+
+def test_genuine_threshold_scales_down_only_for_flat_logos() -> None:
+    assert L.genuine_threshold(500) == L.GENUINE_AT  # feature-rich logo: unchanged
+    assert L.genuine_threshold(80) == L.GENUINE_AT
+    assert L.genuine_threshold(28) == 14
+    assert L.genuine_threshold(5) == L.POSSIBLE_AT + 2  # the "possibly altered" band always exists
+    m = L.match_logo(ad("ad_good"), LOGO, palette=PALETTE)
+    assert m.genuine_at == L.GENUINE_AT and L.decide(m).verdict == "genuine"
+
+
+def test_flat_logo_pasted_as_is_counts_as_genuine(tmp_path) -> None:  # noqa: ANN001
+    """Before: a pixel-perfect copy of a flat logo could never reach 40 inliers, so it was 'possibly altered'."""
+    from PIL import Image
+
+    logo = tmp_path / "flat_logo.png"
+    _flat_logo(logo)
+    scene = Image.new("RGB", (1080, 1080), "#202124")
+    scene.paste(Image.open(logo), (60, 500))  # at its own size
+    scene_path = tmp_path / "poster.png"
+    scene.save(scene_path)
+    m = L.match_logo(str(scene_path), str(logo))
+    assert m.genuine_at < L.GENUINE_AT
+    assert m.inliers < L.GENUINE_AT  # the old bar was out of reach
+    v = L.decide(m, has_logo_p=0.9)
+    assert (v.verdict, v.band) == ("genuine", "pass"), (m.inliers, m.genuine_at, v.reason)
+    # a scene without the logo is still not genuine
+    empty = tmp_path / "empty.png"
+    Image.new("RGB", (1080, 1080), "#7B2FF7").save(empty)
+    assert L.decide(L.match_logo(str(empty), str(logo)), has_logo_p=0.9).verdict == "altered"
