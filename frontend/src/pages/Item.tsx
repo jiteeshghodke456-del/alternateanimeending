@@ -281,6 +281,9 @@ function Item() {
   const isLatest = vid === item.latest_version_id;
   const checking = running || item.state === "checking";
   const locked = item.state === "approved" || item.state === "rejected";
+  // Findings are read-only once the item is decided, for anyone but its creator, and on older versions.
+  const nextVersionN = detail.versions.find((v) => v.n === (version?.n ?? 0) + 1)?.n ?? null;
+  const readOnly = locked || !isCreator || !isLatest ? { itemState: item.state, nextVersionN } : null;
   const handledSteps = list.filter((f) => f.status === "accepted" || f.status === "edited").length;
   const serverWhy = (k: keyof ItemDetail["actions"]) => (acts[k].allowed ? null : acts[k].reason ?? "Not available right now.");
 
@@ -519,7 +522,8 @@ function Item() {
                           <FindingCard
                             finding={f} group={groupOf.get(f.id) ?? null} onJump={jumpTo} active={active === f.id} onSelect={setActive}
                             canAct={!locked && isLatest && !checking && (isCreator || canReview)}
-                            canOverride={canReview}
+                            readOnly={readOnly}
+                            canOverride={canReview && !locked && isLatest}
                             overrideDisabledReason={overrideWhy}
                             onAccept={onAccept} onEdit={onEdit}
                             onDismiss={setDismissFor} onOverride={setOverrideFor}
