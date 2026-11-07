@@ -48,3 +48,16 @@ def test_ordinals_are_not_claims_unless_they_rank():
     ctx = CheckContext(channel="instagram", rules=[])
     assert [t.text for t in T.claim_triggers("Your 1st campaign doesn't have to be perfect.", [])] == []
     assert [t.text for t in T.claim_triggers("We are ranked 1st in India for delivery.", [])] == ["1"]
+
+
+def test_fix_may_keep_a_superlative_it_was_not_asked_to_fix_when_no_rule_wants_evidence():
+    import asyncio
+    from app.pipeline import selfcheck as S
+    from app.pipeline.context import CheckContext, UnitIn
+    text = "HUGE NEWS!!! We are the #1 email tool."
+    unit = UnitIn(id=1, kind="text", idx=0, text=text, char_start=0)
+    ctx = CheckContext(channel="instagram", rules=[], post_text=text)
+    ok = asyncio.run(S.verify_fix(unit, 0, len(text), "Big news: we are the #1 email tool.", None, ctx, use_jev=False))
+    assert not any("superlative" in r for r in ok.reasons)
+    added = asyncio.run(S.verify_fix(unit, 0, len(text), "Big news: we are the best email tool.", None, ctx, use_jev=False))
+    assert any("superlative" in r for r in added.reasons)

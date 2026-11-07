@@ -611,6 +611,8 @@ class _Run:
         # A claim on an EXPIRED fact (e.g. an ended offer) must be removed: only the expired note is passed,
         # since its "current" candidates are other facts the LLM would otherwise swap in (another offer, price).
         removal = any(d.claim_status == "outdated" for d in members)
+        flagged = {d.rule_code for d in members if d.band == "flag"}
+        lenient = frozenset(d.rule_code for d in members if d.band == "human" and d.rule_code and d.rule_code not in flagged)
         notes: list[str] = []
         for d in members:
             ns = [n for n in d.facts_note if "EXPIRED" in n] if d.claim_status == "outdated" else d.facts_note
@@ -629,14 +631,14 @@ class _Run:
         fix: Optional[str] = base if all_det else (unmask(out.fix, mapping) if out and out.fix else None)
         chk: Optional[S.SelfCheckResult] = None
         if fix is not None:
-            chk = await self.check_region(u, rs, re_, fix, rules, all_det, base, removal)
+            chk = await self.check_region(u, rs, re_, fix, rules, all_det, base, removal, lenient)
         if not all_det and (chk is None or not chk.verified):
             fb = "; ".join(chk.reasons) if chk else "no fix was returned"
             out2 = await X.explain_region(req, calls=self.calls, unit_id=u.id, feedback=fb,
                                           previous_fix=mask_pii_map(fix or "")[0], purpose="explain_retry")
             if out2 is not None and out2.fix:
                 fix2 = unmask(out2.fix, mapping)
-                chk2 = await self.check_region(u, rs, re_, fix2, rules, False, base, removal)
+                chk2 = await self.check_region(u, rs, re_, fix2, rules, False, base, removal, lenient)
                 if chk2.verified or chk is None:
                     fix, chk = fix2, chk2
         verified = bool(chk and chk.verified)
@@ -653,10 +655,11 @@ class _Run:
         return members
 
     async def check_region(self, u: UnitIn, rs: int, re_: int, fix: str, rules: list[RuleSpec], det: bool,
-                           base: str, removal: bool = False) -> S.SelfCheckResult:
+                           base: str, removal: bool = False, lenient: frozenset = frozenset()) -> S.SelfCheckResult:
         return await S.verify_fix(u, rs, re_, fix, rules[0] if rules else None, self.ctx, use_jev=self.use_jev,
                                   calls=self.calls, deterministic=det, extra_rules=rules[1:], region=True,
-                                  meaning_original=u.text[:rs] + base + u.text[re_:], removal_required=removal)
+                                  meaning_original=u.text[:rs] + base + u.text[re_:], removal_required=removal,
+                                  lenient=lenient)
 
     async def unit_drafts(self, u: UnitIn, hits: list[Tier0Hit]) -> list[FindingDraft]:
         hits = merge_by_sentence(u.text, hits) if u.is_text else hits

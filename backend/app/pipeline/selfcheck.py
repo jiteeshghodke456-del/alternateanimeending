@@ -171,13 +171,17 @@ async def verify_fix(
     region: bool = False,
     meaning_original: Optional[str] = None,
     removal_required: bool = False,
+    lenient: frozenset = frozenset(),
 ) -> SelfCheckResult:
     """`deterministic` = the fix came from the brand word list (e.g. old -> new product name), so the
     meaning check is skipped: changing that word is the point of the fix.
     `extra_rules` = the other rules of an edit region (one fix for several findings): the fix must
     satisfy all of them. `region` = the fix rewrites whole sentences, so every claim left in it is
     re-checked (not only new ones) and the text must stay well-formed. `meaning_original` = the unit with
-    the word-list renames already applied, so the meaning check doesn't read a product rename as a new topic."""
+    the word-list renames already applied, so the meaning check doesn't read a product rename as a new topic.
+    `lenient` = codes of rules the original only "needed a human look" for (never flagged): the fix must not make
+    them a flag, but needn't bring an uncertain judgment below the pass line (real-brand test: a borderline
+    0.36 on a vague voice rule blocked every rewrite of a post that was otherwise fixed)."""
     original = unit.text
     fixed = apply_fix(original, start, end, fix)
     span = (start, start + len(fix))
@@ -201,6 +205,11 @@ async def verify_fix(
         if wrong:
             return SelfCheckResult(False, [wrong], fixed)
         sup = superlatives_in(fix, ctx)
+        strict = any(k in (r.params or {}) for r in ctx.enabled_rules()
+                     for k in ("superlative_patterns", "needs_supporting_fact", "reject_expired_facts"))
+        if not strict:  # no rule asks superlatives for evidence: only ones the fix ADDS block it (kept = a reminder)
+            had = {s.lower() for s in superlatives_in(original[start:end], ctx)}
+            sup = [s for s in sup if s.lower() not in had]
         if sup:
             return SelfCheckResult(False, [f"the fix uses an unsupported superlative (“{sup[0]}”)"], fixed)
         cta = added_cta(original, start, end, fix, ctx)
@@ -227,10 +236,14 @@ async def verify_fix(
         reasons.append("the fix adds a new blocking problem")
 
     # 2. Claims inside the fixed region (claims that were already there are their own findings)
-    old_sigs = {_sig(c) for c in C.extract_claims(original, _with_post(ctx, ctx.post_text or original), covered=before)}
+    old_claims = C.extract_claims(original, _with_post(ctx, ctx.post_text or original), covered=before)
+    old_sigs = {_sig(c) for c in old_claims}
+    old_triggers = {t.text.lower() for c in old_claims for t in c.triggers}
     for cl in C.extract_claims(fixed, fctx, covered=after):
         if cl.end <= span[0] or cl.start >= span[1] or (_sig(cl) in old_sigs and not region):
             continue
+        if cl.rule_code is None and all(x.text.lower() in old_triggers for x in cl.triggers):
+            continue  # only figures/claims the text already had, and no rule asks them for evidence: a reminder, not a blocker
         masked = mask_pii(cl.text)[0] if use_jev else None
         res = await C.check_claim(cl, fctx, use_jev=use_jev, calls=calls, unit_id=unit.id, masked_text=masked, purpose="selfcheck")
         if res.status != "supported":
@@ -277,7 +290,8 @@ async def verify_fix(
                 reasons.append("the fix ranks the product above others (an unsupported superlative)")
             for r in targets:
                 p = nouls.get(r.code)
-                if p is None or to_band(p, r.category) != "pass":
+                band = to_band(p, r.category) if p is not None else None
+                if p is None or (band != "pass" and not (r.code in lenient and band == "human")):
                     reasons.append(f"the fixed text may still break {r.code}")
     return SelfCheckResult(not reasons, reasons, fixed)
 
