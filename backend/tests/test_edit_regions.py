@@ -20,7 +20,7 @@ from pipeline_helpers import DEMO_TEXT, seed_ctx, text_units
 REWRITES = [
     ("#1", "Saffron Signature Roast is a coffee we are proud to serve."),
     ("Rated 4.8", "Roasted fresh in Pune, it is a smooth filter blend. Affordable? Yes, and it is a lovely cup."),
-    ("MONSOON20", "Grab a fresh bag of Saffron Signature Roast online."),
+    ("MONSOON20", "Fresh bags of Saffron Signature Roast are in stock online."),
     ("Order now", "Order online today."),
 ]
 
@@ -76,7 +76,7 @@ def test_accept_all_fixes_on_demo_post_gives_clean_v2(monkeypatch) -> None:  # n
     assert applied.skipped == []  # every member of a region counts as applied, the region fix is applied once
     assert v2 == ("Saffron Signature Roast is a coffee we are proud to serve.\n\n"
                   "Roasted fresh in Pune, it is a smooth filter blend. Affordable? Yes, and it is a lovely cup.\n\n"
-                  "Grab a fresh bag of Saffron Signature Roast online.\n\n"
+                  "Fresh bags of Saffron Signature Roast are in stock online.\n\n"
                   "Order online today.")
     grammatical(v2)
     assert not S.superlatives_in(v2, seed_ctx(v2))
@@ -144,7 +144,7 @@ def test_region_fix_that_brings_back_an_old_name_is_rejected(monkeypatch) -> Non
     llm = demo_llm(first={"MONSOON20": "Steam Classic is worth a try, so order a pack."})
     res = check(DEMO_TEXT, monkeypatch, llm)
     [d] = {d.fix_group: d for d in res.findings if d.quote.startswith("Flat 20%")}.values()
-    assert d.fix == "Grab a fresh bag of Saffron Signature Roast online." and d.fix_verified
+    assert d.fix == "Fresh bags of Saffron Signature Roast are in stock online." and d.fix_verified
 
 
 def test_llm_context_has_renames_applied(monkeypatch) -> None:  # noqa: ANN001
