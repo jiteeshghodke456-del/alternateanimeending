@@ -141,6 +141,8 @@ class Unit(SQLModel, table=True):
     image_path: Optional[str] = None
     char_start: Optional[int] = None  # offsets into Version.text
     char_end: Optional[int] = None
+    # {"provenance": pipeline.provenance.Provenance.to_dict()} for image units (read from the ORIGINAL upload)
+    meta: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
 
 
 class Finding(SQLModel, table=True):

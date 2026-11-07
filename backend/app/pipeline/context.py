@@ -53,6 +53,7 @@ class UnitIn:
     char_start: Optional[int] = None
     image_path: Optional[str] = None
     page: Optional[int] = None
+    meta: dict[str, Any] = field(default_factory=dict)  # image units: {"provenance": {...}}
 
     @property
     def is_text(self) -> bool:

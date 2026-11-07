@@ -90,11 +90,16 @@ def create_version(
     caption: Optional[str] = None,
     alt_text: Optional[str] = None,
     check_status: str = "queued",
+    provenance: Optional[dict] = None,
 ) -> Version:
     """Validate input, store the file, split into units and add Version + Units (flushes, no commit).
 
     Exactly one of `text` / `file_bytes` is used (file wins). Raises units.UploadError.
+    Images: provenance (C2PA/XMP/EXIF) is read from the ORIGINAL bytes before normalise_image stores a
+    metadata-free copy. `provenance` carries an earlier version's result (a resubmit re-reads the stored,
+    stripped file, which no longer has it).
     """
+    unit_meta: Optional[dict] = None
     if file_bytes:
         kind, mime, ext = U.validate_upload(filename, file_bytes)
         if kind == "pdf":
@@ -102,7 +107,11 @@ def create_version(
             path = save_upload(file_bytes, ext)
             v_kind = "pdf"
         else:
-            # store a small, upright PNG/JPEG once; Jev, palette and logo fidelity all read this file
+            from app.pipeline.provenance import read_provenance
+
+            prov = provenance if provenance is not None else read_provenance(file_bytes, filename).to_dict()
+            unit_meta = {"provenance": prov}
+            # store a small, upright PNG/JPEG once (metadata stripped); Jev, palette and logo fidelity read this file
             file_bytes, mime, ext = U.normalise_image(file_bytes)
             path = save_upload(file_bytes, ext)
             split = U.image_units(path, caption, alt_text)
@@ -122,6 +131,7 @@ def create_version(
         session.add(Unit(
             version_id=version.id, kind=d.kind, page=d.page, idx=d.idx, text=d.text,
             image_path=d.image_path, char_start=d.char_start, char_end=d.char_end,
+            meta=unit_meta if d.kind == "image" else None,
         ))
     session.flush()
     return version
@@ -164,9 +174,11 @@ def to_version_summary(v: Version) -> VersionSummary:
 
 
 def to_unit_out(u: Unit) -> UnitOut:
+    prov = (u.meta or {}).get("provenance") if u.kind == "image" else None
     return UnitOut(id=u.id, kind=u.kind, page=u.page, idx=u.idx, text=u.text,
                    image_url=f"/api/units/{u.id}/image" if u.image_path else None,
-                   char_start=u.char_start, char_end=u.char_end)
+                   char_start=u.char_start, char_end=u.char_end,
+                   provenance=prov if isinstance(prov, dict) and prov.get("status") else None)
 
 
 def to_version_out(session: Session, v: Version) -> VersionOut:

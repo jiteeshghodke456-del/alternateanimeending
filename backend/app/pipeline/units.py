@@ -244,7 +244,11 @@ def normalise_image(data: bytes, max_side: int = STORE_MAX_SIDE) -> tuple[bytes,
         fmt0, size0, mode0, orient0 = probe.format, probe.size, probe.mode, _orientation(probe)
     del probe
     if fmt0 in ("PNG", "JPEG") and max(size0) <= max_side and orient0 in (None, 1) and mode0 in ("RGB", "RGBA"):
-        return data, IMAGE_MIME["png" if fmt0 == "PNG" else "jpg"], "png" if fmt0 == "PNG" else "jpg"
+        from app.pipeline.provenance import strip_metadata  # EXIF/XMP/C2PA out of the stored copy, pixels untouched
+
+        clean = strip_metadata(data)
+        if clean is not None:
+            return clean, IMAGE_MIME["png" if fmt0 == "PNG" else "jpg"], "png" if fmt0 == "PNG" else "jpg"
     im, fmt = open_image_small(data, max_side)
     im = _sensible_mode(im)
     out = io.BytesIO()
