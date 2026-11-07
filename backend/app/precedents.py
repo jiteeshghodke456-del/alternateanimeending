@@ -132,6 +132,8 @@ def link_seeded(session: Session, version_id: int, rows: list[Finding]) -> int:
                   detail={"finding_id": f.id, "rule_code": f.rule_code, "reason": p.reason, "seeded": True})
             n += 1
             break
+    if seeded:
+        log.info("seeded precedents for version %s: %d of %d linked (%d findings)", version_id, n, len(seeded), len(rows))
     return n
 
 

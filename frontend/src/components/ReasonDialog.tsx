@@ -65,7 +65,7 @@ export function DismissDialog({ open, onOpenChange, onConfirm }: {
       <DialogContent className={surface}>
         <DialogHeader>
           <DialogTitle className="text-title3">Dismiss this finding</DialogTitle>
-          <DialogDescription>Tell us why. The reason is saved in the history and helps spot unclear rules.</DialogDescription>
+          <DialogDescription>Tell us why. The reason is saved in the history, helps spot unclear rules, and similar findings later show it as &ldquo;Seen before&rdquo;.</DialogDescription>
         </DialogHeader>
         <fieldset className="space-y-2">
           <legend className="sr-only">Reason</legend>
