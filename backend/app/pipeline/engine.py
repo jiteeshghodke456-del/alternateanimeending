@@ -624,13 +624,52 @@ class _Run:
                 d.quote = sp["quote"]
             await self.emit(d)
 
+    def channel_drafts(self) -> list[FindingDraft]:
+        """Channel limits (R-CH-*) and the PDF font check: measured in code, explained in code (local_only)."""
+        from app.pipeline import channels as CH
+
+        ctx = self.ctx
+        if ctx.channel_limits is None:
+            return []
+        issues: list[CH.ChannelIssue] = []
+        if ctx.version_kind in ("text", "image"):
+            issues += CH.check_text(ctx.channel, ctx.post_text, ctx.channel_limits)
+        for u in self.units:
+            if u.kind == "image" and u.image_path:
+                size = CH.image_size(u.image_path)
+                if size:
+                    issues += CH.check_image(ctx.channel, size, ctx.channel_limits, unit_idx=u.idx)
+        if ctx.version_kind == "pdf" and ctx.file_path and ctx.brand_fonts:
+            any_font_rule = CH.font_rule(ctx.rules)
+            usable = CH.font_rule(self.rules)  # enabled and applies to PDFs
+            if any_font_rule is None or usable is not None:
+                issues += CH.check_pdf_fonts(ctx.file_path, ctx.brand_fonts, usable)
+        out: list[FindingDraft] = []
+        for it in issues:
+            u = next((x for x in self.units if x.idx == it.unit_idx), None) if it.unit_idx is not None else None
+            rule = self.rule(it.rule_code)
+            expl = f"This breaks {it.rule_code}: {it.statement} {it.detail}" if rule is None else X.template_explanation(rule, it.detail)
+            d = self.draft(u, rule, band=it.band, tier="tier0", p=None, start=None, end=None, rule_code=it.rule_code,
+                           category=it.category, severity=it.severity, detail=it.detail, problem=it.detail,
+                           local_only=True, explanation=expl)
+            d.quote = it.quote
+            span = it.extra.get("span")
+            if span:
+                d.span_start, d.span_end = int(span[0]), int(span[1])
+            out.append(d)
+        return out
+
+    async def channel_task(self) -> None:
+        for d in self.channel_drafts():
+            await self.emit(d)
+
     async def run(self) -> EngineResult:
         t0 = time.perf_counter()
         tier0 = run_tier0_units(self.units, self.ctx)
         self.context_post = renamed_post(self.ctx.post_text, self.units, tier0)
         await self.on_progress("tier0", self.res)
         await asyncio.gather(*[self.unit_task(u, tier0.get(u.idx, [])) for u in self.units], self.post_task(),
-                             self.web_task())
+                             self.web_task(), self.channel_task())
         self.res.elapsed_ms = int((time.perf_counter() - t0) * 1000)
         return self.res
 

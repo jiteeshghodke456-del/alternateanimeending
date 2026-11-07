@@ -41,6 +41,7 @@ from app import workspaces as W
 from app.config import get_settings
 from app.db import get_engine
 from app.models import AICall, Asset, Brand, ClaimRecord, ContentItem, Fact, Finding, Override, Rule, Term, Unit, Version, utcnow
+from app.pipeline import channels as CH
 from app.pipeline import engine as E
 from app.pipeline import explain as X
 from app.pipeline import jev
@@ -175,11 +176,14 @@ def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckCo
     approved = next((a for a in logos if (a.meta or {}).get("variant", "approved") == "approved"), None)
     if approved is not None and not any("logo_file" in (r.params or {}) for r in rules):
         rules.append(builtin_logo_rule())  # an uploaded logo is checked even before the brand has a logo rule
+    targets = dict(brand.channel_targets or {}) if brand else {}
+    fonts = [str((a.meta or {}).get("name", "")) for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "font")).all()
+             if (a.meta or {}).get("name")]
     return CheckContext(
         channel=channel, rules=rules, terms=terms, facts=facts, palette=palette,
         logo_path=approved.path if approved else None,
         tone_labels=list(brand.tone_labels or []) if brand else [],
-        channel_targets=dict(brand.channel_targets or {}) if brand else {}, **kw,
+        channel_targets=targets, channel_limits=CH.effective_limits(channel, targets), brand_fonts=fonts, **kw,
     )
 
 
@@ -202,7 +206,7 @@ def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContex
                     image_path=u.image_path, page=u.page, meta=dict(u.meta or {}))
              for u in s.exec(select(Unit).where(Unit.version_id == v.id).order_by(Unit.idx)).all()]
     ctx = brand_context(s, item.brand_id, item.channel, version_kind=v.kind, alt_text=v.alt_text, post_text=v.text or "",
-                        confidential=item.confidential, version_id=v.id)
+                        confidential=item.confidential, version_id=v.id, file_path=v.file_path)
     if v.kind == "web":
         from app.pipeline.webpage import load_record
 
