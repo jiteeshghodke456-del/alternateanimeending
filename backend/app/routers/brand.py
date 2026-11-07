@@ -115,28 +115,35 @@ LOGO_MIN_SIDE = 48
 def normalise_logo(data: bytes) -> bytes:
     """PNG/JPEG -> opaque RGB PNG, long side <= LOGO_MAX_SIDE. Transparency is flattened onto white,
     because OpenCV reads the approved logo with IMREAD_COLOR (alpha dropped: transparent pixels would
-    turn black and SIFT would match the wrong shapes)."""
+    turn black and SIFT would match the wrong shapes). Over 40 MP -> 413; JPEGs decode at reduced scale."""
     import io
 
-    from PIL import Image, UnidentifiedImageError
+    from PIL import Image
+
+    from app.pipeline import units as U
 
     try:
-        img = Image.open(io.BytesIO(data))
-        fmt = img.format
-        img.load()
-    except (UnidentifiedImageError, OSError) as exc:
+        with U._open_checked(data) as probe:  # header only: pixel cap (413) before any decode
+            fmt, size = probe.format, probe.size
+    except U.UploadError as exc:
+        if exc.status_code == 413:
+            raise HTTPException(status_code=413, detail=exc.message) from exc
         raise HTTPException(status_code=422, detail="That file isn't a readable PNG or JPEG image.") from exc
     if fmt not in ("PNG", "JPEG"):
         raise HTTPException(status_code=422, detail="Upload the logo as a PNG or JPEG.")
-    if min(img.size) < LOGO_MIN_SIDE:
+    if min(size) < LOGO_MIN_SIDE:
         raise HTTPException(status_code=422, detail=f"The logo is too small; use at least {LOGO_MIN_SIDE} px on each side.")
-    if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
-        rgba = img.convert("RGBA")
-        bg = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-        img = Image.alpha_composite(bg, rgba)
+    try:
+        img, _ = U.open_image_small(data, LOGO_MAX_SIDE)  # pixel cap, reduced JPEG decode, EXIF upright
+    except U.UploadError as exc:
+        status = exc.status_code if exc.status_code == 413 else 422
+        msg = exc.message if status == 413 else "That file isn't a readable PNG or JPEG image."
+        raise HTTPException(status_code=status, detail=msg) from exc
+    img = U._sensible_mode(img)  # CMYK/P/LA/16-bit -> RGB or RGBA
+    if img.mode == "RGBA":
+        bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+        img = Image.alpha_composite(bg, img)
     img = img.convert("RGB")
-    if max(img.size) > LOGO_MAX_SIDE:
-        img.thumbnail((LOGO_MAX_SIDE, LOGO_MAX_SIDE), Image.LANCZOS)
     out = io.BytesIO()
     img.save(out, format="PNG", optimize=True)
     return out.getvalue()

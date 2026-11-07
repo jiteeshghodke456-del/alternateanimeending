@@ -65,7 +65,7 @@ function FileDrop({ kind, file, error, onFile }: { kind: "image" | "pdf"; file: 
           className={cn("grid w-full place-items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center transition-colors hover:bg-foreground/4", over && "border-[#0A84FF] bg-[#0A84FF]/8")}
         >
           <ImagePlus className="size-8 text-muted-foreground" strokeWidth={1.5} aria-hidden />
-          <span className="mt-3 text-body font-medium">{kind === "image" ? "PNG, JPG or WEBP, up to 10 MB" : "Text-based PDF, up to 20 pages"}</span>
+          <span className="mt-3 text-body font-medium">{kind === "image" ? "PNG, JPG or WEBP, up to 10 MB (40 MP for JPG, 24 MP for PNG)" : "Text-based PDF, up to 20 pages"}</span>
           <span className="mt-1 text-footnote text-muted-foreground">Drop a file here, or click to choose one</span>
         </button>
       )}

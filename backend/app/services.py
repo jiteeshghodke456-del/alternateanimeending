@@ -102,6 +102,8 @@ def create_version(
             path = save_upload(file_bytes, ext)
             v_kind = "pdf"
         else:
+            # store a small, upright PNG/JPEG once; Jev, palette and logo fidelity all read this file
+            file_bytes, mime, ext = U.normalise_image(file_bytes)
             path = save_upload(file_bytes, ext)
             split = U.image_units(path, caption, alt_text)
             v_kind = "image"

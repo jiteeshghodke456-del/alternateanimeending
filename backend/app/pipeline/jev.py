@@ -238,16 +238,17 @@ def prepare_image(path: str) -> bytes:
     """PNG/JPEG only, upright, each side within 280..1568 px. WEBP and others are converted to PNG."""
     from PIL import Image, ImageOps
 
+    send_max = max(MIN_SIDE, min(SEND_MAX_SIDE, int(get_settings().image_max_side or SEND_MAX_SIDE)))
     with Image.open(path) as im:
+        # Downscale BEFORE any mode conversion: RGBA copies of a full-size photo cost ~4 bytes/pixel each.
+        # Uploads are already stored at <= 2048 px (units.normalise_image); this also guards older files.
+        if im.format == "JPEG":
+            im.draft(im.mode, (send_max, send_max))
+        im.thumbnail((send_max, send_max), Image.LANCZOS)
         im = ImageOps.exif_transpose(im)
         im = im.convert("RGBA")
         bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
         im = Image.alpha_composite(bg, im).convert("RGB")
-        w, h = im.size
-        send_max = max(MIN_SIDE, min(SEND_MAX_SIDE, int(get_settings().image_max_side or SEND_MAX_SIDE)))
-        scale = min(1.0, send_max / max(w, h))
-        if scale < 1.0:
-            im = im.resize((max(1, round(w * scale)), max(1, round(h * scale))), Image.LANCZOS)
         w, h = im.size
         if w < MIN_SIDE or h < MIN_SIDE:
             if max(w, h) < MIN_SIDE:  # upscale tiny images, then pad the short side

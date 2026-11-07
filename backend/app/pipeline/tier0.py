@@ -487,8 +487,10 @@ def dominant_colours(image_path: str, k: int = 5, max_side: int = 128, iters: in
     from PIL import Image
 
     with Image.open(image_path) as im:
+        if im.format == "JPEG":
+            im.draft(im.mode, (max_side, max_side))  # reduced DCT decode; never a full-size RGBA copy
+        im.thumbnail((max_side, max_side))  # downscale first, then convert (memory)
         im = im.convert("RGBA")
-        im.thumbnail((max_side, max_side))
         arr = np.asarray(im, dtype=np.float64).reshape(-1, 4)
     px = arr[arr[:, 3] > 127][:, :3]  # ignore transparent pixels
     if len(px) == 0:
