@@ -1,48 +1,55 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Lava-lamp background: five soft blobs rise, sink, stretch and merge, under one static frost layer.
+ * Lava-lamp background: seven wax blobs rise, sink, merge and split (metaballs), under a static frost layer.
  *
- * Why a tiny canvas and not five animated CSS layers (both measured with Playwright + CDP in Chromium):
- * five large transformed layers cost the compositor a full-screen redraw of every layer at 60 Hz
- * (~39 fps on a software compositor at 1280x800). Here the blobs are drawn into a canvas about 1/8 of the
- * viewport (≈160x100 px, ~0.1 ms per frame) and the browser upscales it, which also gives the blur for free.
- * - Redraws at most 30 times a second, so the compositor only has new damage 30 times a second.
- * - Stops while the tab is hidden; draws one still frame under prefers-reduced-motion.
- * - Colours come from CSS tokens (--lava-1..5, --bg-base) and are re-read when the theme changes.
- * - The frost (wash + film grain) is one static CSS layer on top; no backdrop-filter in the background.
+ * How it stays cheap: the field is computed per pixel into a small canvas (1/5 of the viewport, about
+ * 256x160 on a laptop, ~2 ms a frame) and the browser upscales it, which softens the edges just enough.
+ * - Redraws at most 30 times a second (12 on a struggling device); stops while the tab is hidden; one still frame under reduced motion.
+ * - Colours come from CSS tokens (--lava-1..5, --lava-opacity, --bg-base), re-read when the theme changes.
+ * - Edges: a smoothstep on the summed field gives the defined "wax" edge; a faint halo sits just outside it,
+ *   and the core of each blob is a little lighter, so blobs read as 3D wax rather than a flat haze.
  */
 
-type Blob = { x: number; y: number; r: number; ax: number; ay: number; px: number; py: number; ph: number; morph: number };
+type Blob = { x: number; amp: number; py: number; px: number; sway: number; r: number; c: number; ph: number };
 
-// Positions/radii are fractions of the canvas; periods are seconds (20-40 s loops, all different).
+// x: column (fraction of width); amp: how far it rises/sinks (fraction of height); py/px: vertical / sideways
+// periods in seconds; r: radius as a fraction of the shorter side; c: colour token index (0-4).
 const BLOBS: Blob[] = [
-  { x: 0.18, y: 0.78, r: 0.36, ax: 0.08, ay: 0.42, px: 34, py: 38, ph: 0.0, morph: 23 },
-  { x: 0.82, y: 0.22, r: 0.34, ax: 0.07, ay: 0.38, px: 29, py: 33, ph: 2.1, morph: 27 },
-  { x: 0.48, y: 0.62, r: 0.26, ax: 0.14, ay: 0.46, px: 24, py: 26, ph: 4.2, morph: 21 },
-  { x: 0.86, y: 0.82, r: 0.30, ax: 0.09, ay: 0.36, px: 38, py: 31, ph: 1.3, morph: 31 },
-  { x: 0.22, y: 0.18, r: 0.28, ax: 0.10, ay: 0.40, px: 31, py: 36, ph: 3.4, morph: 25 },
+  { x: 0.16, amp: 0.46, py: 38, px: 23, sway: 0.05, r: 0.20, c: 0, ph: 0.0 },
+  { x: 0.84, amp: 0.44, py: 33, px: 29, sway: 0.06, r: 0.19, c: 1, ph: 2.4 },
+  { x: 0.50, amp: 0.50, py: 46, px: 31, sway: 0.10, r: 0.15, c: 2, ph: 4.1 },
+  { x: 0.30, amp: 0.42, py: 29, px: 21, sway: 0.07, r: 0.12, c: 3, ph: 1.2 },
+  { x: 0.70, amp: 0.48, py: 41, px: 26, sway: 0.08, r: 0.13, c: 4, ph: 3.3 },
+  { x: 0.06, amp: 0.30, py: 52, px: 35, sway: 0.04, r: 0.16, c: 1, ph: 5.0 },
+  { x: 0.95, amp: 0.30, py: 49, px: 33, sway: 0.04, r: 0.16, c: 0, ph: 0.7 },
 ];
-const SCALE = 1 / 8; // canvas pixels per CSS pixel
+const SCALE = 1 / 5;
 const FRAME_MS = 1000 / 30;
+const SLOW_FRAME_MS = 1000 / 12; // used when the device is struggling (see loop)
 const TAU = Math.PI * 2;
 
-function readColours(): { base: string; blobs: string[]; alpha: number } {
+function rgbOf(c: string, fallback: [number, number, number]): [number, number, number] {
+  const h = c.trim().replace("#", "");
+  const full = h.length === 3 ? h.split("").map((x) => x + x).join("") : h;
+  const n = parseInt(full.slice(0, 6), 16);
+  return Number.isNaN(n) || full.length < 6 ? fallback : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function readTheme() {
   const s = getComputedStyle(document.documentElement);
-  const v = (n: string) => s.getPropertyValue(n).trim();
+  const v = (n: string) => s.getPropertyValue(n);
   return {
-    base: v("--bg-base") || "#f2f2f7",
-    blobs: [1, 2, 3, 4, 5].map((i) => v(`--lava-${i}`) || "#b9b0ff"),
-    alpha: parseFloat(v("--lava-opacity")) || 0.85,
+    base: rgbOf(v("--bg-base"), [11, 8, 16]),
+    cols: [1, 2, 3, 4, 5].map((i) => rgbOf(v(`--lava-${i}`), [149, 30, 252])),
+    alpha: parseFloat(v("--lava-opacity")) || 0.8,
   };
 }
 
-function hexToRgb(c: string): [number, number, number] {
-  const m = c.replace("#", "");
-  const h = m.length === 3 ? m.split("").map((x) => x + x).join("") : m;
-  const n = parseInt(h.slice(0, 6), 16);
-  return Number.isNaN(n) ? [180, 170, 255] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
 export function MeshBackground() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -52,68 +59,95 @@ export function MeshBackground() {
     const ctx = canvas?.getContext("2d", { alpha: false });
     if (!canvas || !ctx) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let colours = readColours();
-    let rgb = colours.blobs.map(hexToRgb);
+    let theme = readTheme();
+    let img: ImageData | null = null;
+    let px32: Uint32Array | null = null;
     let raf = 0;
     let last = 0;
-    const t0 = performance.now() - 7_000; // start mid-motion, not with every blob at its origin
+    const t0 = performance.now() - 11_000; // start mid-motion
+    const n = BLOBS.length;
+    const bx = new Float32Array(n), by = new Float32Array(n), br2 = new Float32Array(n);
 
     const resize = () => {
-      const w = Math.max(48, Math.round(window.innerWidth * SCALE));
-      const h = Math.max(48, Math.round(window.innerHeight * SCALE));
-      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      const w = Math.max(64, Math.round(window.innerWidth * SCALE));
+      const h = Math.max(64, Math.round(window.innerHeight * SCALE));
+      if (canvas.width !== w || canvas.height !== h || !img) {
+        canvas.width = w; canvas.height = h;
+        img = ctx.createImageData(w, h);
+        px32 = new Uint32Array(img.data.buffer);
+      }
     };
 
     const draw = (now: number) => {
+      if (!img || !px32) return;
       const t = (now - t0) / 1000;
-      const { width: w, height: h } = canvas;
-      const m = Math.max(w, h);
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = colours.base;
-      ctx.fillRect(0, 0, w, h);
-      BLOBS.forEach((b, i) => {
-        // Slow rise and fall (lava-lamp), a sideways sway, and a stretch that turns as it moves.
-        const cx = (b.x + b.ax * Math.sin((TAU * t) / b.px + b.ph)) * w;
-        const cy = (b.y - b.ay * (0.5 - 0.5 * Math.cos((TAU * t) / b.py + b.ph)) + b.ay * 0.25) * h;
-        const sx = 1 + 0.16 * Math.sin((TAU * t) / b.morph + b.ph);
-        const sy = 1 + 0.16 * Math.cos((TAU * t) / (b.morph * 1.3) + b.ph);
-        const rot = 0.6 * Math.sin((TAU * t) / (b.morph * 1.7) + b.ph);
-        const breathe = 0.82 + 0.18 * Math.sin((TAU * t) / (b.px * 0.8) + b.ph * 1.7);
-        const r = b.r * m;
-        const [cr, cg, cb] = rgb[i];
-        const a = colours.alpha * breathe;
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(rot);
-        ctx.scale(sx, sy);
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-        g.addColorStop(0, `rgba(${cr},${cg},${cb},${a})`);
-        g.addColorStop(0.45, `rgba(${cr},${cg},${cb},${a * 0.92})`);
-        g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, TAU);
-        ctx.fill();
-        ctx.restore();
-      });
+      const w = canvas.width, h = canvas.height, m = Math.min(w, h);
+      for (let i = 0; i < n; i++) {
+        const b = BLOBS[i];
+        // Lava-lamp path: a slow rise and sink (eased at the ends, like warm wax), a small sideways sway,
+        // and a radius that breathes a little so merges and splits keep changing.
+        const s = Math.sin((TAU * t) / b.py + b.ph);
+        bx[i] = (b.x + b.sway * Math.sin((TAU * t) / b.px + b.ph * 1.3)) * w;
+        by[i] = (0.5 - b.amp * s * (0.75 + 0.25 * s * s)) * h;
+        const r = b.r * m * (0.9 + 0.1 * Math.sin((TAU * t) / (b.px * 0.7) + b.ph));
+        br2[i] = r * r;
+      }
+      const [r0, g0, b0] = theme.base;
+      const A = theme.alpha;
+      const cols = theme.cols;
+      let k = 0;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          let f = 0, cr = 0, cg = 0, cb = 0;
+          for (let i = 0; i < n; i++) {
+            const dx = x - bx[i], dy = y - by[i];
+            const v = br2[i] / (dx * dx + dy * dy + 1);
+            f += v;
+            const c = cols[BLOBS[i].c];
+            cr += v * c[0]; cg += v * c[1]; cb += v * c[2];
+          }
+          let R = r0, G = g0, B = b0;
+          if (f > 0.02) {
+            cr /= f; cg /= f; cb /= f;
+            const body = smooth(0.82, 1.08, f);          // the wax edge
+            const halo = smooth(0.25, 0.82, f) * 0.22;    // faint glow just outside it
+            const core = smooth(1.4, 4.5, f) * 0.28;      // lighter centre: reads as 3D wax
+            cr += (255 - cr) * core; cg += (255 - cg) * core; cb += (255 - cb) * core;
+            const a = Math.max(body, halo) * A;
+            R = r0 + (cr - r0) * a; G = g0 + (cg - g0) * a; B = b0 + (cb - b0) * a;
+          }
+          px32[k++] = 0xff000000 | ((B & 255) << 16) | ((G & 255) << 8) | (R & 255);
+        }
+      }
+      ctx.putImageData(img, 0, 0);
     };
 
+    // Adaptive: if the page itself drops below ~40 fps (slow GPU, software compositing under the frosted
+    // panels), redraw the lava 12 times a second instead of 30, so scrolling and clicks stay smooth.
+    let frameMs = FRAME_MS, ticks = 0, windowStart = 0;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
-      if (now - last < FRAME_MS) return;
+      if (!windowStart) windowStart = now;
+      ticks++;
+      if (now - windowStart > 2000) {
+        const fps = (ticks * 1000) / (now - windowStart);
+        frameMs = fps < 40 ? SLOW_FRAME_MS : FRAME_MS;
+        ticks = 0; windowStart = now;
+      }
+      if (now - last < frameMs) return;
       last = now;
       draw(now);
     };
     const start = () => {
       cancelAnimationFrame(raf);
       resize();
-      if (reduce.matches || document.hidden) { draw(t0 + 7_000); return; }
+      if (reduce.matches || document.hidden) { draw(t0 + 11_000); return; }
       raf = requestAnimationFrame(loop);
     };
     const stop = () => cancelAnimationFrame(raf);
     const onVisibility = () => (document.hidden ? stop() : start());
     const onResize = () => { resize(); draw(performance.now()); };
-    const onTheme = () => { colours = readColours(); rgb = colours.blobs.map(hexToRgb); draw(performance.now()); };
+    const onTheme = () => { theme = readTheme(); draw(performance.now()); };
 
     start();
     document.addEventListener("visibilitychange", onVisibility);
@@ -135,7 +169,7 @@ export function MeshBackground() {
 
   return (
     <div className="lava-bg mesh-bg" aria-hidden="true">
-      <canvas ref={ref} className="lava-canvas" width={160} height={100} />
+      <canvas ref={ref} className="lava-canvas" width={256} height={160} />
       <div className="lava-frost" />
     </div>
   );

@@ -46,7 +46,7 @@
   /* Glass is not backdrop-blurred (the background is already soft; a blur over an animated layer costs a
      re-blur per frame per panel). Depth comes from tint, a top sheen, a 1px light edge and layered shadows. */
   --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-strong-bg: rgba(255, 255, 255, 0.86);
+  --glass-strong-bg: rgba(255, 255, 255, 0.72);
   --glass-sheen: rgba(255, 255, 255, 0.45);
   --glass-border: rgba(255, 255, 255, 0.75);
   --glass-edge: rgba(16, 24, 40, 0.06);
@@ -55,18 +55,18 @@
   --chrome-bg: rgba(255, 255, 255, 0.78);
 
   /* Lava lamp (components/MeshBackground.tsx): soft pastels; colours shift as blobs breathe and overlap. */
-  --lava-1: #d9bbff;
-  --lava-2: #ffc89c;
-  --lava-3: #f6b8e2;
-  --lava-4: #c6b6ff;
-  --lava-5: #ffdcb5;
-  --lava-opacity: 0.85;
-  --frost-wash: rgba(255, 255, 255, 0.32);
+  --lava-1: #b77dff;
+  --lava-2: #ffa25e;
+  --lava-3: #f58cc4;
+  --lava-4: #9d6bff;
+  --lava-5: #ffbe7a;
+  --lava-opacity: 0.62;
+  --frost-wash: rgba(255, 255, 255, 0.16);
 
   --blob-1: #9cc8ff;
   --blob-2: #d3c4ff;
   --blob-3: #ffd9b8;
-  --bg-base: #f2f2f7;
+  --bg-base: #f7f4fc;
 }
 
 :root.dark,
@@ -104,25 +104,25 @@
     --pass-text: #4BE07A;
     --accent-text: #C08BFF;
     --accent-vivid: #B06BFF;
-    --glass-bg: rgba(255, 255, 255, 0.065);
-    --glass-strong-bg: rgba(24, 24, 30, 0.82);
+    --glass-bg: rgba(255, 255, 255, 0.07);
+    --glass-strong-bg: rgba(16, 12, 24, 0.62);
     --glass-sheen: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.11);
     --glass-edge: rgba(0, 0, 0, 0.35);
     --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
     --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
     --chrome-bg: rgba(22, 22, 28, 0.72);
-    --lava-1: #4b1494;
-    --lava-2: #6e2c05;
-    --lava-3: #5a1252;
-    --lava-4: #26196e;
-    --lava-5: #7a3608;
-    --lava-opacity: 0.8;
-    --frost-wash: rgba(8, 8, 12, 0.30);
+    --lava-1: #951efc;
+    --lava-2: #fe7204;
+    --lava-3: #d6338a;
+    --lava-4: #6a1bd1;
+    --lava-5: #ff8a1f;
+    --lava-opacity: 0.78;
+    --frost-wash: rgba(6, 4, 10, 0.14);
     --blob-1: #123b73;
     --blob-2: #3a2a73;
     --blob-3: #5a3a1f;
-    --bg-base: #0b0b0f;
+    --bg-base: #07050c;
   }
 }
 :root[data-theme="dark"] {
@@ -149,25 +149,25 @@
   --pass-text: #4BE07A;
   --accent-text: #C08BFF;
     --accent-vivid: #B06BFF;
-  --glass-bg: rgba(255, 255, 255, 0.065);
-  --glass-strong-bg: rgba(24, 24, 30, 0.82);
+  --glass-bg: rgba(255, 255, 255, 0.07);
+  --glass-strong-bg: rgba(16, 12, 24, 0.62);
   --glass-sheen: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.11);
   --glass-edge: rgba(0, 0, 0, 0.35);
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 32px -10px rgba(0, 0, 0, 0.55), 0 30px 60px -24px rgba(0, 0, 0, 0.5);
   --glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.10), inset 0 -1px 0 rgba(255, 255, 255, 0.02);
   --chrome-bg: rgba(22, 22, 28, 0.72);
-  --lava-1: #4b1494;
-  --lava-2: #6e2c05;
-  --lava-3: #5a1252;
-  --lava-4: #26196e;
-  --lava-5: #7a3608;
-  --lava-opacity: 0.8;
-  --frost-wash: rgba(8, 8, 12, 0.30);
+  --lava-1: #951efc;
+  --lava-2: #fe7204;
+  --lava-3: #d6338a;
+  --lava-4: #6a1bd1;
+  --lava-5: #ff8a1f;
+  --lava-opacity: 0.78;
+  --frost-wash: rgba(6, 4, 10, 0.14);
   --blob-1: #123b73;
   --blob-2: #3a2a73;
   --blob-3: #5a3a1f;
-  --bg-base: #0b0b0f;
+  --bg-base: #07050c;
 }
 
 @layer base {
@@ -187,6 +187,9 @@
   /* Glass surface: decorative / chrome. Layered: tint + top sheen, 1px light edge, hairline, soft shadows. */
   .glass, .glass-strong {
     background: linear-gradient(180deg, var(--glass-sheen), transparent 38%), var(--glass-bg);
+    /* Frost: the lava canvas is tiny and already soft, so a modest blur is enough and stays cheap. */
+    -webkit-backdrop-filter: blur(22px) saturate(1.5);
+    backdrop-filter: blur(22px) saturate(1.5);
     border: 1px solid var(--glass-border);
     box-shadow: var(--glass-inset), 0 0 0 0.5px var(--glass-edge), var(--glass-shadow);
     @apply rounded-3xl;
