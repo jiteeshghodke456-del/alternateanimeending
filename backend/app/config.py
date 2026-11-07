@@ -49,6 +49,13 @@ class Settings(BaseSettings):
     upload_dir: str = str(default_tmp_dir() / "brandgate_uploads")
     seed_dir: str = ""  # optional brand kit folder; files missing there fall back to backend/app/seed (or its _placeholder)
 
+    # Per-visitor workspaces (DECISIONS.md "Workspaces"): each visitor gets their own SQLite file + uploads,
+    # copied from a template ("demo" or "blank"). WORKSPACES_ENABLED=0 = the old single shared DB at DB_PATH.
+    workspaces_enabled: bool = True
+    workspaces_dir: str = str(default_tmp_dir() / "brandgate_ws")
+    max_workspaces: int = 40  # least-recently-used beyond this are deleted
+    workspace_ttl_h: float = 12.0  # deleted after this long without a request
+
     # Auth
     session_secret: str = "dev-only-insecure-session-secret-change-me"
     session_max_age_s: int = 7 * 24 * 3600

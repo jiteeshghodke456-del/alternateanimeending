@@ -49,6 +49,8 @@ class User(SQLModel, table=True):
 class Brand(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
+    tagline: str = ""
+    description: str = ""
     tone_labels: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     # {"instagram": {"max_grade": 8}, ...}
     channel_targets: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

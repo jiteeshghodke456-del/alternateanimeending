@@ -86,6 +86,11 @@ class PaletteColor(_Out):
     hex: str
 
 
+class PaletteColorIn(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+    hex: str = Field(pattern=r"^#[0-9A-Fa-f]{6}$", description="#RRGGBB")
+
+
 class LogoOut(_Out):
     id: int
     variant: str  # "approved" | "alt_wrong"
@@ -105,6 +110,64 @@ class BrandOut(_Out):
     term_count: int
     fact_count: int
     demo: bool  # true = seeded fictional demo brand; UI must label it
+    # Workspaces (added 7 Nov): brand setup in a blank workspace
+    tagline: str = ""
+    description: str = ""
+    logo_url: Optional[str] = None  # the approved logo (GET /api/assets/{id}), null when the brand has none
+    counts: "BrandCounts"
+    is_blank_setup: bool = False  # blank workspace with no rules and no content yet: show the setup guide
+
+
+class BrandCounts(_Out):
+    rules: int
+    facts: int
+    terms: int
+    items: int
+
+
+class BrandPatch(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    tagline: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class PaletteIn(BaseModel):
+    colours: list[PaletteColorIn] = Field(min_length=1, max_length=12)
+
+
+class FactImportSkip(_Out):
+    row: int  # 1-based data row (the header is row 0)
+    reason: str
+
+
+class FactImportOut(_Out):
+    imported: int
+    skipped: list[FactImportSkip]
+
+
+class WorkspaceCreate(BaseModel):
+    kind: Literal["demo", "blank"] = "demo"
+
+
+class WorkspaceBrand(_Out):
+    name: str
+
+
+class WorkspaceLimits(_Out):
+    max_workspaces: int
+    ttl_hours: float
+
+
+class WorkspaceOut(_Out):
+    id: str
+    kind: str
+    brand: WorkspaceBrand
+    created_at: str  # ISO 8601 UTC
+    expires_at: Optional[str] = None  # GET /workspace only: deleted after this if idle
+    limits: Optional[WorkspaceLimits] = None  # GET /workspace only
+    # Signed workspace token (= the bg_ws cookie value). Only needed where cookies are blocked: send it
+    # back as the X-BG-Workspace header (or ?ws= for EventSource / <img>).
+    token: str = ""
 
 
 class RuleOut(_Out):
@@ -643,6 +706,7 @@ class EvalLatestOut(_Out):
     # cost_per_item_usd, calibration [{bin, predicted, observed, n}]
     metrics: dict[str, Any] = Field(default_factory=dict)
     misses: list[dict[str, Any]] = Field(default_factory=list)
+    brand_note: Optional[str] = None  # set in a blank workspace: the eval uses the demo brand's labelled test set
 
 
 class EvalRunOut(_Out):

@@ -37,6 +37,7 @@ from typing import Any, Optional
 
 from sqlmodel import Session, delete, select
 
+from app import workspaces as W
 from app.config import get_settings
 from app.db import get_engine
 from app.models import AICall, Asset, Brand, ContentItem, Fact, Finding, Override, Rule, Term, Unit, Version, utcnow
@@ -50,9 +51,10 @@ from app.schemas import CheckEvent
 log = logging.getLogger("brandgate.run")
 
 _tasks: set[Any] = set()
-_running: set[int] = set()
-_subs: dict[int, list[tuple[asyncio.AbstractEventLoop, asyncio.Queue]]] = {}
-_progress: dict[int, CheckEvent] = {}
+# Keyed by W.key(version_id): (workspace id, version id) in workspace mode, the plain id otherwise.
+_running: set[Any] = set()
+_subs: dict[Any, list[tuple[asyncio.AbstractEventLoop, asyncio.Queue]]] = {}
+_progress: dict[Any, CheckEvent] = {}
 _lock = threading.Lock()
 _main_loop: Optional[asyncio.AbstractEventLoop] = None
 _prerun_started = False
@@ -74,21 +76,29 @@ def bind_loop(loop: Optional[asyncio.AbstractEventLoop] = None) -> None:
 
 
 def is_running(version_id: int) -> bool:
-    return version_id in _running
+    return W.key(version_id) in _running
+
+
+def workspace_busy(ws_id: str) -> bool:
+    return any(isinstance(k, tuple) and k[0] == ws_id for k in list(_running))
+
+
+W.busy_checks.append(workspace_busy)
 
 
 def start_check(version_id: int) -> bool:
     """Schedule run_check(version_id) in the background. Returns False if it is already running."""
+    k = W.key(version_id)
     with _lock:
-        if version_id in _running:
+        if k in _running:
             return False
-        _running.add(version_id)
+        _running.add(k)
     try:
         _schedule(run_check(version_id))
         return True
     except Exception:  # noqa: BLE001
         log.exception("could not schedule check for version %s", version_id)
-        _running.discard(version_id)
+        _running.discard(k)
         return False
 
 
@@ -98,6 +108,7 @@ def schedule(coro: Any) -> None:
 
 
 def _schedule(coro: Any) -> None:
+    coro = W.bind(coro)  # the task keeps the workspace that scheduled it
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -118,9 +129,10 @@ def _schedule(coro: Any) -> None:
 
 # ------------------------------------------------------------------ pub/sub (thread-safe fan-out)
 def _publish(version_id: int, ev: CheckEvent) -> None:
+    k = W.key(version_id)
     if ev.finding is None:
-        _progress[version_id] = ev
-    for loop, q in list(_subs.get(version_id, [])):
+        _progress[k] = ev
+    for loop, q in list(_subs.get(k, [])):
         try:
             loop.call_soon_threadsafe(q.put_nowait, ev)
         except RuntimeError:  # subscriber's loop closed
@@ -129,16 +141,17 @@ def _publish(version_id: int, ev: CheckEvent) -> None:
 
 def _register(version_id: int) -> tuple[asyncio.AbstractEventLoop, asyncio.Queue]:
     entry = (asyncio.get_running_loop(), asyncio.Queue())
-    _subs.setdefault(version_id, []).append(entry)
+    _subs.setdefault(W.key(version_id), []).append(entry)
     return entry
 
 
 def _unregister(version_id: int, entry: tuple) -> None:
-    lst = _subs.get(version_id, [])
+    k = W.key(version_id)
+    lst = _subs.get(k, [])
     if entry in lst:
         lst.remove(entry)
     if not lst:
-        _subs.pop(version_id, None)
+        _subs.pop(k, None)
 
 
 # ------------------------------------------------------------------ DB -> pipeline inputs
@@ -158,12 +171,28 @@ def brand_context(s: Session, brand_id: int, channel: str, **kw: Any) -> CheckCo
                if (a.meta or {}).get("hex")]
     logos = [a for a in s.exec(select(Asset).where(Asset.brand_id == brand_id, Asset.kind == "logo")).all() if a.path]
     approved = next((a for a in logos if (a.meta or {}).get("variant", "approved") == "approved"), None)
+    if approved is not None and not any("logo_file" in (r.params or {}) for r in rules):
+        rules.append(builtin_logo_rule())  # an uploaded logo is checked even before the brand has a logo rule
     return CheckContext(
         channel=channel, rules=rules, terms=terms, facts=facts, palette=palette,
         logo_path=approved.path if approved else None,
         tone_labels=list(brand.tone_labels or []) if brand else [],
         channel_targets=dict(brand.channel_targets or {}) if brand else {}, **kw,
     )
+
+
+BUILTIN_LOGO_CODE = "R-LOGO-AUTO"
+NO_RULES_NOTE = ("Add rules first: this brand has no rules yet, so only the built-in checks ran "
+                 "(banned words, facts, logo). Add rules in the Brand Kit or import a guideline PDF.")
+
+
+def builtin_logo_rule() -> RuleSpec:
+    """Logo fidelity for a brand that uploaded a logo but has no rule with params.logo_file (e.g. a new
+    brand in a blank workspace). Flags redrawn/stretched/recoloured logos; a missing logo is not flagged
+    (that needs a rule with logo_required)."""
+    return RuleSpec(code=BUILTIN_LOGO_CODE, category="visual", severity="major", check_method="visual",
+                    statement="Use the approved logo file as supplied: don't redraw, stretch or recolour it.",
+                    params={"logo_file": "logo.png", "builtin": True})
 
 
 def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContext, list[UnitIn]]:
@@ -248,8 +277,10 @@ async def run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm:
     try:
         async with limits.check_slot():
             await _run_check(version_id, use_jev=use_jev, use_llm=use_llm)
+        if W.current_id() == W.TEMPLATE_IDS["demo"]:  # demo pre-run: share with workspaces copied before it
+            await asyncio.to_thread(W.propagate_template_check, version_id)
     finally:
-        _running.discard(version_id)
+        _running.discard(W.key(version_id))
 
 
 async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm: Optional[bool] = None) -> None:
@@ -303,6 +334,8 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
 
             res = await E.analyze(units, ctx, calls=calls, use_jev=use_jev, use_llm=use_llm,
                                   on_finding=on_finding, on_progress=on_progress_wrap)
+            if not any(r.code != BUILTIN_LOGO_CODE for r in ctx.rules):
+                res.warnings.append(NO_RULES_NOTE)
             elapsed = int((time.perf_counter() - started) * 1000)
             saved_calls = _save_calls(s, calls, saved_calls)
             v = s.get(Version, version_id)
@@ -324,8 +357,8 @@ async def _run_check(version_id: int, *, use_jev: Optional[bool] = None, use_llm
         log.exception("check failed for version %s", version_id)
         _fail(version_id, calls, saved_calls, started, units_total, res)
     finally:
-        _running.discard(version_id)
-        _progress.pop(version_id, None)
+        _running.discard(W.key(version_id))
+        _progress.pop(W.key(version_id), None)
 
 
 def _fail(version_id: int, calls: jev.CallLog, saved_calls: int, started: float, units_total: int,
@@ -409,7 +442,7 @@ async def subscribe(version_id: int) -> AsyncIterator[CheckEvent]:
             return
 
         # live
-        snap = _progress.get(version_id)
+        snap = _progress.get(W.key(version_id))
         yield snap if snap is not None else _summary("queued", stats)
         sent: set[int] = set()
         for f in findings:
@@ -445,7 +478,7 @@ def _mark_stale(version_id: Optional[int] = None) -> int:
         if version_id is not None:
             q = q.where(Version.id == version_id)
         for v in s.exec(q).all():
-            if v.id in _running:
+            if W.key(v.id) in _running:
                 continue
             v.check_status = "error"
             v.stats = {**(v.stats or {}), "error": True, "error_message": STALE_MESSAGE}
@@ -500,9 +533,9 @@ def start_prerun(delay_s: float = 0.0) -> bool:
                 if v is None or v.check_status != "not_run":
                     continue
             with _lock:
-                if vid in _running:
+                if W.key(vid) in _running:
                     continue
-                _running.add(vid)
+                _running.add(W.key(vid))
             await run_check(vid)
 
     try:

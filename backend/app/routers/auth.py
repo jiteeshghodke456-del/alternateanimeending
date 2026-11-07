@@ -57,6 +57,16 @@ def demo_reset(user: AdminUser) -> OkOut:
     because seeded user ids are stable."""
     if not get_settings().demo_mode:
         raise HTTPException(status_code=403, detail="Reset is only available in demo mode.")
+    from app import workspaces as W
+
+    ws = W.current_id()
+    if ws is not None:  # workspace mode: only this visitor's workspace goes back to its template
+        from app.routers import innovations
+
+        m = W.reset(ws)
+        innovations._active.difference_update({k for k in list(innovations._active) if isinstance(k, tuple) and k[0] == ws})
+        what = "the demo brand" if m.kind == "demo" else "a blank brand"
+        return OkOut(message=f"Workspace reset to {what}. Other visitors' workspaces are unchanged.")
     from app.seed import reset_and_seed
 
     summary = reset_and_seed()

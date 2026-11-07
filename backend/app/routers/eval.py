@@ -31,14 +31,23 @@ def _running() -> bool:
     return t is not None and not t.done()
 
 
+BLANK_NOTE = "Evaluation uses the built-in demo brand's labelled test set."
+
+
+def _brand_note() -> Optional[str]:
+    from app import workspaces as W
+
+    return BLANK_NOTE if W.current_kind() == "blank" else None
+
+
 @router.get("/eval/latest", response_model=EvalLatestOut)
 def eval_latest(user: CurrentUser) -> EvalLatestOut:
     status = "running" if _running() else "ok"
     if not LATEST.is_file():
-        return EvalLatestOut(available=False, status="running" if status == "running" else "not_run")
+        return EvalLatestOut(available=False, status="running" if status == "running" else "not_run", brand_note=_brand_note())
     try:
         data = json.loads(LATEST.read_text(encoding="utf-8"))
-        return EvalLatestOut(available=True, status=status,
+        return EvalLatestOut(available=True, status=status, brand_note=_brand_note(),
                              **{k: data[k] for k in ("run_at", "split", "models", "metrics", "misses") if k in data})
     except Exception:  # noqa: BLE001
         log.exception("eval: latest.json unreadable")
@@ -51,10 +60,14 @@ async def eval_run(user: AdminUser) -> EvalRunOut:
         return EvalRunOut(started=False, message="An evaluation run is already in progress.")
 
     async def _go() -> None:
+        from app import workspaces as W
         from app.eval.run import evaluate
 
+        # The labelled test set belongs to the demo brand: in workspace mode it runs on the demo template.
+        tpl = W.TEMPLATE_IDS["demo"] if W.current_ref() is not None else None
         try:
-            await evaluate("test")
+            with W.use(tpl):
+                await evaluate("test")
             _state["error"] = None
         except Exception:  # noqa: BLE001
             log.exception("eval: background run failed")

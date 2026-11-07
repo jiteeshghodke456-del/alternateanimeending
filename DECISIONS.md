@@ -265,3 +265,55 @@ Off switch: `FEATURE_PDF_IMPORT=0` makes all three endpoints return **501** `{"d
 **Quality.** `pytest -q` is green, with 9 new tests in `tests/test_memory_limits.py`. The golden path passes 19/19. The findings (rule/fact code + band) of all 8 seeded items, including the Monsoon demo post (15 findings), are identical before and after. The stress run's three image checks gave the same bands and logo verdicts as before. The measurement runs cost ~$0.09 of live calls in total.
 
 **Caveats.** These numbers come from Python 3.13 in a sandbox, not from the python:3.12-slim image, and Docker wasn't available. Render may add ~10–20 MiB of overhead. Watch the Render metrics after the next deploy.
+
+## Workspaces: every visitor gets their own copy (7 Nov)
+**Problem.** Everyone shared one SQLite DB, so judges saw each other's posts, approvals and brand edits,
+and one judge's reset wiped everyone else. Judges also could not try the product on their own brand.
+
+**Design** (`backend/app/workspaces.py`).
+- A workspace is its own SQLite file plus uploads folder under `WORKSPACES_DIR`. The signed cookie
+  `bg_ws` (same secret as the session) picks it; a pure ASGI middleware puts it in a context variable
+  that `db.get_engine()` and `services.upload_dir()` read, so the routers did not change.
+- Two templates are built at startup: `demo` (the seeded brand, or `SEED_DIR`'s) and `blank` (users
+  Admin/Writer/Reviewer/Approver, brand "Your brand", nothing else). A new workspace is a SQLite
+  backup-API copy of a template plus hard links to its uploads: about 5 ms, no AI cost.
+- The demo pre-run (`PRERUN_DELAY_S`) checks the seeded items once, on the template. Visitors who arrive
+  before it finishes (every cold start on Render) get each result copied in as soon as that seeded item
+  is done (findings, stats, AI-call log), unless they already checked that item themselves.
+- A request with no valid cookie gets a new demo workspace the first time it touches the DB, so
+  `/api/health`, unknown routes and static files never create one, and old links keep working.
+- Background work (checks, audience runs, PDF import, eval) binds the workspace that scheduled it
+  (`workspaces.bind`, in `pipeline.run._schedule`). In-memory state keyed by DB ids (running checks,
+  SSE subscribers, audience runs, PDF import jobs) is keyed by (workspace, id), because every copy of a
+  template has the same ids.
+- Limits: `MAX_WORKSPACES` (40) on disk, least recently used deleted first, but one-off visits (fewer
+  than 3 requests, idle 10 min) go before everyone else; `WORKSPACE_TTL_H` (12) idle and it's deleted;
+  at most 8 open engines, with NullPool so an idle workspace holds no connection. The check slots
+  (`MAX_CONCURRENT_CHECKS`) stay global for the process.
+- `POST /api/demo/reset` resets only the caller's workspace, to its own kind. The eval always runs on the
+  demo template (the labelled test set belongs to the demo brand); a blank workspace sees a note.
+- A brand with an uploaded logo but no logo rule still gets logo fidelity (built-in rule `R-LOGO-AUTO`:
+  altered or stretched logos are flagged, a missing logo is not). A brand with no rules gets the note
+  "Add rules first" on each check; banned words, facts and the logo still run.
+- Cookies blocked (cross-site iframe): the same signed value works as `X-BG-Workspace` or `?ws=`.
+- `WORKSPACES_ENABLED=0` restores the old single shared DB at `DB_PATH` (the existing tests use it).
+
+**Memory and disk, measured 7 Nov** (local uvicorn, `--workers 1`, `MALLOC_ARENA_MAX=2`, RSS sampled
+every 100-200 ms, live Jev + LLM):
+
+| step | RSS |
+|---|---|
+| boot, both templates built | 117 MiB |
+| demo pre-run on the template (8 seeded items), peak / after | 294 / 178 MiB |
+| 20 new workspaces (one request each, 0.7 s in total) | 182 MiB (+4) |
+| then 3 checks at once in 3 of them (1 text with LLM fixes, 2 images with SIFT), peak / after | 269 / 184 MiB |
+| 45 more visitors (25 evicted, 40 kept on disk) | 190 MiB |
+| golden path 19/19 started right at a cold start (runs alongside the pre-run), peak | 299 MiB |
+
+Disk: the demo template is ~0.25 MB of SQLite plus ~0.6 MB of uploads; a workspace copy hard-links the
+uploads, so 40 workspaces + templates took 11 MB. The checks cost $0.0023 in total.
+
+**Risks.** A client that sends no cookie and no token gets a new workspace on every request (a crawler,
+or the HF iframe before the frontend sends the header); each one costs ~5 ms and ~1 MB of disk and is
+evicted first. A reset while one of that workspace's checks is still running can leave the check writing
+into the fresh copy (same as the old global reset).

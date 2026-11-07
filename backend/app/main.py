@@ -11,7 +11,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
-from app.routers import auth, brand, content, eval as eval_router, innovations, insights, review
+from app.routers import auth, brand, content, eval as eval_router, innovations, insights, review, workspace
+from app.workspaces import WorkspaceMiddleware
 from app.schemas import HealthOut
 
 APP_VERSION = "0.1.0"
@@ -21,19 +22,28 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ANN201
-    from app.seed import seed_if_empty
-
-    summary = seed_if_empty()
-    if summary:
-        log.info("Seeded empty database: %s", summary)
+    from app import workspaces
     from app.pipeline.run import on_startup  # pipeline-agent: bind loop, clean stale checks, demo pre-run
 
-    on_startup()
+    if workspaces.enabled():
+        # Templates (demo + blank); the demo pre-run checks the seeded items once, on the template.
+        workspaces.startup()
+        with workspaces.use(workspaces.TEMPLATE_IDS["demo"]):
+            on_startup()
+    else:
+        from app.seed import seed_if_empty
+
+        summary = seed_if_empty()
+        if summary:
+            log.info("Seeded empty database: %s", summary)
+        on_startup()
     yield
 
 
 app = FastAPI(title="Brand Gate API", version=APP_VERSION, lifespan=lifespan,
               docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+
+app.add_middleware(WorkspaceMiddleware)  # per-visitor workspace from the bg_ws cookie (app/workspaces.py)
 
 # ------------------------------------------------------------------ errors -> {"detail": human message}
 _FIELD_NAMES = {"user_id": "user", "title": "title", "channel": "channel", "body": "message", "text": "text", "reason": "reason"}
@@ -78,7 +88,8 @@ def health() -> HealthOut:
                      llm_configured=s.llm_configured, demo_mode=s.demo_mode)
 
 
-for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router):
+for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router,
+          workspace.router):
     api.include_router(r)
 
 
