@@ -37,6 +37,7 @@ from app.schemas import (
     UnitOut,
     VersionOut,
     VersionSummary,
+    WebSource,
 )
 
 
@@ -175,7 +176,21 @@ def to_version_out(session: Session, v: Version) -> VersionOut:
         id=v.id, item_id=v.item_id, n=v.n, kind=v.kind, text=v.text, caption=v.caption, alt_text=v.alt_text,
         file_url=f"/api/versions/{v.id}/file" if v.file_path else None, check_status=v.check_status,
         stats=dict(v.stats or {}), created_at=v.created_at, units=[to_unit_out(u) for u in units],
+        source=web_source(v),
     )
+
+
+def web_source(v: Version) -> Optional[WebSource]:
+    """The fetch record of a web-page version (kind == "web"), or None."""
+    if v.kind != "web":
+        return None
+    from app.pipeline.webpage import load_record
+
+    rec = load_record(v.file_path)
+    try:
+        return WebSource(**{k: rec[k] for k in WebSource.model_fields})
+    except (KeyError, ValueError):
+        return None
 
 
 def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None) -> FindingOut:

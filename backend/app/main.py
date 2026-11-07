@@ -12,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.routers import auth, brand, content, eval as eval_router, innovations, insights, review, workspace
+from app.routers import webpage as webpage_router
 from app.readiness import StartupGate
 from app.workspaces import WorkspaceMiddleware
 from app.schemas import FeaturesOut, HealthOut
@@ -128,7 +129,7 @@ def features() -> FeaturesOut:
 
 
 for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router,
-          workspace.router):
+          workspace.router, webpage_router.router):
     api.include_router(r)
 
 

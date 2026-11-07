@@ -33,7 +33,7 @@ BANDS = ("flag", "human", "pass")
 FINDING_STATUSES = ("open", "accepted", "edited", "dismissed", "overridden")
 CHECK_STATUSES = ("not_run", "queued", "running", "done", "error")
 UNIT_KINDS = ("text", "image", "caption", "alt_text")
-VERSION_KINDS = ("text", "image", "pdf")
+VERSION_KINDS = ("text", "image", "pdf", "web")
 
 
 def utcnow() -> datetime:
