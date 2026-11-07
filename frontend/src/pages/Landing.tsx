@@ -13,6 +13,7 @@ import { HighlightedText } from "@/components/HighlightedText";
 import { api, ROLE_LABELS, serverFeatures, type Role } from "@/lib/api";
 import { reportError } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
+import { cn } from "@/lib/utils";
 
 const ROLE_HOME: Record<Role, string> = { admin: "/brand", creator: "/content/new?demo=1", reviewer: "/review", approver: "/review" };
 const BLURB: Record<Role, string> = {
@@ -34,6 +35,11 @@ const FEATURES: { icon: LucideIcon; title: string; body: string }[] = [
 ];
 
 const spring = { type: "spring", stiffness: 380, damping: 30 } as const;
+
+// framer-motion on the shadcn Button itself (no wrapper element): one focusable, native <button>.
+const MotionButton = motion.create(Button);
+// A clear 2px ring with an offset that shows on the blue pill, the glass pill and the role cards alike.
+const CTA_FOCUS = "focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-[var(--accent-fill)]";
 
 function ProductPreview() {
   const start = SAMPLE.indexOf(SPAN);
@@ -152,29 +158,38 @@ export default function Landing() {
           </BlurFade>
           <BlurFade delay={0.28} className="w-full">
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} transition={spring} className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  disabled={busy !== null}
-                  onClick={tryDemo}
-                  className="h-12 w-full rounded-full bg-[var(--accent-fill)] px-7 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(0,113,227,0.35)] hover:bg-[var(--accent-fill-hover)] sm:w-auto"
-                >
-                  {busy === "demo" ? <Loader2 className="animate-spin" /> : null}
-                  Try the demo brand <ArrowRight strokeWidth={2} />
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.98 }} transition={spring} className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="secondary"
-                  disabled={busy !== null}
-                  onClick={startFresh}
-                  className="glass h-12 w-full !rounded-full px-7 text-callout font-semibold text-foreground hover:bg-foreground/6 sm:w-auto"
-                >
-                  {busy === "blank" ? <Loader2 className="animate-spin" /> : <Plus strokeWidth={2} />}
-                  Start fresh with your brand
-                </Button>
-              </motion.div>
+              {/* One real <button> each: the motion props live on the button itself, so there is a single
+                  tab stop and Enter / Space activate it natively (a motion wrapper with whileTap became
+                  its own focusable stop that ignored both keys). */}
+              <MotionButton
+                type="button"
+                size="lg"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                transition={spring}
+                disabled={busy !== null}
+                aria-busy={busy === "demo"}
+                onClick={tryDemo}
+                className={cn("h-12 w-full rounded-full bg-[var(--accent-fill)] px-7 text-callout font-semibold text-white shadow-[0_10px_30px_rgba(0,113,227,0.35)] hover:bg-[var(--accent-fill-hover)] sm:w-auto", CTA_FOCUS)}
+              >
+                {busy === "demo" ? <Loader2 className="animate-spin" /> : null}
+                Try the demo brand <ArrowRight strokeWidth={2} />
+              </MotionButton>
+              <MotionButton
+                type="button"
+                size="lg"
+                variant="secondary"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                transition={spring}
+                disabled={busy !== null}
+                aria-busy={busy === "blank"}
+                onClick={startFresh}
+                className={cn("glass h-12 w-full !rounded-full px-7 text-callout font-semibold text-foreground hover:bg-foreground/6 sm:w-auto", CTA_FOCUS)}
+              >
+                {busy === "blank" ? <Loader2 className="animate-spin" /> : <Plus strokeWidth={2} />}
+                Start fresh with your brand
+              </MotionButton>
             </div>
             <p className="mt-3 text-caption text-muted-foreground">
               Demo: a fictional brand with sample rules, signed in as its Creator. Fresh: an empty workspace and a five-step setup.
@@ -214,12 +229,14 @@ export default function Landing() {
                 <li key={u.id}>
                   <BlurFade inView delay={0.05 * i} className="h-full">
                     <motion.button
+                      type="button"
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.985 }}
                       transition={spring}
                       onClick={() => enter(u.id, ROLE_HOME[u.role] ?? "/dashboard")}
                       disabled={busy !== null}
-                      className="glass group flex h-full w-full flex-col items-start p-4 text-left disabled:opacity-70 sm:p-6"
+                      aria-busy={busy === u.id}
+                      className={cn("glass group flex h-full w-full flex-col items-start p-4 text-left disabled:opacity-70 sm:p-6", CTA_FOCUS)}
                     >
                       <UserAvatar id={u.id} name={u.name} role={u.role} className="size-11 text-title3 sm:size-12" />
                       <span className="mt-4 text-headline">{u.name}</span>
