@@ -208,13 +208,15 @@ function SegmentDetail({ seg, culprit }: { seg: AudienceSegment; culprit: Audien
       )}
       <ul className="space-y-2.5">
         {seg.worst.map((p) => {
-          const lv = p.score != null ? levelInfo(p.score) : null;
+          // the reader's most likely level, as on the dots (the score is the expected value, kept for the tooltip)
+          const lv = p.level != null ? LEVELS[p.level - 1] : p.score != null ? levelInfo(p.score) : null;
           return (
             <li key={p.id} className="rounded-2xl bg-foreground/5 p-3.5">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-footnote font-semibold">{p.bio}</p>
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold text-black/80 tabular-nums" style={{ background: lv?.bg ?? "#ddd" }}>
-                  {p.score != null ? `${f1(p.score)} · ${lv!.label}` : "n/a"}
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-caption font-semibold text-black/80 tabular-nums" style={{ background: lv?.bg ?? "#ddd" }}
+                      title={p.score != null ? `Average credibility ${f1(p.score)} of 5` : undefined}>
+                  {lv ? `${lv.n} · ${lv.label}` : "n/a"}
                 </span>
               </div>
               {p.confused_flag && <p className="mt-1 text-caption font-medium text-[var(--accent-text)]">May misread the main message</p>}

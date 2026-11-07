@@ -13,20 +13,34 @@ Reader groups (who reads the post):
   generic traits in questions.AUDIENCE_FALLBACK_GROUPS.
 
 How a run works:
-- State: {"content": masked post text}, or {"image": Image, "caption": masked caption} for an image.
+- State: {"source": who publishes the post (questions.audience_source, from the item's channel), "content":
+  masked post text}, or {"source", "image": Image, "caption": masked caption} for an image.
 - Readers in chunks of 20. One Jev request per chunk, 3 questions per reader, all reader first
-  ("Reader: <who, needs, trust and doubt triggers, language> ... How believable does the post seem?"):
-  a 5-level Score `p{i}_credibility` (1 believes it ... 5 thinks it is spam / misleading), a Noul
-  `p{i}_not_for_them` (relevance: the post is outside this reader's needs) and a Noul `p{i}_confused`
-  (would misunderstand the main message). Each reader is in its own question (skill).
+  ("Reader: <who, needs, trust and doubt triggers, language> ... How believable and honest does the post in
+  `content` (published by the brand itself, see `source`) seem to this reader?"): a 5-level Score
+  `p{i}_credibility` about the post's MAIN message (1 believes it, 2 believes it but finds part overdone or would
+  check a detail, 3 can't tell, 4 doubts the main claim, 5 spam / scam / misleading), a Noul `p{i}_not_for_them`
+  (relevance: the post is outside this reader's needs) and a Noul `p{i}_confused` (could not say what the post
+  mainly tells them). Each reader is in its own question (skill).
 - The first request also carries a Choice "which paragraph most reduces trust?" with its companion
   Noul `any_distrust` for the null case.
-- Code decides: expected credibility per reader = 1 + sum(level * p) over the Score's level probabilities;
-  per group the mean, spread (sd), shares leaning to believe / unsure / doubt (bands in questions.py),
-  difference from the post average, "not for them" share (p > 0.70; relevance never enters credibility),
-  confusion share (p > 0.70), the 3 least convinced readers (by credibility only); the culprit paragraph;
-  optionally one LLM sentence for the 2 most doubtful groups.
+- Code decides: per reader, the expected credibility = 1 + sum(level * p) over the Score's level probabilities
+  (`score`, used for every mean, spread and version delta) and the most likely level (`level`, the dot; a tie
+  goes to doubt), whose lean is 1-2 believe / 3 unsure / 4-5 doubt; per group the mean, spread (sd), shares
+  leaning to believe / unsure / doubt, difference from the post average, "not for them" share (p > 0.70;
+  relevance never enters credibility), confusion share (p > 0.70), the 3 least convinced readers (by
+  credibility only); the culprit paragraph; optionally one LLM sentence for the 2 most doubtful groups.
 - Partial results are stored after every chunk, so the UI can light up dots while polling.
+
+Why it changed (8 Nov, schema 4, calibration): a playful, honest brand year-in-review full of the brand's own
+order figures (Swiggy Instamart's "How India Instamarted 2025" press note) put 233 of 240 readers on
+"Seems exaggerated" and 80 on "may misread". Causes, measured on app/eval/audience_calibration.json (13 posts,
+draft labels): level 4 was "parts of the post are exaggerated ... a number that sounds too strong", which a
+long page always meets, and no level fitted "believes it, the wording is just excited"; the post reached Jev
+as an anonymous text, though every Rulemint item is the brand's own post; the confused criteria asked for
+"what is offered / what to do", which a post with no offer cannot answer; and two-peaked answers (0.55
+"mostly believes", 0.42 "exaggerated") were rounded to "Can't tell". Numbers in DECISIONS.md
+("Audience Preview calibration").
 
 Why it changed (8 Nov, schema 3): the single "reaction" Score anchored level 1 on acting ("would open the
 link") and level 4 mixed distrust with "does not fit what they need", so an honest ad from an unknown brand
@@ -57,7 +71,7 @@ from app.pipeline import questions as Q
 
 log = logging.getLogger("brandgate.audience")
 
-SCHEMA = 3  # results shape version; runs saved by older models (reaction score, distrust/unsure) are not shown
+SCHEMA = 4  # results version; runs saved by older models (reaction score, distrust/unsure, pre-calibration credibility) are not shown
 LABEL = "Simulated audience, directional signal, not a survey"
 ATTRIBUTION = "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)"
 PURPOSE = "audience"
@@ -295,18 +309,20 @@ def option_names(paragraphs: list[str]) -> dict[str, int]:
     return out
 
 
-def build_requests(readers: list[dict], paragraphs: list[str], *, is_image: bool) -> list[tuple[dict[str, Any], list[dict]]]:
+def build_requests(readers: list[dict], paragraphs: list[str], *, is_image: bool,
+                   has_source: bool = True) -> list[tuple[dict[str, Any], list[dict]]]:
     """[(questions, readers in this request)]. The first request also carries the culprit Choice
-    and its companion Noul (speculative fan-out: code reads the Choice only when the Noul says yes)."""
+    and its companion Noul (speculative fan-out: code reads the Choice only when the Noul says yes).
+    `has_source`: the state carries `source` (who publishes the post), and the reader questions point to it."""
     reqs: list[tuple[dict[str, Any], list[dict]]] = []
     for c in range(0, len(readers), CHUNK):
         chunk = readers[c:c + CHUNK]
         qs: dict[str, Any] = {}
         for r in chunk:
             prof = reader_profile(r)
-            qs[f"p{r['idx']}_credibility"] = Q.audience_credibility_question(prof, is_image)
-            qs[f"p{r['idx']}_not_for_them"] = Q.audience_not_for_them_question(prof, is_image)
-            qs[f"p{r['idx']}_confused"] = Q.audience_confused_question(prof, is_image)
+            qs[f"p{r['idx']}_credibility"] = Q.audience_credibility_question(prof, is_image, has_source)
+            qs[f"p{r['idx']}_not_for_them"] = Q.audience_not_for_them_question(prof, is_image, has_source)
+            qs[f"p{r['idx']}_confused"] = Q.audience_confused_question(prof, is_image, has_source)
         reqs.append((qs, chunk))
     if reqs and not is_image and paragraphs:
         reqs[0][0]["any_distrust"] = Q.AUDIENCE_ANY_DISTRUST
@@ -337,14 +353,42 @@ def expected_score(probabilities: dict[str, float], fallback: Optional[float] = 
 
 
 def level(score: Optional[float]) -> Optional[int]:
-    """Nearest of the 5 credibility levels (half rounds up, towards doubt)."""
+    """Nearest of the 5 credibility levels (half rounds up, towards doubt). Only used when a reader's level
+    probabilities are missing; otherwise the reader's level is their most likely one (most_likely_level)."""
     if score is None:
         return None
     return int(min(LEVELS, max(1, math.floor(score + 0.5))))
 
 
+def most_likely_level(probabilities: dict[str, float]) -> Optional[int]:
+    """The reader's most likely credibility level (1..5) from the Score's level probabilities; a tie goes to
+    the more doubtful level. None without usable probabilities.
+
+    Why not the rounded expected value: Jev's answers are often two-peaked (e.g. 0.55 "mostly believes" and
+    0.42 "seems exaggerated"); the expected value of such a reader is ~2.9, which rounds to "Can't tell", an
+    answer that had ~3% probability (skill: look at the level probabilities before deciding what code reads).
+    The expected value still drives the means, spreads and version deltas."""
+    best: Optional[tuple[float, int]] = None
+    for k, v in (probabilities or {}).items():
+        try:
+            lvl = int(k)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= lvl < LEVELS and v is not None and v >= 0 and (best is None or (float(v), lvl) >= best):
+            best = (float(v), lvl)
+    return None if best is None or best[0] <= 0 else best[1] + 1
+
+
+def lean_of_level(lvl: Optional[int]) -> Optional[str]:
+    """Truth table on the reader's level: 1-2 believe ("trust"), 3 unsure ("Can't tell"), 4-5 doubt."""
+    if lvl is None:
+        return None
+    return "trust" if lvl <= 2 else ("unsure" if lvl == 3 else "doubt")
+
+
 def lean(score: Optional[float]) -> Optional[str]:
-    """Truth table: <= AUDIENCE_TRUST_MAX believe ("trust"), >= AUDIENCE_DOUBT_MIN doubt, otherwise unsure."""
+    """Lean of a 1-5 credibility value (a group or post mean): <= AUDIENCE_TRUST_MAX believe ("trust"), >=
+    AUDIENCE_DOUBT_MIN doubt, otherwise unsure. A reader's own lean comes from their most likely level."""
     if score is None:
         return None
     if score <= Q.AUDIENCE_TRUST_MAX:
@@ -380,21 +424,22 @@ def _totals(rows: list[dict], n: int) -> dict:
     }
 
 
-Answer = tuple  # (credibility 1..5, confused p, not_for_them p); a 2-tuple (no relevance answer) is accepted
+Answer = tuple  # (credibility 1..5, confused p, not_for_them p, most likely level 1..5); shorter tuples are accepted
 
 
-def _unpack(a: Optional[tuple]) -> tuple[Optional[float], Optional[float], Optional[float]]:
-    vals = list(a or ()) + [None, None, None]
-    return vals[0], vals[1], vals[2]
+def _unpack(a: Optional[tuple]) -> tuple[Optional[float], Optional[float], Optional[float], Optional[int]]:
+    vals = list(a or ()) + [None, None, None, None]
+    return vals[0], vals[1], vals[2], vals[3]
 
 
 def persona_rows(readers: list[dict], answers: dict[int, Answer]) -> list[dict]:
     rows = []
     for r in readers:
-        sc, c, nft = _unpack(answers.get(r["idx"]))
+        sc, c, nft, top = _unpack(answers.get(r["idx"]))
+        lvl = top if top is not None else level(sc)
         rows.append({"id": str(r.get("id") or r["idx"]), "idx": r["idx"], "segment": r.get("segment", ""),
                      "bio": short_bio(r), "detail": reader_detail(r) or str(r.get("persona") or ""),
-                     "score": None if sc is None else round(sc, 4), "level": level(sc), "lean": lean(sc),
+                     "score": None if sc is None else round(sc, 4), "level": lvl, "lean": lean_of_level(lvl),
                      "confused": None if c is None else round(c, 4),
                      "confused_flag": None if c is None else c > Q.AUDIENCE_CONFUSED_AT,
                      "not_for_them": None if nft is None else round(nft, 4),
@@ -550,8 +595,10 @@ OnProgress = Callable[[dict], Any]
 
 async def simulate(content: str, paragraphs: list[dict], *, image_path: Optional[str] = None,
                    personas: Optional[list[dict]] = None, calls: Optional[jev.CallLog] = None,
-                   on_progress: Optional[OnProgress] = None, use_llm: Optional[bool] = None) -> dict:
-    """Runs the simulated audience on already-masked content. Returns the results dict (no label)."""
+                   on_progress: Optional[OnProgress] = None, use_llm: Optional[bool] = None,
+                   channel: Optional[str] = None) -> dict:
+    """Runs the simulated audience on already-masked content. Returns the results dict (no label).
+    `channel` (the item's channel) only sets the `source` line: who publishes the post, and where."""
     from app.pipeline import explain as X
 
     t0 = time.perf_counter()
@@ -570,9 +617,10 @@ async def simulate(content: str, paragraphs: list[dict], *, image_path: Optional
     if is_image:
         from typesafe_sdk import Image
 
-        state: Any = {"image": Image(jev.prepare_image(image_path)), "caption": content}
+        state: Any = {"source": Q.audience_source(channel), "image": Image(jev.prepare_image(image_path)),
+                      "caption": content}
     else:
-        state = {"content": content}
+        state = {"source": Q.audience_source(channel), "content": content}
     reqs = build_requests(people, texts, is_image=is_image)
     answers: dict[int, Answer] = {}
     first: list[Optional[jev.JevResult]] = [None]
@@ -590,7 +638,7 @@ async def simulate(content: str, paragraphs: list[dict], *, image_path: Optional
             for p in chunk:
                 sc = res.scores[f"p{p['idx']}_credibility"]
                 answers[p["idx"]] = (expected_score(sc.probabilities, sc.score), res.nouls[f"p{p['idx']}_confused"],
-                                     res.nouls.get(f"p{p['idx']}_not_for_them"))
+                                     res.nouls.get(f"p{p['idx']}_not_for_them"), most_likely_level(sc.probabilities))
         done_people += len(chunk)
         if on_progress is not None:
             partial = {"schema": SCHEMA, "personas": persona_rows(people, answers),

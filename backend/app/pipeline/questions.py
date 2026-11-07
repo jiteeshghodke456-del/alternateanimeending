@@ -297,8 +297,9 @@ def question_text(q: Any) -> dict[str, Any]:
 # Simulated readers: brand-defined reader groups (seed audiences.json) or, without that file, the six
 # Nemotron-Personas-India segments with the generic traits below. Each reader is written into its own
 # question, reader first (who they are, what they need, language and digital habits, what makes them
-# trust or doubt), then the question. State: {"content": masked post text} or, for an image post,
-# {"image": Image, "caption": masked caption}. Code turns the answers into scores and shares (audience.py).
+# trust or doubt), then the question. State: {"source": who publishes it (audience_source), "content": masked
+# post text} or, for an image post, {"source", "image": Image, "caption": masked caption}. Code turns the
+# answers into scores and shares (audience.py).
 AUDIENCE_CONFUSED_AT = 0.70  # `confused` Noul above this: this reader would misunderstand the main message
 AUDIENCE_NOT_FOR_THEM_AT = 0.70  # `not_for_them` Noul above this: the post isn't relevant to this reader
 AUDIENCE_TRUST_MAX = 2.5  # credibility (1-5) at or below this: leans towards believing it  (bands: see DECISIONS)
@@ -315,37 +316,63 @@ AUDIENCE_CULPRIT_MAYBE_AT = 0.30  # ... as "possible" between the two, and not a
 # The five credibility levels, in Score order (level index 0..4 = credibility 1..5). Each is a situation that
 # reads on its own (skill: "describe each Score level as a situation"). Level 1 names the case that caused
 # confusion before: a reader can believe a post about something they don't want.
+# Calibration (8 Nov, app/eval/audience_calibration.json): the levels are about the post's MAIN message.
+# Before, level 4 was "parts of the post are exaggerated ... a number that sounds too strong" and nothing
+# between "would check one detail" and that level fitted "I believe it, the wording is just excited", so a
+# playful, honest year-in-review full of the brand's own order figures (and every long page, where some part
+# always sounds strong) landed on level 4. Now excited wording or a big-sounding number in a post the reader
+# believes is level 2; level 4 needs the central claim itself to seem too strong to be true.
 AUDIENCE_CREDIBILITY_LEVELS = (
-    "This reader finds the post clear and believable: its claims about the product, price or offer seem honest, "
-    "whether or not they want it themselves.",
-    "This reader mostly believes the post but would check one detail, such as a rating, a number or a condition.",
-    "This reader can't tell whether the post is honest: its statements could be true or could be exaggerated.",
-    "This reader thinks parts of the post are exaggerated or misleading, such as a claim, number or promise that "
-    "sounds too strong.",
+    "This reader believes the post: what it says about the brand, its products, its offer or its customers "
+    "seems true to them, whether or not they want it themselves.",
+    "This reader believes the post's main message but finds part of it overdone, such as excited wording or a "
+    "big-sounding number, or would check one detail such as a rating or a condition.",
+    "This reader can't tell whether the post's main message is true.",
+    "This reader doubts the post's main message: its central claim, number or promise seems too strong to be "
+    "true.",
     "This reader thinks the post is spam, a scam or deliberately misleading, and would not believe it.",
 )
 AUDIENCE_LEVEL_LABELS = ("Believes it", "Mostly believes it", "Can't tell", "Seems exaggerated",
                          "Seems misleading")
 
+# Who published the post (code knows it: every item in Rulemint is the brand's own content, and its channel
+# is stored). A real reader always sees where a post comes from; without it Jev judged an anonymous text.
+AUDIENCE_SOURCE_BY_CHANNEL = {
+    "instagram": "Published by the brand itself on its own Instagram account.",
+    "linkedin": "Published by the brand itself on its own LinkedIn page.",
+    "website": "Published by the brand itself on its own website.",
+    "email": "An email the brand itself sends to its customers.",
+}
+AUDIENCE_SOURCE_DEFAULT = "Published by the brand itself on one of its own channels."
 
-def audience_subject(is_image: bool) -> str:
-    return "the post (`image` with its `caption`)" if is_image else "the post in `content`"
+
+def audience_source(channel: Optional[str]) -> str:
+    """The `source` state field: who publishes the post, and where."""
+    return AUDIENCE_SOURCE_BY_CHANNEL.get(str(channel or "").lower(), AUDIENCE_SOURCE_DEFAULT)
 
 
-def audience_credibility_question(reader: str, is_image: bool = False) -> Score:
+def audience_subject(is_image: bool, has_source: bool = False) -> str:
+    """"the post in `content`"; with has_source, followed by "(published by the brand itself, see `source`)"."""
+    subj = "the post (`image` with its `caption`)" if is_image else "the post in `content`"
+    return f"{subj} (published by the brand itself, see `source`)" if has_source else subj
+
+
+def audience_credibility_question(reader: str, is_image: bool = False, has_source: bool = True) -> Score:
     """Reader first, then one judgment: how believable the post seems to this reader.
     `reader` comes from audience.reader_profile()."""
     return Score(
-        instructions=f"Reader: {reader}\n\nHow believable and honest does {audience_subject(is_image)} seem to this reader?",
+        instructions=f"Reader: {reader}\n\nHow believable and honest does {audience_subject(is_image, has_source)} "
+                     "seem to this reader?",
         criteria=list(AUDIENCE_CREDIBILITY_LEVELS),
     )
 
 
-def audience_not_for_them_question(reader: str, is_image: bool = False) -> Noul:
+def audience_not_for_them_question(reader: str, is_image: bool = False, has_source: bool = True) -> Noul:
     """Relevance, high = problem: the post is about something outside this reader's needs or life."""
     subj = audience_subject(is_image)
     return Noul(
-        instructions=f"Reader: {reader}\n\nIs {subj} about something this reader has no use for?",
+        instructions=f"Reader: {reader}\n\nIs {audience_subject(is_image, has_source)} about something this reader "
+                     "has no use for?",
         criteria={
             "true": f"What {subj} offers doesn't fit this reader's needs, budget or daily life, so they would scroll "
                     "past it even if they believe it, like a premium gift box for someone counting every rupee.",
@@ -355,16 +382,21 @@ def audience_not_for_them_question(reader: str, is_image: bool = False) -> Noul:
     )
 
 
-def audience_confused_question(reader: str, is_image: bool = False) -> Noul:
+# Confused: "main message" is what the post mainly tells the reader. The criteria used to ask whether the reader
+# could say "what is offered or what they are asked to do", which a year-in-review or a news-style post (no
+# offer, no ask) can never answer, so 37% of readers were "confused" by a long, clear press note (8 Nov).
+def audience_confused_question(reader: str, is_image: bool = False, has_source: bool = True) -> Noul:
     subj = audience_subject(is_image)
     return Noul(
-        instructions=f"Reader: {reader}\n\nWould this reader misunderstand the main message of {subj}?",
+        instructions=f"Reader: {reader}\n\nWould this reader misunderstand the main message of "
+                     f"{audience_subject(is_image, has_source)}?",
         criteria={
-            "true": f"After reading {subj}, this reader could not say what is offered or what they are asked to do, "
+            "true": f"After reading {subj}, this reader could not say in one sentence what it is mainly telling them, "
                     "for example because of jargon, abbreviations, mixed messages, or a language or format they "
                     "find hard to read.",
-            "false": f"After reading {subj}, this reader could say in one sentence what is offered and what to do "
-                     "next, like “there is a new app and I can get it from the link”.",
+            "false": f"After reading {subj}, this reader could say in one sentence what it is mainly telling them, "
+                     "like “there is a new app and I can get it from the link” or “the company is sharing what "
+                     "its customers did this year”.",
         },
     )
 
