@@ -72,6 +72,7 @@ class Settings(BaseSettings):
 
     # Memory budget (Render free tier = 512 MiB; DECISIONS.md "Memory budget on Render free tier")
     max_concurrent_checks: int = 2  # checks + audience runs + PDF imports running at once; the rest queue
+    startup_in_background: bool = True  # listen at once; build templates in the background (health: ready=false)
     prerun_delay_s: float = 15.0  # startup demo pre-run waits this long so the server is healthy first
     image_max_side: int = 1024  # images are downscaled to this before Jev (and colour work)
     sift_max_side: int = 640  # logo matching: largest piece one SIFT pass sees (~225 bytes/pixel); bigger images are tiled

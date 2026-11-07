@@ -48,6 +48,18 @@ class HealthOut(_Out):
     jev_configured: bool
     llm_configured: bool
     demo_mode: bool
+    ready: bool = True  # False while the server builds the demo after a deploy / wake (other /api calls: 503)
+    stage: Optional[str] = None  # what startup is doing, e.g. "building demo"
+
+
+class FeaturesOut(_Out):
+    """GET /api/features: what this server offers. Tiny, so the UI never has to fetch /api/openapi.json."""
+    workspaces: bool
+    brand_edit: bool = True
+    palette: bool = True
+    logo: bool = True
+    facts_import: bool = True
+    pdf_import: bool = True
 
 
 # ---------------------------------------------------------------- auth

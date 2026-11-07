@@ -12,31 +12,59 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.routers import auth, brand, content, eval as eval_router, innovations, insights, review, workspace
+from app.readiness import StartupGate
 from app.workspaces import WorkspaceMiddleware
-from app.schemas import HealthOut
+from app.schemas import FeaturesOut, HealthOut
 
 APP_VERSION = "0.1.0"
 log = logging.getLogger("brandgate")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):  # noqa: ANN201
-    from app import workspaces
+async def _boot() -> None:
+    """Templates + seed + demo pre-run setup. Heavy file work runs in a thread so the event loop keeps
+    answering /api/health (ready=false) and the UI can show "Starting the server…"."""
+    import asyncio
+
+    from app import readiness, workspaces
     from app.pipeline.run import on_startup  # pipeline-agent: bind loop, clean stale checks, demo pre-run
 
-    if workspaces.enabled():
-        # Templates (demo + blank); the demo pre-run checks the seeded items once, on the template.
-        workspaces.startup()
-        with workspaces.use(workspaces.TEMPLATE_IDS["demo"]):
-            on_startup()
-    else:
-        from app.seed import seed_if_empty
+    try:
+        if workspaces.enabled():
+            # Templates (demo + blank); the demo pre-run checks the seeded items once, on the template.
+            readiness.set_stage("building demo")
+            await asyncio.to_thread(workspaces.startup)
+            with workspaces.use(workspaces.TEMPLATE_IDS["demo"]):
+                on_startup()
+        else:
+            from app.seed import seed_if_empty
 
-        summary = seed_if_empty()
-        if summary:
-            log.info("Seeded empty database: %s", summary)
-        on_startup()
+            readiness.set_stage("loading demo")
+            summary = await asyncio.to_thread(seed_if_empty)
+            if summary:
+                log.info("Seeded empty database: %s", summary)
+            on_startup()
+    except Exception:
+        log.exception("startup failed")
+        readiness.mark_ready(failed=True)
+        raise
+    readiness.mark_ready()
+    log.info("startup complete: ready")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ANN201
+    import asyncio
+
+    from app import readiness
+
+    if get_settings().startup_in_background:
+        readiness.starting("starting")
+        task = asyncio.create_task(_boot())
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())  # logged in _boot
+        app.state.boot_task = task
+    else:  # tests and scripts: ready before the first request
+        await _boot()
     yield
 
 
@@ -44,6 +72,7 @@ app = FastAPI(title="Brand Gate API", version=APP_VERSION, lifespan=lifespan,
               docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
 app.add_middleware(WorkspaceMiddleware)  # per-visitor workspace from the bg_ws cookie (app/workspaces.py)
+app.add_middleware(StartupGate)  # outermost: 503 + Retry-After until the demo is built (app/readiness.py)
 
 # ------------------------------------------------------------------ errors -> {"detail": human message}
 _FIELD_NAMES = {"user_id": "user", "title": "title", "channel": "channel", "body": "message", "text": "text", "reason": "reason"}
@@ -83,9 +112,19 @@ api = APIRouter(prefix="/api")
 
 @api.get("/health", response_model=HealthOut, tags=["health"])
 def health() -> HealthOut:
+    from app import readiness
+
     s = get_settings()
-    return HealthOut(ok=True, version=APP_VERSION, jev_configured=s.jev_configured,
-                     llm_configured=s.llm_configured, demo_mode=s.demo_mode)
+    return HealthOut(ok=not readiness.failed(), version=APP_VERSION, jev_configured=s.jev_configured,
+                     llm_configured=s.llm_configured, demo_mode=s.demo_mode,
+                     ready=readiness.is_ready(), stage=readiness.stage())
+
+
+@api.get("/features", response_model=FeaturesOut, tags=["health"])
+def features() -> FeaturesOut:
+    from app import workspaces
+
+    return FeaturesOut(workspaces=workspaces.enabled(), pdf_import=get_settings().feature_pdf_import)
 
 
 for r in (auth.router, brand.router, content.router, review.router, insights.router, eval_router.router, innovations.router,

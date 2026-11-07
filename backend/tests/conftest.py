@@ -13,6 +13,8 @@ os.environ["UPLOAD_DIR"] = os.path.join(_TMP, "uploads")
 os.environ["DEMO_MODE"] = "1"
 # The existing suite runs against one shared DB (DB_PATH). tests/test_workspaces.py turns workspaces on.
 os.environ["WORKSPACES_ENABLED"] = "0"
+# The app builds its demo before the first request in tests (live servers build it in the background).
+os.environ["STARTUP_IN_BACKGROUND"] = "0"
 os.environ["WORKSPACES_DIR"] = os.path.join(_TMP, "ws")
 # Empty strings (not pop): pydantic-settings would otherwise read real keys from the repo .env,
 # and unit tests must never call the real APIs. Live tests (-m live) read the .env themselves.
