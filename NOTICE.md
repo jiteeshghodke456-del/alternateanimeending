@@ -25,3 +25,14 @@
 | framer-motion | MIT |
 | recharts | MIT |
 | lucide-react | ISC |
+| Inter font | SIL Open Font License 1.1 |
+
+## Ideas and methods we borrowed (no code copied)
+
+| Source | What we took |
+|---|---|
+| packfix | The method for logo fidelity: SIFT keypoints matched to the approved logo, then a RANSAC homography |
+| jev-adrank | A reference for calling Jev with typed questions |
+| brand-fidelity-rules | Templates for writing brand rules as single checkable statements |
+| MiroFish | The idea of a simulated audience reacting to content. MiroFish is AGPL-3.0; none of its code is used |
+

@@ -20,7 +20,7 @@ Built for **CodeNexus India 2026, problem statement by Inkloom AI** (brand-gover
 - **Writer model:** DeepSeek through its OpenAI-compatible API (`LLM_BASE_URL=https://api.deepseek.com`, `LLM_MODEL=deepseek-chat`, which is the fast non-thinking mode), called with the `openai` package. Any other OpenAI-compatible provider can be swapped in through env. It is used only for explanations, fixes and rule extraction.
 - **Files:** `pdfplumber` (PDF text with page numbers), Pillow + numpy (colours), `opencv-python-headless` (logo fidelity), `textstat` (readability), `rapidfuzz` (quote verification, fact matching).
 - **Frontend:** React 18 + Vite + TypeScript, Tailwind CSS, shadcn/ui, Magic UI components, framer-motion, recharts, lucide-react. Built to static files and served by FastAPI, so there is **one container and one URL**.
-- **Deploy:** Docker on Hugging Face Spaces (port 7860). Render is the backup.
+- **Deploy:** Docker on Render free tier (port 7860, 512 MiB). Hugging Face Docker Spaces now need a paid plan.
 
 No Redis, no Supabase, no Next.js server, no vector DB in Round 2. Keyword matching is enough for a few dozen facts. These changes from the Round 1 plan are deliberate and explained in the Round 2 PDF.
 

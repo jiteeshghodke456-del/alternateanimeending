@@ -6,13 +6,13 @@ A company loads its brand rules, approved facts, colour palette and logo once. E
 
 Built for CodeNexus India 2026, problem statement by Inkloom AI (brand-governance platform).
 
-Live app: <link added at deployment>
+Live app: https://brand-gate.onrender.com (free hosting: if it has been idle, the first page can take about a minute to wake up)
 
 ## 60-second judge walkthrough
 
-Use a private window, so you start signed out.
+Use a private window, so you start signed out. Every visitor gets a private workspace (its own copy of the data), so nothing you do is seen by other judges, and **Reset** only resets yours.
 
-1. Click **Try the demo**. This signs you in as Rohan (Creator) and opens a flawed Instagram caption on the New content page.
+1. Click **Try the demo brand**. This signs you in as Rohan (Creator) of a fictional demo brand and opens a flawed Instagram caption on the New content page.
 2. Click **Check**. The live meter runs, and findings stream in with their band, probability, rule ID and page.
 3. Open a finding and accept its fix. The fix shows as a before and after diff, with a "verified" badge when the self-check passed.
 4. Click **Resubmit as version 2**. The accepted fixes are applied and the check runs again. The version has fewer findings, and the diff shows what changed.
@@ -21,6 +21,20 @@ Use a private window, so you start signed out.
 7. Switch role to **Kabir** (Approver) and click **Approve**.
 8. Still as Kabir, open the seeded item he created and try to approve it. The button is disabled, and the server refuses with a message.
 9. Open the **Dashboard** (counts and charts from the seeded data and your check), the **Brand Kit** (rules, words, palette and logo, facts) and the **Evaluation** page (results from the last evaluation run).
+
+### Try it with your own brand
+
+Click **Start fresh with your brand** on the landing page. You get an empty workspace and a five-step setup, all optional:
+
+1. Name, tagline and a one-line description.
+2. Colours (pickers or hex) and your logo (PNG or JPEG). The logo is used by the logo check.
+3. Rules: import your guideline PDF (rules are proposed with the quote and page, and each quote is checked against the PDF text), add a 7-rule starter set, or write your own.
+4. Approved facts: upload a CSV (`statement,value,source,valid_until`; a template is offered) or add them one by one.
+5. Banned and preferred words.
+
+Then check your first post. A brand with no rules still gets the word, fact and logo checks, and the item says "Add rules first".
+
+![Setup: colours and logo](docs/screenshots/setup.jpg)
 
 ## What it checks
 
@@ -103,7 +117,7 @@ Open http://localhost:5173. Run the unit tests from `backend/` with `pytest -q`.
 
 ### Environment variables
 
-Names only, from `.env.example`. Set them in `.env` locally, or as secrets on a Hugging Face Space.
+Names only, from `.env.example`. Set them in `.env` locally, or as secret environment variables on your host (the live app runs on Render).
 
 - `TYPESAFE_API_KEY`: Jev key. The SDK reads it automatically.
 - `TYPESAFE_DEFAULT_MODEL`: Jev model name.
@@ -113,6 +127,8 @@ Names only, from `.env.example`. Set them in `.env` locally, or as secrets on a 
 - `SESSION_SECRET`: a long random string. The development default is not safe.
 - `DB_PATH`, `UPLOAD_DIR`: where the SQLite file and uploads are stored.
 - `SEED_DIR`, `FRONTEND_DIST`: optional overrides.
+- `WORKSPACES_DIR`, `MAX_WORKSPACES`, `WORKSPACE_TTL_H`: where per-visitor workspaces live, how many are kept, and how long an idle one lasts.
+- `MAX_CONCURRENT_CHECKS`, `JEV_CONCURRENCY`, `IMAGE_MAX_SIDE`, `SIFT_MAX_SIDE`, `PRERUN_DELAY_S`: memory and speed limits for a small server.
 
 Without `TYPESAFE_API_KEY`, the app still runs. Tier 0 and the local image checks work, and the UI shows a "Jev not configured" notice. Without the LLM key, findings still appear, with template explanations and no rewritten fixes.
 
@@ -135,7 +151,7 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 - **Writing model:** any OpenAI-compatible chat API, through the `openai` Python client. Used only for explanations, fixes and rule extraction.
 - **Files and checks:** pdfplumber (PDF text with page numbers), Pillow and numpy (colours), OpenCV headless, textstat with pyphen (readability), rapidfuzz (quote and fact matching).
 - **Frontend:** React 18, Vite, TypeScript, Tailwind CSS, shadcn/ui, Magic UI, framer-motion, recharts, lucide-react, Inter.
-- **Deployment:** one Docker image (Node 20 builds the frontend, Python 3.12 runs the app) on port 7860. Hugging Face Spaces (Docker SDK).
+- **Deployment:** one Docker image (Node 20 builds the frontend, Python 3.12 runs the app) on port 7860. The live app runs on Render's free tier (512 MiB), with one uvicorn worker.
 
 ## Privacy and responsible AI
 
@@ -149,12 +165,12 @@ The run calls Jev, so set `TYPESAFE_API_KEY` first. It writes `backend/app/eval/
 
 ## Limitations
 
-- **Demo data resets.** Data lives in a SQLite file on the server. A restart or a reset loads the seeded demo data again. On a Hugging Face Space, a restart wipes everything.
-- **Demo sign-in only.** There are no real accounts. Sign-in uses demo users, and the session token is kept in the browser's session storage.
+- **Workspaces are temporary.** Each visitor's workspace is a SQLite file on the server. It is deleted after 12 idle hours, and the free host wipes all of them when it restarts or sleeps after 15 idle minutes. The demo brand is rebuilt automatically.
+- **Demo sign-in only.** There are no real accounts. Sign-in uses demo users per workspace, and the tokens are kept in the browser's session storage and a cookie.
 - **Scanned PDFs are not read.** A PDF with no text layer gets a "No text found" message.
 - **Image judging is early.** Jev's image support is early-stage. If an image call fails, the image gets code-only checks and the finding says so.
 - **Logo authenticity is not checked by Jev.** Jev has no copy of the official logo, so a redrawn logo is not caught by the Jev checks.
-- **Evaluation labels are being re-labelled.** A team member is re-labelling the evaluation items. Until that finishes, treat the Evaluation numbers as provisional.
+- **Evaluation labels are drafts.** All 60 evaluation items were labelled as drafts with AI help and are being reviewed by the team, and recall on the test split rests on 13 positive labels. Treat the Evaluation numbers as provisional.
 - **Keyword triggers are blunt.** Code flags urgency and claim words even when the wording is correct in context.
 
 ## Team
