@@ -134,6 +134,10 @@ State: `{"content": masked post}` (image posts: `{"image", "caption"}`). Each pe
 - **Logo** is served by `/api/assets/{id}` (listed in `BrandOut.logos[].url`), which the Brand Kit uses. No change needed.
 - **Image findings have no region.** Visual/logo findings carry no box, so the item page shows the image with the brand palette strip and lists findings beside it; an overlay needs `box` (fractions) on `FindingOut`.
 - **Seeded `not_run` items** have no check until someone resubmits; the item page says so and points at "Resubmit".
+- **Altered logos have no outline (innovation screens, 7 Nov).** `ad_wronglogo.png` returns `verdict: "altered"` with `box: null, quad: null` (0 RANSAC inliers), so the overlay can only show a note, not an outline. If a Jev Box for "the logo" were returned as a fallback `box` for altered logos, the UI would draw it (it already accepts `box` or `quad`).
+- **Stale SQLite schema.** An old `/tmp/brandgate.db` made `GET /versions/{id}/audience` return 500 (`no such column: audiencerun.updated_at`). A fresh DB fixes it. Consider a startup check that recreates or migrates the table, or the demo may 500 on a reused Space volume.
+- **Audience shares saturate.** On the demo v1 all six segments read 100% distrust, so shares alone can't show small gains. The UI therefore also shows `mean_distrust` and its delta; please keep those fields.
+- **PDF import.** Every proposal in the demo PDF verified (40 of 40), so the "quote not found" path was not seen live; it is rendered from `quote_verified: false`.
 
 ## Pipeline agent (pipeline/*, eval, SSE)
 - **Spans.** `Finding.span_start/span_end` are offsets into `Version.text` (unit offset + local offset), as `models.py` and `api.ts` already document, not offsets into the unit text. Image and post-level findings have no span. **`Finding.fix` replaces exactly `text[span_start:span_end]`**, so several accepted fixes in one paragraph compose on resubmit. Paragraph-level Jev findings span the whole paragraph.

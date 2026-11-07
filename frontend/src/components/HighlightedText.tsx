@@ -3,13 +3,33 @@ import { BAND } from "@/lib/bands";
 import type { Band } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export interface HighlightSpan { start: number; end: number; band: Band; id?: string; label?: string }
+export interface HighlightSpan { start: number; end: number; band: Band; id?: string; label?: string; noIcon?: boolean }
+
+/** A highlight that crosses a paragraph break is split per paragraph, so no empty pill is left on the blank line. Only the last piece gets the icon. */
+function splitAtBreaks(text: string, spans: HighlightSpan[]): HighlightSpan[] {
+  const out: HighlightSpan[] = [];
+  for (const sp of spans) {
+    const end = Math.min(sp.end, text.length);
+    const pieces: HighlightSpan[] = [];
+    let from = sp.start;
+    const re = /\n\s*\n/g;
+    const seg = text.slice(sp.start, end);
+    for (let m = re.exec(seg); m; m = re.exec(seg)) {
+      pieces.push({ ...sp, start: from, end: sp.start + m.index });
+      from = sp.start + m.index + m[0].length;
+    }
+    pieces.push({ ...sp, start: from, end });
+    const kept = pieces.filter((q) => text.slice(q.start, q.end).trim() !== "");
+    kept.forEach((q, i) => out.push({ ...q, noIcon: i < kept.length - 1 }));
+  }
+  return out;
+}
 
 /** Renders text with spans coloured by band. Each span also carries an icon, so colour is never the only cue. */
 export function HighlightedText({ text, spans, activeId, onSelect, className }: {
   text: string; spans: HighlightSpan[]; activeId?: string; onSelect?: (id: string) => void; className?: string;
 }) {
-  const sorted = [...spans].filter((s) => s.end > s.start && s.start >= 0 && s.start < text.length && text.slice(s.start, s.end).trim() !== "").sort((a, b) => a.start - b.start);
+  const sorted = splitAtBreaks(text, spans).filter((s) => s.end > s.start && s.start >= 0 && s.start < text.length && text.slice(s.start, s.end).trim() !== "").sort((a, b) => a.start - b.start);
   const parts: React.ReactNode[] = [];
   let cursor = 0;
   sorted.forEach((s, i) => {
@@ -38,7 +58,7 @@ export function HighlightedText({ text, spans, activeId, onSelect, className }: 
               {head}
               <span className="whitespace-nowrap">
                 {word}
-                <Icon className={cn("ml-1 inline size-3.5 -translate-y-px", b.text)} strokeWidth={2} aria-label={b.label} />
+                {!s.noIcon && <Icon className={cn("ml-1 inline size-3.5 -translate-y-px", b.text)} strokeWidth={2} aria-label={b.label} />}
               </span>
               {tail}
             </>
