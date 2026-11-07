@@ -203,6 +203,10 @@ def load_context(s: Session, item: ContentItem, v: Version) -> tuple[CheckContex
              for u in s.exec(select(Unit).where(Unit.version_id == v.id).order_by(Unit.idx)).all()]
     ctx = brand_context(s, item.brand_id, item.channel, version_kind=v.kind, alt_text=v.alt_text, post_text=v.text or "",
                         confidential=item.confidential, version_id=v.id)
+    if v.kind == "web":
+        from app.pipeline.webpage import load_record
+
+        ctx.web_issues = list(load_record(v.file_path).get("a11y", []))
     return ctx, units
 
 
