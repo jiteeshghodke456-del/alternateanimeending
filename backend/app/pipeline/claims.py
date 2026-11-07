@@ -35,6 +35,7 @@ from app.pipeline import questions as Q
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, FactSpec, RuleSpec
 from app.pipeline.tier0 import ClaimTrigger, Tier0Hit, _DATE, claim_triggers, in_protected, protected_spans, sentences
+from app.clock import local_today
 
 MIN_FACT_SCORE = 40
 NO_JEV_FACT_SCORE = 50
@@ -47,7 +48,7 @@ def is_expired(valid_until: date | None, today: date | None = None) -> bool:
     """True if `valid_until` is set and strictly before today."""
     if valid_until is None:
         return False
-    return valid_until < (today or date.today())
+    return valid_until < (today or local_today())
 
 
 @dataclass

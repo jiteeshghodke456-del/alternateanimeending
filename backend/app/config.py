@@ -21,6 +21,8 @@ def default_tmp_dir() -> Path:
 
 
 class Settings(BaseSettings):
+    # Dates (fact expiry, "expires in N days") are judged in the brand's local day, not the server's UTC day.
+    app_utc_offset_minutes: int = 330  # India (IST); APP_UTC_OFFSET_MINUTES
     model_config = SettingsConfigDict(
         env_file=(str(REPO_DIR / ".env"), str(BACKEND_DIR / ".env")),
         env_file_encoding="utf-8",

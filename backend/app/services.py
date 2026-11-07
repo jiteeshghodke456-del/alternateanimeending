@@ -29,6 +29,7 @@ from app.models import (
 )
 from app.pipeline import units as U
 from app.schemas import (
+from app.clock import local_today
     CitationOut,
     FactOut,
     FactRef,
@@ -142,7 +143,7 @@ def create_version(
 
 # ------------------------------------------------------------------ serializers
 def fact_expired(valid_until: Optional[date]) -> bool:
-    return valid_until is not None and valid_until < date.today()
+    return valid_until is not None and valid_until < local_today()
 
 
 def to_fact_out(f: Fact) -> FactOut:

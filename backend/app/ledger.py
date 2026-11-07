@@ -25,6 +25,7 @@ from sqlmodel import Session, select
 
 from app.models import AuditEvent, ClaimRecord, Comment, ContentItem, Fact, User, Version
 from app.schemas import (
+from app.clock import local_today
     ExpiringFact,
     FactImpactOut,
     ImpactItem,
@@ -39,7 +40,7 @@ IN_PROGRESS = ("draft", "checking", "findings_ready", "in_review", "changes_requ
 
 
 def today() -> date:
-    return date.today()
+    return local_today()
 
 
 def days_left(valid_until: Optional[date], on: Optional[date] = None) -> Optional[int]:
