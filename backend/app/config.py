@@ -23,9 +23,9 @@ class Settings(BaseSettings):
     typesafe_default_model: str = "jev-latest"
 
     # Writer LLM (OpenAI-compatible)
-    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_base_url: str = "https://api.deepseek.com"
     llm_api_key: str = ""
-    llm_model: str = "openai/gpt-oss-120b"
+    llm_model: str = "deepseek-chat"
 
     # Cost meter
     jev_usd_per_m_input: float = 0.042
