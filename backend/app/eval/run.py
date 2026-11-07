@@ -158,7 +158,10 @@ async def evaluate(split: str = "test", *, with_explain: bool = False, use_jev: 
                               explain_findings=with_explain)
         latency = (time.perf_counter() - t0) * 1000
         starts = {u.idx: u.char_start or 0 for u in units}
-        preds = [Pred({c for c in (d.rule_code, d.fact_code) if c}, d.category, d.band, d.span_start, d.span_end, d.quote, d.probability)
+        preds = [Pred({c for c in (d.rule_code, d.fact_code) if c}, d.category, d.band,
+                      # edit-region findings span the whole sentence; score the flagged words
+                      d.hit_start if d.hit_start is not None else d.span_start,
+                      d.hit_end if d.hit_end is not None else d.span_end, d.quote, d.probability)
                  for d in res.findings if d.band in SHOWN]
         judg = [{"code": j.rule_code, "category": j.category, "p": j.p, "kind": j.kind, "status": j.claim_status,
                  "fact": j.fact_code,
