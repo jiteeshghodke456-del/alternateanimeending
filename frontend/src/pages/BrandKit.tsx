@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { FileUp, Loader2, Pencil, Plus, Power, Wand2, X } from "lucide-react";
+import { CalendarX2, FileUp, Loader2, Pencil, Plus, Power, Radar, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
@@ -21,6 +21,7 @@ import {
 import { formatDate, reportError, useAsync } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { FactImpactDialog } from "@/components/claims"; // Round 3: fact impact
 
 const surface = "max-h-[90dvh] overflow-y-auto rounded-3xl border-[var(--glass-border)] bg-[var(--glass-strong-bg)] backdrop-blur-2xl";
 const tabCls = "rounded-full px-4 data-[state=active]:bg-[var(--accent-fill)] data-[state=active]:text-white";
@@ -324,7 +325,7 @@ function PaletteTab() {
 
 /* ------------------------------------------------------------------ facts */
 
-function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | null; open: boolean; onOpenChange: (o: boolean) => void; onSaved: () => void }) {
+function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | null; open: boolean; onOpenChange: (o: boolean) => void; onSaved: (saved?: FactOut) => void }) {
   const init = (): FactCreate => fact ? { code: fact.code, statement: fact.statement, value: fact.value, source: fact.source, valid_until: fact.valid_until } : { code: "", statement: "", value: "", source: "", valid_until: null };
   const [f, setF] = useState<FactCreate>(init);
   const [busy, setBusy] = useState(false);
@@ -335,9 +336,10 @@ function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | nul
   async function save() {
     setBusy(true);
     try {
-      if (fact) { const { code: _c, ...rest } = f; void _c; await api.updateFact(fact.id, rest); } else await api.createFact({ ...f, code: f.code.trim() });
+      let saved: FactOut | undefined;
+      if (fact) { const { code: _c, ...rest } = f; void _c; saved = await api.updateFact(fact.id, rest); } else await api.createFact({ ...f, code: f.code.trim() });
       toast.success(fact ? "Fact updated" : "Fact added");
-      onSaved(); onOpenChange(false);
+      onSaved(saved); onOpenChange(false);
     } catch (e) { reportError(e); } finally { setBusy(false); }
   }
   return (
@@ -347,6 +349,8 @@ function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | nul
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Code" htmlFor="f-code"><Input id="f-code" value={f.code} disabled={!!fact} placeholder="F-27" onChange={(e) => set("code", e.target.value)} /></Field>
           <Field label="Valid until" htmlFor="f-until" hint="Leave empty if it never expires."><Input id="f-until" type="date" value={f.valid_until ?? ""} onChange={(e) => set("valid_until", e.target.value || null)} /></Field>
+          {/* Round 3 (fact impact): expire a fact in one step; saving then shows the content that relies on it */}
+          {fact && !fact.expired && <div className="sm:col-span-2 -mt-2"><Button type="button" size="sm" variant="ghost" className="rounded-full text-flag-text" onClick={() => set("valid_until", yesterday())}><CalendarX2 strokeWidth={1.75} /> Mark as expired</Button></div>}
         </div>
         <Field label="Statement" htmlFor="f-st"><Textarea id="f-st" rows={2} value={f.statement} onChange={(e) => set("statement", e.target.value)} className="rounded-2xl bg-background/60" /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -362,10 +366,24 @@ function FactDialog({ fact, open, onOpenChange, onSaved }: { fact: FactOut | nul
   );
 }
 
+/** YYYY-MM-DD of yesterday (local): a fact is expired once valid_until is before today. */
+function yesterday(): string {
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function FactsTab({ admin }: { admin: boolean }) {
   const q = useAsync(() => api.facts(), []);
   const [edit, setEdit] = useState<FactOut | null>(null);
   const [adding, setAdding] = useState(false);
+  const [impact, setImpact] = useState<number | null>(null); // Round 3: fact impact dialog
+  function onSaved(saved?: FactOut) {
+    const before = edit;
+    q.reload();
+    // Editing what a fact says, or expiring it, shows every item that relies on it.
+    if (saved && before && (saved.used_by ?? 0) > 0 && (saved.statement !== before.statement || saved.value !== before.value
+      || saved.valid_until !== before.valid_until)) setImpact(saved.id);
+  }
   if (q.error) return <ErrorState message={q.error.message} onRetry={q.reload} />;
   if (q.loading && !q.data) return <Skel />;
   const facts = q.data ?? [];
@@ -380,16 +398,21 @@ function FactsTab({ admin }: { admin: boolean }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-footnote font-semibold">{f.code}</span>
                   {f.expired && <span className="rounded-full bg-flag/12 px-2.5 py-0.5 text-caption font-medium text-flag-text">Expired</span>}
+                  {f.used_by !== undefined && <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", f.used_by ? "bg-[#0A84FF]/12 text-[var(--accent-text)]" : "bg-foreground/8 text-muted-foreground")}>{f.used_by ? `Used by ${f.used_by} item${f.used_by === 1 ? "" : "s"}${f.used_by_approved ? ` (${f.used_by_approved} approved)` : ""}` : "Not used yet"}</span>}
                 </div>
                 <p className="mt-1 text-body">{f.statement}</p>
                 <p className="mt-0.5 text-caption text-muted-foreground">{f.source || "No source"}{f.valid_until ? ` · valid until ${formatDate(f.valid_until)}` : " · no expiry"}</p>
               </div>
-              {admin && <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEdit(f)} aria-label={`Edit ${f.code}`}><Pencil strokeWidth={1.75} /> Edit</Button>}
+              <div className="flex shrink-0 gap-1">
+                {!!f.used_by && <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setImpact(f.id)} aria-label={`Impact of ${f.code}`}><Radar strokeWidth={1.75} /> Impact</Button>}
+                {admin && <Button size="sm" variant="ghost" className="rounded-full" onClick={() => setEdit(f)} aria-label={`Edit ${f.code}`}><Pencil strokeWidth={1.75} /> Edit</Button>}
+              </div>
             </li>
           ))}
         </ul>
       )}
-      <FactDialog fact={edit} open={!!edit || adding} onOpenChange={(o) => { if (!o) { setEdit(null); setAdding(false); } }} onSaved={q.reload} />
+      <FactDialog fact={edit} open={!!edit || adding} onOpenChange={(o) => { if (!o) { setEdit(null); setAdding(false); } }} onSaved={onSaved} />
+      <FactImpactDialog factId={impact} open={impact != null} onOpenChange={(o) => { if (!o) setImpact(null); }} onDone={q.reload} />
     </>
   );
 }

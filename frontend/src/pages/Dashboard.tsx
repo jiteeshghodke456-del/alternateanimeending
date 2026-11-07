@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { chartTheme, GlassChartCard } from "@/components/GlassChartCard";
 import { api, namesWithRole, type CountBucket } from "@/lib/api";
 import { useAsync } from "@/lib/hooks";
+import { ExpiringFactsCard } from "@/components/claims"; // Round 3: claims ledger
 
 type Row = { name: string; count: number; label?: string | null };
 
@@ -97,6 +98,7 @@ export default function Dashboard() {
     <>
       <PageHeader title="Dashboard" subtitle="How content is doing against the guidelines. Numbers come from checks run on this server." />
       <SetupCard />
+      {!empty && <ExpiringFactsCard />}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
         <KpiTile label="Items checked" value={k.items_checked} icon={FileCheck2} />
         <KpiTile label="Findings" value={k.findings} icon={Flag} />

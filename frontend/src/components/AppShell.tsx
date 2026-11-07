@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
-import { ArrowRight, BarChart3, ClipboardCheck, FileText, LayoutDashboard, Palette, type LucideIcon } from "lucide-react";
+import { ArrowRight, BarChart3, ClipboardCheck, FileText, LayoutDashboard, ListChecks, Palette, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/Logo";
@@ -22,6 +22,7 @@ export const NAV: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/brand", label: "Brand Kit", icon: Palette },
   { to: "/content", label: "Content", icon: FileText },
   { to: "/review", label: "Review", icon: ClipboardCheck },
+  { to: "/claims", label: "Claims", icon: ListChecks }, // Round 3: claims ledger
   { to: "/eval", label: "Evaluation", icon: BarChart3 },
 ];
 
