@@ -422,7 +422,7 @@ function Item() {
               className={cn("inline-flex items-center rounded-full px-3.5 py-1.5 text-footnote font-medium transition-colors", v.id === vid ? "bg-[var(--accent-fill)] text-white" : "bg-foreground/8 hover:bg-foreground/12")}
             >
               v{v.n}{v.id === item.latest_version_id ? " (latest)" : ""}
-              {v.score && <ScoreBadge score={v.score.score} band={v.score.band} className="ml-1.5" />}
+              {v.score && <ScoreBadge score={v.score.score} band={v.score.band} className={cn("ml-1.5", v.id === vid && "!bg-white dark:!bg-neutral-900")} />}
             </button>
           ))}
         </nav>

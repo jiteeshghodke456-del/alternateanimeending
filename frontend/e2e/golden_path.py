@@ -181,8 +181,15 @@ with sync_playwright() as p:
         if item["blocking_open"]:
             raise AssertionError("blocking open")
         pg.get_by_role("button", name=re.compile("Submit for review")).click()
+        # Brand Score: v2 can land just under the channel target (live Jev bands vary), then Submit asks for a reason
+        below = item.get("score") is not None and item["score"] < item.get("target_score", 80)
+        if below:
+            pg.fill("#note-field", "Demo: remaining findings are minor; reviewer please check tone.")
+            pg.get_by_role("button", name="Submit with reason").click()
         pg.wait_for_function("() => document.body.innerText.includes('Sent for review') || document.body.innerText.includes('In review')", timeout=15000)
-        assert api(ctx, f"/items/{S['item']}")["item"]["state"] == "in_review"
+        after = api(ctx, f"/items/{S['item']}")["item"]
+        assert after["state"] == "in_review"
+        return f"score {item.get('score')} / target {item.get('target_score')}" + (" (reason given)" if below else "")
 
     # ------------------------------------------------------------ audience v2
     if not a.skip_audience:

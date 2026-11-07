@@ -50,6 +50,7 @@ export function ScoreCard({ score, target, channel, previous }: {
   const s = STYLE[score.band];
   const below = score.score < target;
   const delta = previous ? score.score - previous.score : 0;
+  const ch = ({ instagram: "Instagram", linkedin: "LinkedIn", email: "Email", website: "Website" } as Record<string, string>)[channel] ?? channel;
   return (
     <section aria-label="Brand Score" data-testid="brand-score" className="glass-strong mt-4 !rounded-2xl px-4 py-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -67,7 +68,7 @@ export function ScoreCard({ score, target, channel, previous }: {
           <p className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-caption text-muted-foreground">
             <span className="inline-flex items-center gap-1" data-testid="brand-score-target">
               <Target className="size-3.5" strokeWidth={1.5} aria-hidden />
-              {below ? `Below the ${channel} target of ${target}` : `Meets the ${channel} target of ${target}`}
+              {below ? `Below the ${ch} target of ${target}` : `Meets the ${ch} target of ${target}`}
             </span>
             {previous && (
               <span className="inline-flex items-center gap-1 tabular-nums" data-testid="brand-score-delta">
