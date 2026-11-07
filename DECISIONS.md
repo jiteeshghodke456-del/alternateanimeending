@@ -22,3 +22,14 @@ Agents record non-obvious decisions here. Anything marked **Second opinion wante
 - Datetimes are stored naive-UTC in SQLite and serialised with `Z` (`UtcDatetime` in schemas.py).
 - Uploads: type is sniffed from bytes (PNG/JPG/WEBP/PDF), not the filename. Limits: 10 MB, 20 PDF pages, 20k text chars. PDF paragraphs = vertical-gap grouping of pdfplumber lines.
 - Docker: runs as uid 1000; DB and uploads live in `/home/user/data` (ephemeral on free HF Spaces: data resets on restart, which the README must say).
+
+## Workflow agent (review.py / insights / finding actions)
+- **Rules live in `app/workflow.py`** and feed both the handlers and `item_actions()`, so a disabled button always shows the same message the server would return. 403 = who you are, 409 = state of the item, 422 = bad input.
+- **State changes:** submit only from `findings_ready` (or `draft` when the latest version's check is `done`); `checking` is never submittable. `changes_requested` leaves via `resubmit` (new version, then `checking`), which stands in for the diagram's `changes_requested -> draft`. Audit `detail` is `{from, to, version}`.
+- **Blocking = open.** A blocking finding blocks submit only while `status == "open"`; accepted, edited, dismissed and overridden all count as handled. Override sets `status="overridden"` and writes an `Override` row.
+- **request-changes / reject** need a non-empty note (422) and cannot be done by the item's creator. Both also post the note as a comment.
+- **Finding actions:** allowed for the item's creator, reviewers and approvers (not admins), on the latest version only, not once approved/rejected. Accept/edit also require a span.
+- **Resubmit** keeps the image for image items (caption is the version text). A PDF item's new version is a text version of the corrected paragraphs. Overlapping spans: earlier one wins, later skipped and returned in `skipped`.
+- **Contract changes (schemas.py + api.ts):** `ResubmitOut` gains `diff[{op,text}]`, `applied[]`, `skipped[{finding_id,reason}]`; `AIUsageOut` gains `summary` (groups are now provider + purpose, `model` = distinct models joined); `CountBucket.label` (rule statement on `top_rules`); `DismissalRate.statement`; `OverrideIn` min length is checked in the handler (10 chars) for a readable message.
+- **Insights** count findings across all versions (a v2 re-check adds its own findings); fix-accept rate = `accepted / findings that had a fix`.
+- **Seed:** seeded items now carry an audit trail matching their state (created, submitted, changes_requested/approved) and a reviewer comment on changes-requested items. Seeded `draft` items are `not_run`: the first check is triggered by `POST /items/{id}/resubmit` (creates v2).
