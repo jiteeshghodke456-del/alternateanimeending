@@ -7,8 +7,8 @@ container. So:
 - `check_slot()`: at most MAX_CONCURRENT_CHECKS heavy jobs (checks, audience runs, PDF imports) run
   at once per process; the rest wait their turn (the UI already shows "checking"/"running").
 - `SIFT_LOCK`: one SIFT pass at a time, whatever the check limit is.
-- `trim()`: hand freed heap memory back to the OS after a big job (glibc only; a no-op elsewhere),
-  so RSS falls back instead of ratcheting up.
+- `trim()`: hand freed heap memory back to the OS after a big job (glibc only; a no-op elsewhere,
+  including Windows and macOS), so RSS falls back instead of ratcheting up.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ import asyncio
 import ctypes
 import ctypes.util
 import logging
+import sys
 import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -57,6 +58,8 @@ def trim() -> None:
     global _libc, _libc_loaded
     if not _libc_loaded:
         _libc_loaded = True
+        if not sys.platform.startswith("linux"):  # malloc_trim is glibc-only; never probe the C runtime elsewhere
+            return
         try:
             name: Optional[str] = ctypes.util.find_library("c")
             lib = ctypes.CDLL(name or "libc.so.6")

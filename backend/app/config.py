@@ -1,6 +1,8 @@
 """Environment settings. Names match CLAUDE.md "Secrets and env" exactly (case-insensitive)."""
 from __future__ import annotations
 
+import os
+import tempfile
 from functools import lru_cache
 from pathlib import Path
 
@@ -9,6 +11,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 APP_DIR = Path(__file__).resolve().parent          # backend/app
 BACKEND_DIR = APP_DIR.parent                        # backend
 REPO_DIR = BACKEND_DIR.parent                       # repo root
+
+
+def default_tmp_dir() -> Path:
+    """/tmp on Linux and macOS (unchanged for Docker and Render); the user's temp folder on Windows,
+    where "/tmp" would silently become C:\\tmp."""
+    return Path("/tmp") if os.name == "posix" else Path(tempfile.gettempdir())
 
 
 class Settings(BaseSettings):
@@ -37,8 +45,8 @@ class Settings(BaseSettings):
     feature_pdf_import: bool = True
 
     # Storage
-    db_path: str = "/tmp/brandgate.db"
-    upload_dir: str = "/tmp/brandgate_uploads"
+    db_path: str = str(default_tmp_dir() / "brandgate.db")
+    upload_dir: str = str(default_tmp_dir() / "brandgate_uploads")
     seed_dir: str = ""  # optional brand kit folder; files missing there fall back to backend/app/seed (or its _placeholder)
 
     # Auth
