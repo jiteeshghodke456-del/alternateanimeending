@@ -138,3 +138,10 @@ def test_resubmit_applies_region_once_and_edit_wins() -> None:
     b.status, b.edited_text = "edited", "Saffron Signature Roast, fresh from Pune."
     out = W.apply_findings(text, [a, b])
     assert out.text == "Saffron Signature Roast, fresh from Pune. Order now." and out.skipped == []
+
+
+def test_region_fix_that_brings_back_an_old_name_is_rejected(monkeypatch) -> None:  # noqa: ANN001
+    llm = demo_llm(first={"MONSOON20": "Steam Classic is worth a try, so order a pack."})
+    res = check(DEMO_TEXT, monkeypatch, llm)
+    [d] = {d.fix_group: d for d in res.findings if d.quote.startswith("Flat 20%")}.values()
+    assert d.fix == "Grab a fresh bag of Saffron Signature Roast online." and d.fix_verified

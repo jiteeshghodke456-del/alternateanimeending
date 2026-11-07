@@ -153,8 +153,12 @@ async def verify_fix(
     after = run_tier0_text(fixed, fctx, PostState())
     codes = {r.code for r in rules}
     for h in after:
-        if h.rule_code in codes and h.span_start is not None and h.span_start < span[1] and span[0] < (h.span_end or 0):
+        inside = h.span_start is not None and h.span_start < span[1] and span[0] < (h.span_end or 0)
+        if inside and h.rule_code in codes:
             reasons.append(f"the fix still breaks {h.rule_code} (“{h.quote}”)")
+            break
+        if inside and region and h.rule_code and h.kind != "readability":  # e.g. a rewrite that brings back "Steam Classic"
+            reasons.append(f"the fix breaks {h.rule_code} (“{h.quote}”)")
             break
     if _blocking(after) > _blocking(before):
         reasons.append("the fix adds a new blocking problem")

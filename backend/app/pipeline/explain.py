@@ -199,6 +199,7 @@ def build_region_messages(req: RegionRequest, feedback: Optional[str] = None, pr
         "- fix: ONE rewrite of the whole excerpt that solves every numbered problem at once. It replaces the excerpt "
         "exactly, so it must be complete, grammatical sentences that read naturally in the paragraph, start the way a "
         "sentence starts, and end with sentence punctuation. Don't repeat words from the text around the excerpt. "
+        "Use the current product names from the post. Don't repeat a point the post already makes elsewhere. "
         "Keep the message and any call to action. Drop a claim, offer or number you can't support with an approved fact "
         "rather than inventing one. If a fact is marked EXPIRED, remove that offer or claim completely (code, discount and "
         "all) and don't mention it, its code or that it ended (no words like offer, sale, discount or code); write about the "
