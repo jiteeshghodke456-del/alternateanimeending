@@ -395,4 +395,6 @@ Navigation: a glass sidebar on desktop and a bottom tab bar on mobile. Design ru
 - [ ] "What does NOT work yet" is honest: data resets on restart, scanned PDFs aren't read, image Jev features are early-stage, plus any P1 items hidden behind flags
 - [ ] Three improvements copied from §12
 - [ ] Each teammate can demo and explain their own part
-- [ ] The team leader submits once
+- [ ] Every member completes any individual submission the organiser asks for (rules 14–15: each member states their own role and contribution); the team leader submits the team form once
+- [ ] User-testing evidence (Round 2 list: "evidence of user testing or structured feedback")
+- [ ] Each member's contribution statement, true and demonstrable (rule 16)
