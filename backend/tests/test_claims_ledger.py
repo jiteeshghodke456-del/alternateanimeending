@@ -95,6 +95,13 @@ def test_claim_backed_by_two_facts_relies_on_both(monkeypatch) -> None:  # noqa:
     assert cr.status == "supported" and set(C.relied_facts(cr, ctx)) == {"F-04", "F-18"}
 
 
+def test_partly_supported_jev_claim_relies_on_its_best_current_fact(monkeypatch) -> None:  # noqa: ANN001
+    install(monkeypatch, FakeJev(support={"F-03": 0.55, "F-02": 0.35}))
+    ctx = seed_ctx()
+    cr = asyncio.run(C.check_claim(C.unit_claim("Freshly roasted in Pune.", ctx, "objective"), ctx, use_jev=True))
+    assert cr.status == "supported" and cr.fact_code is None and C.relied_facts(cr, ctx) == ["F-03"]
+
+
 def test_expiry_helpers() -> None:
     t = date(2026, 11, 7)
     assert L.days_left(date(2026, 11, 15), t) == 8 and L.days_left(None, t) is None

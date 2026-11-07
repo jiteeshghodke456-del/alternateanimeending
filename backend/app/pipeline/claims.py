@@ -309,6 +309,11 @@ def relied_facts(cr: ClaimResult, ctx: CheckContext) -> list[str]:
                 continue
             if numbers(_fact_text(f)) & claim_nums:
                 out.append(f.code)
+    elif cr.status == "supported" and not out:
+        # a claim Jev found without a trigger word, partly supported (p >= HUMAN_AT): the best current fact
+        cur = [c for c in cr.candidates if not c["expired"] and c["p"] is not None and c["p"] >= Q.HUMAN_AT]
+        if cur:
+            out = [max(cur, key=lambda c: c["p"])["code"]]
     elif cr.status == "unsupported":
         f = contradicting_fact(cr, ctx)
         out = [f.code] if f else []
