@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { FileUp, Loader2, Pencil, Plus, Power, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
+import { PdfImportDialog } from "@/components/PdfImportDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -108,12 +109,25 @@ function RulesTab({ admin }: { admin: boolean }) {
   const [edit, setEdit] = useState<RuleOut | null>(null);
   const [adding, setAdding] = useState(false);
   const [toggling, setToggling] = useState<number | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importOff, setImportOff] = useState(false);
+  const [fresh, setFresh] = useState<RuleOut[]>([]);
+  const [enablingAll, setEnablingAll] = useState(false);
   if (q.error) return <ErrorState message={q.error.message} onRetry={q.reload} />;
   if (q.loading && !q.data) return <Skel />;
   const rules = q.data ?? [];
   const cats = [...new Set(rules.map((r) => r.category))].sort();
   const shown = rules.filter((r) => (cat === "all" || r.category === cat) && (sev === "all" || r.severity === sev));
 
+  const pending = fresh.filter((f) => rules.find((r) => r.id === f.id && !r.enabled));
+  async function enableAll() {
+    setEnablingAll(true);
+    try {
+      await Promise.all(pending.map((r) => api.updateRule(r.id, { enabled: true })));
+      toast.success(`${pending.length} imported rule${pending.length === 1 ? " is" : "s are"} now on`);
+      setFresh([]); q.reload();
+    } catch (e) { reportError(e); q.reload(); } finally { setEnablingAll(false); }
+  }
   async function toggle(r: RuleOut, enabled: boolean) {
     setToggling(r.id);
     try { const u = await api.updateRule(r.id, { enabled }); q.setData((cur) => (cur ?? []).map((x) => (x.id === u.id ? u : x))); }
@@ -131,8 +145,24 @@ function RulesTab({ admin }: { admin: boolean }) {
           <SelectContent><SelectItem value="all">All severities</SelectItem>{(["blocking", "major", "minor"] as Severity[]).map((s) => <SelectItem key={s} value={s}>{SEVERITY_LABEL[s]}</SelectItem>)}</SelectContent>
         </Select>
         <span className="text-footnote text-muted-foreground">{shown.length} of {rules.length} rules</span>
-        {admin && <Button onClick={() => setAdding(true)} className="ml-auto rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Plus strokeWidth={2} /> Add rule</Button>}
+        {admin && (
+          <span className="ml-auto flex flex-wrap items-center gap-2">
+            {!importOff && <Button variant="secondary" onClick={() => setImportOpen(true)} className="rounded-full"><FileUp strokeWidth={1.75} /> Import from PDF</Button>}
+            <Button onClick={() => setAdding(true)} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90"><Plus strokeWidth={2} /> Add rule</Button>
+          </span>
+        )}
       </div>
+      {admin && pending.length > 0 && (
+        <div role="status" className="glass-strong mb-4 flex flex-wrap items-center gap-3 !rounded-2xl px-4 py-3 text-footnote">
+          <Power className="size-4 shrink-0 text-human-text" strokeWidth={1.75} aria-hidden />
+          <p className="min-w-0 flex-1 basis-60">
+            <span className="font-semibold">{pending.length} imported rule{pending.length === 1 ? " is" : "s are"} switched off.</span>{" "}
+            They don't affect checks until you turn on the switch on the right of each rule ({pending.map((r) => r.code).join(", ")}).
+          </p>
+          <Button size="sm" disabled={enablingAll} onClick={enableAll} className="rounded-full bg-[#0A84FF] text-white hover:bg-[#0A84FF]/90">{enablingAll && <Loader2 className="animate-spin" />} Enable all</Button>
+          <Button size="icon" variant="ghost" aria-label="Dismiss" className="size-8 rounded-full" onClick={() => setFresh([])}><X strokeWidth={1.75} /></Button>
+        </div>
+      )}
       {shown.length === 0 ? <EmptyState title="No rules match" description="Try a different category or severity." /> : (
         <ul className="space-y-3">
           {shown.map((r) => (
@@ -161,6 +191,7 @@ function RulesTab({ admin }: { admin: boolean }) {
           ))}
         </ul>
       )}
+      <PdfImportDialog open={importOpen} onOpenChange={setImportOpen} onSwitchedOff={() => setImportOff(true)} onImported={(c) => { setFresh(c); q.reload(); }} />
       <RuleDialog rule={edit} open={!!edit || adding} onOpenChange={(o) => { if (!o) { setEdit(null); setAdding(false); } }} onSaved={q.reload} />
     </>
   );

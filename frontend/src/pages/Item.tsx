@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import {
-  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Loader2, MessageSquare, Send, ShieldCheck, Undo2, XCircle,
+  CheckCheck, CircleCheck, FileText, GitCompare, History as HistoryIcon, Loader2, Lock, MessageSquare, Send, ShieldCheck, Undo2, Users, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,6 +10,8 @@ import { LiveMeter } from "@/components/LiveMeter";
 import { RuleScanPanel, type RuleScanRow } from "@/components/RuleScanPanel";
 import { FindingCard } from "@/components/FindingCard";
 import { HighlightedText, type HighlightSpan } from "@/components/HighlightedText";
+import { AudiencePanel } from "@/components/audience/AudiencePanel";
+import { ImageWithLogo, logoShapes } from "@/components/LogoOverlay";
 import { AiUsageDrawer } from "@/components/AiUsageDrawer";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
 import { StateBadge } from "@/components/StateBadge";
@@ -25,8 +27,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnimatedListItem } from "@/components/ui/animated-list";
 import {
-  api, ApiError, streamCheck, withToken, ROLE_LABELS,
-  type CheckEvent, type DiffSegment, type FindingOut, type ItemDetail, type VersionOut,
+  api, ApiError, streamCheck, ROLE_LABELS,
+  type AudienceCulprit, type CheckEvent, type DiffSegment, type FindingOut, type ItemDetail, type VersionOut,
 } from "@/lib/api";
 import { diffSegments } from "@/lib/diff";
 import { reportError, timeAgo, toApiError, useAsync } from "@/lib/hooks";
@@ -41,9 +43,9 @@ function pOf(f: FindingOut): number {
 
 /* ------------------------------------------------------------------ content panel */
 
-function ContentPanel({ version, findings, active, onSelect, palette }: {
+function ContentPanel({ version, findings, active, onSelect, palette, culprit }: {
   version: VersionOut; findings: FindingOut[]; active?: number; onSelect: (id: number) => void;
-  palette: { name: string; hex: string }[];
+  palette: { name: string; hex: string }[]; culprit?: AudienceCulprit | null;
 }) {
   const live = findings.filter((f) => f.band !== "pass" && f.status !== "dismissed" && f.span_start != null && f.span_end != null);
   const spansFor = (from: number, to: number): HighlightSpan[] =>
@@ -55,7 +57,10 @@ function ContentPanel({ version, findings, active, onSelect, palette }: {
     return (
       <div className="space-y-4">
         {version.file_url && (
-          <img src={withToken(version.file_url)} alt={alt || "Uploaded image under review"} className="max-h-[420px] w-full rounded-2xl border border-border bg-foreground/5 object-contain" />
+          <ImageWithLogo
+            src={version.file_url} alt={alt || "Uploaded image under review"}
+            shapes={logoShapes(version, findings)} activeFindingId={active} onSelectFinding={onSelect}
+          />
         )}
         {palette.length > 0 && (
           <div>
@@ -102,7 +107,28 @@ function ContentPanel({ version, findings, active, onSelect, palette }: {
     );
   }
 
-  return <HighlightedText text={version.text} spans={spansFor(0, version.text.length)} activeId={active ? String(active) : undefined} onSelect={(id) => onSelect(Number(id))} />;
+  const hl = (from: number, to: number) => (
+    <HighlightedText
+      text={version.text.slice(from, to)} spans={spansFor(from, to)}
+      activeId={active ? String(active) : undefined} onSelect={(id) => onSelect(Number(id))}
+    />
+  );
+  const cs = culprit?.char_start, ce = culprit?.char_end;
+  if (culprit && cs != null && ce != null && cs >= 0 && ce > cs && ce <= version.text.length) {
+    return (
+      <div>
+        {cs > 0 && hl(0, cs)}
+        <div id="audience-culprit" className="my-2 rounded-2xl border-l-4 border-[#FF9F0A] bg-human/10 py-2 pl-3 pr-2">
+          <p className="mb-1 flex items-center gap-1.5 text-caption font-semibold text-human-text">
+            <Users className="size-3.5" strokeWidth={1.75} aria-hidden /> {culprit.certain ? "Audience concern" : "Possible audience concern"}: this paragraph worries readers most
+          </p>
+          {hl(cs, ce)}
+        </div>
+        {ce < version.text.length && hl(ce, version.text.length)}
+      </div>
+    );
+  }
+  return hl(0, version.text.length);
 }
 
 /* ------------------------------------------------------------------ page */
@@ -129,6 +155,7 @@ export default function Item() {
   const [lastDiff, setLastDiff] = useState<{ vid: number; segments: DiffSegment[] } | null>(null);
   const [prevText, setPrevText] = useState<{ vid: number; text: string } | null>(null);
   const [tab, setTab] = useState("findings");
+  const [culprit, setCulprit] = useState<AudienceCulprit | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [dismissFor, setDismissFor] = useState<FindingOut | null>(null);
   const [overrideFor, setOverrideFor] = useState<FindingOut | null>(null);
@@ -396,7 +423,7 @@ export default function Item() {
               <section className="glass-strong p-5 md:p-6" aria-label="Content">
                 <h2 className="mb-3 text-headline">Content{version ? ` · v${version.n}` : ""}</h2>
                 {version ? (
-                  <ContentPanel version={version} findings={Object.values(findings)} active={active} onSelect={(fid) => { setActive(fid); setTab("findings"); document.getElementById(`finding-${fid}`)?.scrollIntoView({ block: "center", behavior: "smooth" }); }} palette={palette} />
+                  <ContentPanel version={version} findings={Object.values(findings)} active={active} onSelect={(fid) => { setActive(fid); setTab("findings"); document.getElementById(`finding-${fid}`)?.scrollIntoView({ block: "center", behavior: "smooth" }); }} palette={palette} culprit={tab === "audience" ? culprit : null} />
                 ) : <div className="space-y-2"><Skeleton className="h-5" /><Skeleton className="h-5 w-4/5" /><Skeleton className="h-5 w-3/5" /></div>}
               </section>
 
@@ -415,6 +442,7 @@ export default function Item() {
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList className="h-11 w-full rounded-full bg-[var(--glass-bg)] p-1 backdrop-blur-xl">
                   <TabsTrigger value="findings" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Findings{list.length ? ` (${openCount})` : ""}</TabsTrigger>
+                  {!item.confidential && <TabsTrigger value="audience" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Audience</TabsTrigger>}
                   <TabsTrigger value="comments" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">Comments</TabsTrigger>
                   <TabsTrigger value="history" className="flex-1 rounded-full data-[state=active]:bg-[#0A84FF] data-[state=active]:text-white">History</TabsTrigger>
                 </TabsList>
@@ -449,8 +477,25 @@ export default function Item() {
                   </AnimatePresence>
                 </TabsContent>
 
+                {!item.confidential && (
+                  <TabsContent value="audience" className="mt-4">
+                    {tab === "audience" && (
+                      <AudiencePanel
+                        versionId={vid} versionN={version?.n ?? 1} onCulprit={setCulprit}
+                        previousVersionId={detail.versions.find((v) => v.n === (version?.n ?? 1) - 1)?.id ?? null}
+                        onOpenVersion={(v) => { setVid(v); setActive(undefined); }}
+                      />
+                    )}
+                  </TabsContent>
+                )}
                 <TabsContent value="comments" className="mt-4"><CommentsTab itemId={id} canComment={acts.comment.allowed} why={acts.comment.reason} /></TabsContent>
                 <TabsContent value="history" className="mt-4"><HistoryTab itemId={id} refreshKey={`${item.state}:${item.updated_at}`} /></TabsContent>
+                {item.confidential && (
+                  <p className="mt-3 flex items-start gap-2 px-2 text-caption text-muted-foreground">
+                    <Lock className="mt-0.5 size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                    <span>The Audience tab is hidden because this item is confidential. The preview sends the text to an outside AI service, and confidential items never leave this server.</span>
+                  </p>
+                )}
               </Tabs>
             </div>
           </div>
