@@ -12,6 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, ApiError, DEMO_ITEM_KEY, ROLE_LABELS, serverFeatures, withToken, type FindingOut, type ItemSummary, type Role, type UserOut } from "./api";
 import { reportError, toApiError } from "./hooks";
+import { scoreApi } from "./score"; // Brand Score: below-target submit needs a reason
 import { useSession } from "./session";
 import { importPhase, reportImportPhase, requestPdfImport, setTourActive } from "./tourBus";
 
@@ -343,8 +344,12 @@ export const STEPS: TourStep[] = [
       let it = (await api.item(id)).item;
       if (it.state !== "in_review" && it.state !== "approved") {
         await c.as("creator");
-        c.progress("Rohan submits it for review…");
-        it = (await api.submit(id)).item;
+        // Brand Score below the channel target: submitting needs a reason (it never blocks by itself)
+        const below = it.score != null && it.score < (it.target_score ?? 80);
+        c.progress(below ? `v2 scores ${it.score}, under the ${it.target_score} target, so Rohan adds a reason and submits…` : "Rohan submits it for review…");
+        it = below
+          ? (await scoreApi.submit(id, "Guided tour: the remaining findings are minor; please check the tone.")).item
+          : (await api.submit(id)).item;
         await sleep(900);
       }
       const meera = await c.as("reviewer");

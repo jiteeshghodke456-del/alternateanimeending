@@ -1,0 +1,66 @@
+{
+  "_about": "Built-in channel checks (R-CH-*). Every number here was read on an official page on the date given; numbers we could not verify are left out. Brands can override any value per workspace in Brand Kit -> Channels (stored in brand.channel_targets[channel]). Score targets are brand defaults, not platform numbers.",
+  "default_target_score": 80,
+  "sources": {
+    "meta_ig_media": {
+      "document": "Meta for Developers: Instagram Platform, IG User Media (content publishing reference)",
+      "short": "Meta IG User Media",
+      "url": "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media",
+      "retrieved": "2026-11-07"
+    },
+    "linkedin_ugc": {
+      "document": "LinkedIn API docs on Microsoft Learn: UGC Post API",
+      "short": "LinkedIn UGC Post API",
+      "url": "https://learn.microsoft.com/en-us/linkedin/compliance/integrations/shares/ugc-post-api",
+      "retrieved": "2026-11-07"
+    },
+    "constantcontact_subject": {
+      "document": "Constant Contact Knowledge Base: Optimize the subject line of an email",
+      "short": "Constant Contact KB",
+      "url": "https://knowledgebase.constantcontact.com/articles/KnowledgeBase/5651-optimize-the-subject-line-in-a-campaign-email",
+      "retrieved": "2026-11-07"
+    }
+  },
+  "checks": {
+    "R-CH-IG-CAPTION": {
+      "channel": "instagram", "limit_key": "caption_max_chars", "default": 2200, "severity": "major", "kind": "hard",
+      "statement": "Instagram captions can be at most 2,200 characters; longer captions are rejected or cut off.",
+      "source": "meta_ig_media", "clause": "caption parameter", "quote": "Maximum 2200 characters, 30 hashtags, and 20 @ tags."
+    },
+    "R-CH-IG-HASHTAGS": {
+      "channel": "instagram", "limit_key": "hashtags_max", "default": 30, "severity": "major", "kind": "hard",
+      "statement": "An Instagram caption can carry at most 30 hashtags.",
+      "source": "meta_ig_media", "clause": "caption parameter", "quote": "Maximum 2200 characters, 30 hashtags, and 20 @ tags."
+    },
+    "R-CH-IG-MENTIONS": {
+      "channel": "instagram", "limit_key": "mentions_max", "default": 20, "severity": "major", "kind": "hard",
+      "statement": "An Instagram caption can carry at most 20 @ tags.",
+      "source": "meta_ig_media", "clause": "caption parameter", "quote": "Maximum 2200 characters, 30 hashtags, and 20 @ tags."
+    },
+    "R-CH-IG-RATIO": {
+      "channel": "instagram", "limit_key": "aspect_ratio", "default": [0.8, 1.91], "severity": "major", "kind": "hard",
+      "statement": "Instagram feed images must have an aspect ratio between 4:5 (portrait) and 1.91:1 (landscape).",
+      "source": "meta_ig_media", "clause": "Image specifications", "quote": "Aspect ratio: Must be within a 4:5 to 1.91:1 range"
+    },
+    "R-CH-IG-WIDTH": {
+      "channel": "instagram", "limit_key": "image_min_width", "default": 320, "severity": "minor", "kind": "soft",
+      "statement": "Instagram images narrower than 320 px are scaled up, so they look soft or pixelated.",
+      "source": "meta_ig_media", "clause": "Image specifications", "quote": "Minimum width: 320 (will be scaled up to the minimum if necessary)"
+    },
+    "R-CH-LI-LENGTH": {
+      "channel": "linkedin", "limit_key": "post_max_chars", "default": 3000, "severity": "major", "kind": "hard",
+      "statement": "LinkedIn posts can be at most 3,000 characters.",
+      "source": "linkedin_ugc", "clause": "ShareContent: shareCommentary.text", "quote": "The maximum length of the text of a UGC Post is 3000 characters."
+    },
+    "R-CH-EMAIL-SUBJECT": {
+      "channel": "email", "limit_key": "subject_max_chars", "default": 60, "severity": "minor", "kind": "soft",
+      "statement": "Keep email subject lines to 60 characters or fewer; most inboxes cut longer ones, especially on phones.",
+      "source": "constantcontact_subject", "clause": "Subject line length (email-vendor guidance, not a hard limit)", "quote": "most email providers truncate subject lines to 60 characters"
+    }
+  },
+  "not_included": [
+    "LinkedIn image size and aspect-ratio recommendations: no official LinkedIn page could be read on 2026-11-07 (LinkedIn Help blocks automated reading; the Posts and Images API pages give no image limits).",
+    "Instagram 'too many hashtags hurts reach' guidance: no official source found, so there is no soft hashtag check below the 30 limit.",
+    "Website meta tags: out of scope."
+  ]
+}

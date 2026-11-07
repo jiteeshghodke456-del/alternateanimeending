@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ConfidentialBadge } from "@/components/ConfidentialBadge";
 import { StateBadge } from "@/components/StateBadge";
+import { ScoreBadge } from "@/components/BrandScore";
 import { timeAgo } from "@/lib/hooks";
 import type { ItemSummary } from "@/lib/api";
 
@@ -18,6 +19,7 @@ export function ItemList({ items }: { items: ItemSummary[] }) {
             <span className="text-footnote tabular-nums text-muted-foreground">
               {it.open_findings} open{it.blocking_open > 0 && <span className="ml-1 font-medium text-flag-text">({it.blocking_open} blocking)</span>}
             </span>
+            {it.score != null && <ScoreBadge score={it.score} band={it.score_band} />}
             <StateBadge state={it.state} />
           </Link>
         </li>

@@ -359,6 +359,70 @@ class ItemSummary(_Out):
     latest_version_n: Optional[int]
     open_findings: int
     blocking_open: int
+    # Brand Score (pipeline/score.py) of the latest version; null until its check is done.
+    score: Optional[int] = None
+    score_band: Optional[Literal["good", "fair", "poor"]] = None
+    target_score: int = 80  # the brand's target for this channel (Brand Kit -> Channels)
+    submit_reason: Optional[str] = None  # why it was submitted below target (latest "submitted" audit event)
+
+
+class ScoreDeductionOut(_Out):
+    severity: Severity
+    band: Band
+    count: int
+    weight: int
+    points: int
+
+
+class ScoreOut(_Out):
+    """Brand Score of one version: 100 minus severity x band weights of its open findings (pipeline/score.py)."""
+
+    score: int
+    band: Literal["good", "fair", "poor"]
+    label: str  # On brand | Needs work | Off brand
+    formula: str  # "100 − 2×10 (major, flagged) − 1×3 (minor, flagged) = 77"
+    deductions: list[ScoreDeductionOut] = Field(default_factory=list)
+
+
+class SubmitIn(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class ChannelLimitOut(_Out):
+    code: str  # R-CH-IG-CAPTION
+    key: str  # caption_max_chars
+    statement: str
+    value: Any  # effective value (brand override or default)
+    default: Any  # platform default from seed/channels.json
+    overridden: bool
+    kind: Literal["hard", "soft"]
+    severity: Severity
+    citation: "CitationOut"
+
+
+class ChannelSettingsOut(_Out):
+    channel: Channel
+    target_score: int
+    default_target_score: int
+    limits: list[ChannelLimitOut] = Field(default_factory=list)
+
+
+class ChannelsOut(_Out):
+    channels: list[ChannelSettingsOut]
+    not_included: list[str] = Field(default_factory=list)  # limits we could not verify, so there is no check
+
+
+class ChannelSettingsIn(BaseModel):
+    """PUT /brand/channels/{channel}. target_score null = back to the default; a limit set to null = back to the platform value."""
+
+    target_score: Optional[int] = Field(default=None, ge=0, le=100)
+    limits: dict[str, Any] = Field(default_factory=dict)
+
+
+class ScoreDay(_Out):
+    day: date
+    avg_score: float
+    versions: int
 
 
 class ProvenanceEvidence(_Out):
@@ -400,6 +464,7 @@ class VersionSummary(_Out):
     kind: VersionKind
     check_status: CheckStatus
     created_at: UtcDatetime
+    score: Optional[ScoreOut] = None  # Brand Score; null until the check is done
 
 
 class WebSource(_Out):
@@ -760,6 +825,11 @@ class InsightsOut(_Out):
     top_rules: list[CountBucket]  # key = rule_code, max 10
     dismissal_rate: list[DismissalRate]
     by_channel: list[CountBucket]
+    # Brand Score (pipeline/score.py): average of each item's latest checked version, and the average per day
+    # of every checked version (by version date). Null / empty when nothing is checked yet.
+    avg_score: Optional[float] = None
+    scored_items: int = 0
+    score_trend: list[ScoreDay] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------- eval

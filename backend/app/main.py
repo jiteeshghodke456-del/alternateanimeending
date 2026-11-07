@@ -134,6 +134,8 @@ for r in (auth.router, brand.router, content.router, review.router, insights.rou
           workspace.router, packs_router.router, webpage_router.router):
     api.include_router(r)
 api.include_router(claims_router.router)  # Round 3: claims ledger + fact impact
+from app.routers import channels as channels_router  # noqa: E402  Brand Score targets + channel limits
+api.include_router(channels_router.router)
 
 # Round 3: unclear-rule detection (routers/clarity.py). Its /rules/clarity paths don't overlap brand.py's /rules/{id}.
 from app.routers import clarity as clarity_router  # noqa: E402

@@ -77,6 +77,11 @@ class CheckContext:
     today: date = field(default_factory=date.today)
     logo_path: Optional[str] = None  # the approved logo file (Asset kind=logo, meta.variant=approved), for P1 logo fidelity
     web_issues: list[dict[str, Any]] = field(default_factory=list)  # web pages: accessibility issues found at fetch time
+    # Channel limits (pipeline/channels.py): platform defaults overlaid with the brand's overrides; brand fonts
+    # (Asset kind=font) and the uploaded file (PDF font check). None = channel checks off (eval, old callers).
+    channel_limits: Optional[dict[str, Any]] = None
+    brand_fonts: list[str] = field(default_factory=list)
+    file_path: Optional[str] = None
 
     def enabled_rules(self) -> list[RuleSpec]:
         return [r for r in self.rules if r.enabled and rule_applies_to_channel(r, self.channel, self.version_kind)]

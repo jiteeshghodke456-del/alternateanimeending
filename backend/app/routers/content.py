@@ -138,7 +138,7 @@ def get_item(item_id: int, session: SessionDep, user: CurrentUser) -> ItemDetail
     versions = session.exec(select(Version).where(Version.item_id == item.id).order_by(Version.n)).all()
     return ItemDetail(
         item=to_item_summary(session, item),
-        versions=[to_version_summary(v) for v in versions],
+        versions=[to_version_summary(v, session) for v in versions],
         actions=item_actions(session, item, user),
     )
 
