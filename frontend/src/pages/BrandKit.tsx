@@ -4,6 +4,7 @@ import { FileUp, Loader2, Pencil, Plus, Power, Wand2, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { PdfImportDialog } from "@/components/PdfImportDialog";
+import { RulePacksCard } from "@/components/RulePacksCard"; // rule packs
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -136,6 +137,7 @@ function RulesTab({ admin }: { admin: boolean }) {
   }
   return (
     <>
+      <RulePacksCard admin={admin} onChange={q.reload} />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select value={cat} onValueChange={setCat}>
           <SelectTrigger aria-label="Filter by category" className="w-[170px] rounded-full capitalize"><SelectValue /></SelectTrigger>
@@ -170,6 +172,7 @@ function RulesTab({ admin }: { admin: boolean }) {
             <li key={r.id} className={cn("glass-strong p-5", !r.enabled && "opacity-65")}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-footnote font-semibold">{r.code}</span>
+                {r.pack_id && <span className="rounded-full bg-[#0A84FF]/12 px-2.5 py-0.5 text-caption font-medium text-[var(--accent-text)]">Regulation</span>}
                 <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", SEVERITY_STYLE[r.severity])}>{SEVERITY_LABEL[r.severity]}</span>
                 <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 text-caption font-medium capitalize">{r.category}</span>
                 <span className="text-caption text-muted-foreground">{r.check_method} · v{r.version}</span>

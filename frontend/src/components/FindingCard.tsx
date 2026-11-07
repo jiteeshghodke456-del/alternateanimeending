@@ -8,6 +8,7 @@ import { TipButton } from "@/components/TipButton";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
+import { RegulationChip, RegulationCitations } from "@/components/RegulationCitation"; // rule packs
 
 /** Word-level diff (LCS). Returns tokens tagged same / del / add. */
 export function wordDiff(a: string, b: string) {
@@ -93,6 +94,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
         </span>
         <span className="rounded-full bg-foreground/8 px-2.5 py-1 text-caption font-medium capitalize">{f.category}</span>
         {code && <span className="font-mono text-caption text-muted-foreground">{code}</span>}
+        <RegulationChip f={f} />
         {f.claim_status && (
           <span className={cn("rounded-full px-2.5 py-1 text-caption font-medium capitalize", f.claim_status === "supported" ? "bg-pass/14 text-pass-text" : "bg-human/15 text-human-text")}>
             Claim {f.claim_status}
@@ -110,7 +112,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
         </p>
       )}
 
-      {f.rule && (
+      {f.rule && !f.rule.citation && (
         <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
           <p className="text-footnote italic text-foreground/85">&ldquo;{f.rule.source_quote || f.rule.statement}&rdquo;</p>
           <p className="mt-0.5 text-caption text-muted-foreground">
@@ -118,6 +120,7 @@ export function FindingCard({ finding: f, group, onJump, active, canAct = true, 
           </p>
         </blockquote>
       )}
+      <RegulationCitations f={f} />
       {f.fact && (
         <blockquote className="mt-3 border-l-2 border-[#0A84FF]/50 pl-3">
           <p className="text-footnote italic text-foreground/85">&ldquo;{f.fact.statement}&rdquo;</p>
