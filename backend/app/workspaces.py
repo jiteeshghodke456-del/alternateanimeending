@@ -471,7 +471,7 @@ def _copy_version_results(ws_db: Path, tpl_db: Path, version_id: int) -> bool:
         if cur.rowcount != 1:
             con.rollback()
             return False
-        for table, extra in (("finding", ""), ("aicall", ""),
+        for table, extra in (("finding", ""), ("aicall", ""), ("claimrecord", ""),
                              ("auditevent", " AND action IN ('check_started', 'check_done', 'check_failed')")):
             cols = ", ".join(f'"{c}"' for c in _columns(con, table))
             con.execute(f'INSERT INTO "{table}" ({cols}) SELECT {cols} FROM t."{table}" WHERE version_id = ?{extra}',

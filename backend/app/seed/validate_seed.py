@@ -79,7 +79,7 @@ def main():
 
     # content
     items = json.loads((SEED / "content" / "items.json").read_text(encoding="utf-8"))
-    check(len(items) == 8, f"content items {len(items)}")
+    check(len(items) == 10, f"content items {len(items)}")
     check(all({"title", "channel", "creator", "state", "confidential", "text", "file"} <= set(i) for i in items), "item keys")
     check({"draft", "in_review", "approved", "changes_requested"} <= {i["state"] for i in items}, "mixed states")
     check(any(i["creator"] == "Kabir" for i in items), "a Kabir item")

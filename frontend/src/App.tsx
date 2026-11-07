@@ -20,6 +20,7 @@ const ContentNew = lazy(() => import("@/pages/ContentNew"));
 const Item = lazy(() => import("@/pages/Item"));
 const Review = lazy(() => import("@/pages/Review"));
 const Eval = lazy(() => import("@/pages/Eval"));
+const Claims = lazy(() => import("@/pages/Claims")); // Round 3: claims ledger
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
                     <Route path="/items/:id" element={<Item />} />
                     <Route path="/review" element={<Review />} />
                     <Route path="/eval" element={<Eval />} />
+                    <Route path="/claims" element={<Claims />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Routes>

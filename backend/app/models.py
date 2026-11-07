@@ -180,6 +180,30 @@ class Finding(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
+class ClaimRecord(SQLModel, table=True):
+    """Claims ledger (Round 3, improvement 1): every claim a check found in a version, supported ones too.
+    Written by pipeline/run.py at the end of a check (a re-check replaces the version's rows).
+    `fact_code` is the primary fact; `fact_codes` every fact the claim relies on (several when the
+    numbers come from two facts). Status: supported|unsupported|contradicted|outdated."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    version_id: int = Field(foreign_key="version.id", index=True)
+    item_id: int = Field(foreign_key="contentitem.id", index=True)
+    unit_id: Optional[int] = None
+    group: str = "factual"  # superlative|eco|factual
+    text: str = ""  # the claim clause
+    span_start: Optional[int] = None  # offsets into Version.text (the trigger span)
+    span_end: Optional[int] = None
+    status: str = Field(default="unsupported", index=True)
+    via: str = "jev"  # jev|numbers|no_facts|no_jev
+    fact_code: Optional[str] = Field(default=None, index=True)
+    fact_codes: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    fact_valid_until: Optional[date] = None  # snapshot at check time
+    support_p: Optional[float] = None  # Jev: probability that the primary fact supports the claim
+    rule_code: Optional[str] = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+
 class Comment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     item_id: int = Field(foreign_key="contentitem.id", index=True)

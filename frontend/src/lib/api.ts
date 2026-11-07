@@ -160,6 +160,8 @@ export interface FactOut {
   source: string;
   valid_until: IsoDate | null;
   expired: boolean;
+  used_by?: number; // claims ledger: items whose latest version relies on this fact (GET /facts)
+  used_by_approved?: number;
 }
 export interface FactCreate {
   code: string;
@@ -969,3 +971,65 @@ export function streamCheck(versionId: number, h: CheckStreamHandlers): () => vo
   };
   return close;
 }
+
+/* ------------------------------------------------------------------ claims ledger + fact impact (Round 3, improvement 1)
+ * Kept in one block so other branches merge cleanly. Mirrors backend/app/schemas.py (LedgerClaim ... SendBackOut). */
+export type LedgerStatus = "supported" | "unsupported" | "contradicted" | "outdated";
+export type ImpactReason = "expired" | "expiring" | "changed" | "current";
+
+export interface LedgerClaim {
+  id: number;
+  item_id: number;
+  item_title: string;
+  item_state: ItemState;
+  channel: Channel;
+  version_id: number;
+  version_n: number;
+  latest: boolean;
+  text: string;
+  span_start: number | null;
+  span_end: number | null;
+  status: LedgerStatus;
+  via: string; // jev | numbers | no_facts | no_jev
+  fact_code: string | null;
+  fact_codes: string[];
+  support_p: number | null;
+  fact_valid_until: IsoDate | null;
+  stale: boolean; // the fact expired or changed after this check
+}
+export interface LedgerFact {
+  id: number; code: string; statement: string; value: string; source: string;
+  valid_until: IsoDate | null; expired: boolean; days_left: number | null;
+}
+export interface LedgerGroup { fact: LedgerFact | null; items_approved: number; items_in_progress: number; claims: LedgerClaim[] }
+export interface ClaimsLedgerOut {
+  groups: LedgerGroup[];
+  totals: Record<LedgerStatus, number>;
+  items: number;
+  checked_items: number;
+  expiring_days: number;
+}
+export interface ExpiringFact { fact: LedgerFact; items_approved: number; items_in_progress: number }
+export interface ExpiringOut { days: number; expiring: ExpiringFact[]; expired: ExpiringFact[] }
+export interface ImpactItem {
+  item_id: number; title: string; channel: Channel; state: ItemState; creator_name: string;
+  version_id: number; version_n: number; claims: LedgerClaim[];
+  action: "changes_requested" | "recheck" | "none"; action_reason: string;
+}
+export interface FactImpactOut {
+  fact: LedgerFact; reason: ImpactReason; changed_at: IsoDateTime | null;
+  items: ImpactItem[]; approved: number; in_progress: number;
+}
+export interface SendBackResult {
+  item_id: number; title: string; from_state: ItemState; to_state: ItemState; rechecked: boolean; skipped_reason: string | null;
+}
+export interface SendBackOut { fact_code: string; reason: ImpactReason; results: SendBackResult[]; moved: number; rechecked: number }
+export interface ClaimsQuery { status?: LedgerStatus; channel?: Channel; state?: ItemState; fact?: string; all_versions?: boolean }
+
+export const claimsApi = {
+  ledger: (q?: ClaimsQuery) => get<ClaimsLedgerOut>("/claims", q as Query | undefined),
+  expiring: (days?: number) => get<ExpiringOut>("/claims/expiring", days === undefined ? undefined : { days }),
+  impact: (factId: number) => get<FactImpactOut>(`/facts/${factId}/impact`),
+  /** Brand Admin. Approved / in-review items go to changes_requested; drafts are re-checked. */
+  sendBack: (factId: number, body: { recheck?: boolean; note?: string }) => post<SendBackOut>(`/facts/${factId}/impact/send-back`, body),
+};

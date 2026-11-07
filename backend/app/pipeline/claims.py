@@ -6,7 +6,8 @@ Claims come from Tier 0 triggers (grouped per clause: superlative, eco, factual)
 
 Decision table (code, not the model; p = Jev support probability, numbers = digits in the claim
 excluding dates):
-1. A current fact with p >= SUPPORT_AT                                  -> supported (no finding)
+1. A current fact with p >= SUPPORT_AT                                  -> supported (no finding), unless
+   1b. a number in the claim is held only by an expired candidate fact    -> outdated (human band, code)
 2. An expired fact with p >= SUPPORT_AT                                 -> outdated (cites fact + valid_until)
 3. Every number in the claim appears in candidate facts with p >= HUMAN_AT
    (claims that combine two facts, e.g. "12 cafes, open 8 am to 10 pm") -> supported, or outdated
@@ -211,6 +212,16 @@ def _coverage(claim_nums: set[str], cands: list[tuple[FactSpec, float, Optional[
     return "outdated", best[0] if best else None
 
 
+def _number_only_in_expired(claim_nums: set[str], cands: list[tuple[FactSpec, float, Optional[float]]],
+                            today: date) -> Optional[FactSpec]:
+    """Rule 1b (code): a number in the claim that no current candidate fact holds, but an expired one does."""
+    if not claim_nums:
+        return None
+    current = set().union(*[numbers(_fact_text(f)) for f, _, _ in cands if not is_expired(f.valid_until, today)] or [set()])
+    missing = claim_nums - current
+    return next((f for f, _, _ in cands if is_expired(f.valid_until, today) and numbers(_fact_text(f)) & missing), None)
+
+
 def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], ctx: CheckContext,
            jev_ok: bool, error: Optional[str] = None) -> ClaimResult:
     """The decision table in the module docstring. `cands` = [(fact, ratio, p_support|None)]."""
@@ -235,6 +246,9 @@ def decide(claim: Claim, cands: list[tuple[FactSpec, float, Optional[float]]], c
         best_cur = max(cur, key=lambda x: x[1], default=None)
         best_exp = max(exp, key=lambda x: x[1], default=None)
         if best_cur and best_cur[1] >= Q.SUPPORT_AT:
+            stale = _number_only_in_expired(claim_nums, cands, today)
+            if stale is not None:  # rule 1b: "12 cafes, open 8 am to 10 pm" after the "12 cafes" fact expired
+                return outdated(stale, None, "numbers")
             return ClaimResult(status="supported", rule_code=None, fact_code=best_cur[0].code, probability=1 - best_cur[1],
                                band="pass", via="jev", **base)
         if best_exp and best_exp[1] >= Q.SUPPORT_AT:
@@ -284,3 +298,68 @@ async def check_claim(claim: Claim, ctx: CheckContext, *, use_jev: bool, calls: 
     if not res.ok:
         return decide(claim, [(f, s, None) for f, s in found], ctx, jev_ok=False, error=res.error)
     return decide(claim, [(f, s, res.nouls.get(Q.support_key(f.code))) for f, s in found], ctx, jev_ok=True)
+
+
+# ------------------------------------------------------------------ claims ledger (Round 3, improvement 1)
+CONTRADICT_SCORE = 60  # token-set ratio: the fact is about the same thing as the claim
+
+
+def _fact_by_code(ctx: CheckContext, code: Optional[str]) -> Optional[FactSpec]:
+    return next((f for f in ctx.facts if f.code == code), None) if code else None
+
+
+def contradicting_fact(cr: ClaimResult, ctx: CheckContext) -> Optional[FactSpec]:
+    """Ledger refinement of an *unsupported* factual claim (code, no model): a current fact about the
+    same thing (ratio >= CONTRADICT_SCORE, Jev did not find support) states numbers, and none of the
+    claim's numbers appear in it ("40 cafes" vs F-04 "12 cafes"). The finding itself stays "unsupported"."""
+    if cr.status != "unsupported" or cr.claim.group != "factual" or cr.claim.from_jev:
+        return None
+    claim_nums = numbers(cr.claim.text)
+    if not claim_nums:
+        return None
+    for c in sorted(cr.candidates, key=lambda c: -c["score"]):
+        if c["expired"] or c["score"] < CONTRADICT_SCORE or (c["p"] is not None and c["p"] >= Q.HUMAN_AT):
+            continue
+        f = _fact_by_code(ctx, c["code"])
+        fnums = numbers(_fact_text(f)) if f else set()
+        if f and fnums and not (claim_nums & fnums):
+            return f
+    return None
+
+
+def relied_facts(cr: ClaimResult, ctx: CheckContext) -> list[str]:
+    """Codes of the approved facts this claim relies on (the ledger's "evidence"), primary first.
+    supported/outdated -> the deciding fact; supported by numbers -> every candidate fact that holds one
+    of the claim's numbers; contradicted -> the fact it contradicts; unsupported -> none."""
+    out: list[str] = [cr.fact_code] if cr.fact_code else []
+    if cr.status == "supported" and not out:
+        # a claim Jev found without a trigger word, partly supported (p >= HUMAN_AT): the best current fact
+        cur = [c for c in cr.candidates if not c["expired"] and c["p"] is not None and c["p"] >= Q.HUMAN_AT]
+        if cur:
+            out = [max(cur, key=lambda c: c["p"])["code"]]
+    elif cr.status == "unsupported":
+        f = contradicting_fact(cr, ctx)
+        return [f.code] if f else []
+    if cr.status in ("supported", "outdated") and cr.claim.group == "factual":
+        # Numbers the primary fact doesn't hold come from other candidate facts ("12 cafes, open 8 am to
+        # 10 pm" relies on F-04 and F-18). Code, not the model: a candidate whose text holds such a number.
+        claim_nums = numbers(cr.claim.text)
+        covered = set().union(*[numbers(_fact_text(f)) for f in (_fact_by_code(ctx, c) for c in out) if f] or [set()])
+        for c in sorted(cr.candidates, key=lambda c: -(c["p"] or 0)):
+            f = _fact_by_code(ctx, c["code"])
+            if f is None or f.code in out or (c["expired"] and cr.status == "supported"):
+                continue
+            new = numbers(_fact_text(f)) & (claim_nums - covered)
+            if new:
+                out.append(f.code)
+                covered |= new
+    return out
+
+
+def ledger_status(cr: ClaimResult, ctx: CheckContext) -> str:
+    return "contradicted" if contradicting_fact(cr, ctx) is not None else cr.status
+
+
+def support_probability(cr: ClaimResult, fact_code: Optional[str]) -> Optional[float]:
+    """Jev's probability that `fact_code` supports the claim (None when decided without Jev)."""
+    return next((c["p"] for c in cr.candidates if c["code"] == fact_code), None) if fact_code else None
