@@ -1,8 +1,7 @@
 """P1-2 Logo fidelity: is the logo in an image the approved logo file? Local only (OpenCV), so it
 also runs for confidential items. OWNER: AI/ML (Jiteesh).
 
-Method credit: the SIFT + Lowe ratio test + RANSAC homography approach follows packfix (MIT),
-credited in NOTICE.md. Our code is written from scratch.
+Method: SIFT keypoints, Lowe ratio test (0.75), RANSAC homography, inlier count.
 
     match_logo(image_path, logo_path) -> LogoMatch      # pure measurement, no decisions
     decide(match, has_logo_p) -> LogoVerdict            # the truth table (code decides)
