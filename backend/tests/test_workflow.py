@@ -292,3 +292,24 @@ def test_seeded_states_have_consistent_history(who):
             assert "submitted" in actions
         if it["state"] == "approved":
             assert hist[0]["action"] == "approved" and hist[0]["user_name"] == "Kabir"
+
+
+def test_accept_one_finding_accepts_its_edit_region_and_resubmit_applies_it_once(who, mock_start_check):
+    rohan = who("rohan")
+    text = "Steam Classic is India's #1 coffee!!! Order now."
+    item_id, vid = make_item("rohan", text=text)
+    fix = "Saffron Signature Roast is a coffee we are proud to serve."
+    ids = [make_finding(vid, 0, 37, fix=fix, rule=r) for r in ("R-TERM-01", "R-CLAIM-01", "R-TONE-04")]
+    other = make_finding(vid, 38, 48, fix="Order today.")
+    with Session(get_engine()) as s:
+        for f in s.exec(select(Finding).where(Finding.id.in_(ids))).all():
+            f.fix_group, f.hit_start, f.hit_end = "u0:0-37", 25, 27
+            s.add(f)
+        s.commit()
+    out = rohan.post(f"/api/findings/{ids[1]}/accept").json()
+    assert out["status"] == "accepted" and out["fix_group"] == "u0:0-37" and (out["hit_start"], out["hit_end"]) == (25, 27)
+    fs = {f["id"]: f["status"] for f in rohan.get(f"/api/versions/{vid}/findings").json()}
+    assert [fs[i] for i in ids] == ["accepted"] * 3 and fs[other] == "open"
+    body = rohan.post(f"/api/items/{item_id}/resubmit").json()
+    assert sorted(body["applied"]) == sorted(ids) and body["skipped"] == []
+    assert rohan.get(f"/api/versions/{body['version_id']}").json()["text"] == fix + " Order now."
