@@ -236,7 +236,7 @@ _DEV_SIGNS = {"ा": "aa", "ि": "i", "ी": "i", "ु": "u", "ू": "u", "े"
 
 
 def romanize(word: str) -> str:
-    """Rough Devanagari -> Latin (inherent 'a' dropped before a vowel sign or virama, and word-finally).
+    """Rough Devanagari -> Latin (inherent 'a' kept only before another consonant or a nasal sign).
     Only for readable identifiers; other scripts return ''."""
     out = []
     w = nfc(word)
@@ -244,9 +244,11 @@ def romanize(word: str) -> str:
         if ch in _DEV:
             base = _DEV[ch]
             nxt = w[i + 1] if i + 1 < len(w) else ""
-            consonant = "क" <= ch <= "ह"
-            if consonant and nxt and nxt not in _DEV_SIGNS and nxt != "्" and nxt != "़" and i + 1 < len(w) - 1:
-                base += "a"
+            if nxt == "\u093c":  # nukta: look past it
+                nxt = w[i + 2] if i + 2 < len(w) else ""
+            consonant = "\u0915" <= ch <= "\u0939"
+            if consonant and (("\u0915" <= nxt <= "\u0939") or nxt in ("\u0902", "\u0901")):
+                base += "a"  # inherent vowel before another consonant or a nasal sign; dropped word-finally
             out.append(base)
         elif ch in _DEV_SIGNS:
             out.append(_DEV_SIGNS[ch])

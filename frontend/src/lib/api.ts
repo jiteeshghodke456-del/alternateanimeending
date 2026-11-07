@@ -517,6 +517,7 @@ export interface AudienceOut {
   attribution: string; // "Personas: NVIDIA Nemotron-Personas-India (CC-BY-4.0)" (licence-required; always show it)
   message: string | null; // human message for error / unavailable
   audience_source: "brand" | "default" | null; // brand-defined reader groups (audiences.json) or the 6 default groups
+  language_note?: string | null; // non-English post: its language and how many readers have it as home language
   progress: { done: number; total: number } | null;
   overall: AudienceTotals | null;
   segments: AudienceSegment[];

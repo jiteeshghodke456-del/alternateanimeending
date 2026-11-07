@@ -228,3 +228,22 @@ def test_prompt_asks_for_english_explanations_and_same_language_fix() -> None:
 def test_romanize_for_identifiers() -> None:
     assert L.romanize("आमचे") == "aamache"
     assert L.romanize("Pune") == "pune"
+
+
+# ------------------------------------------------------------------ audience preview
+def test_audience_option_names_for_devanagari_are_descriptive() -> None:
+    from app.pipeline import audience as A
+
+    names = A.option_names(["फक्त आज!!! एक बॅग घ्या.", "भारत की नंबर 1 कॉफ़ी", "Visit us today"])
+    assert list(names) == ["phakt_aaj_ek_beg_ghyaa", "bhaarat_ki_nanbar_1_kophi", "visit_us_today"]
+    assert not any(n.startswith("paragraph") for n in names)
+
+
+def test_audience_language_note() -> None:
+    from app.pipeline import audience as A
+
+    readers = [{"state": "Maharashtra"}, {"state": "Maharashtra"}, {"state": "Tamil Nadu"}, {"state": "Bihar"}]
+    note = A.language_note("आमचे १२ कॅफे पुणे, मुंबई आणि बेंगळुरूमध्ये आहेत. नक्की भेट द्या.", readers)
+    assert note and "Marathi" in note and "2 of 4" in note and "50%" in note
+    assert "1 of 4" in (A.language_note("Jaldi karo, hamara Monsoon Malabar almost khatam hai.", readers) or "")
+    assert A.language_note("Visit us this weekend.", readers) is None
