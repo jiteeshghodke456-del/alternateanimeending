@@ -233,3 +233,30 @@ class AudienceRun(SQLModel, table=True):
     results: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+# ---- Round 3: unclear-rule detection (pipeline/clarity.py, routers/clarity.py) ----
+class RuleClarity(SQLModel, table=True):
+    """One row per rule: the latest clarity result, the cached paraphrases (per rule version) and probe
+    texts (kept across versions so before/after compare on the same probes), the last suggested rewrite
+    and the statements that rewrites replaced (history)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    rule_id: int = Field(foreign_key="rule.id", index=True)
+    rule_code: str = ""
+    rule_version: int = 1  # the version the score was computed for (stale when the rule moved on)
+    score: Optional[float] = None  # 0-100, higher = clearer
+    band: str = ""  # clear|could_be_clearer|unclear
+    signals: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))  # {vague, disagreement, people}
+    reasons: list[str] = Field(default_factory=list, sa_column=Column(JSON))  # plain-language reasons
+    paraphrases: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    paraphrase_version: int = 0  # rule version the paraphrases were written for
+    paraphrase_source: str = ""  # llm|template
+    probes: list[Any] = Field(default_factory=list, sa_column=Column(JSON))  # [{text, expect}]
+    probe_source: str = ""  # llm|examples
+    rewrite: Optional[dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    history: list[Any] = Field(default_factory=list, sa_column=Column(JSON))
+    cost_usd: float = 0.0
+    latency_ms: int = 0
+    error: Optional[str] = None
+    computed_at: Optional[datetime] = None
