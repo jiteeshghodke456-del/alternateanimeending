@@ -16,6 +16,7 @@
 | Pydantic, pydantic-settings | MIT |
 | sse-starlette | BSD-3-Clause |
 | uvicorn | BSD-3-Clause |
+| typesafe-sdk | MIT |
 | openai (Python client) | Apache-2.0 |
 | shadcn/ui | MIT |
 | Magic UI | MIT |
