@@ -273,7 +273,7 @@ export default function Landing() {
       </main>
 
       <footer className="mx-auto flex max-w-[1200px] flex-col items-center gap-1 px-4 pb-10 text-center text-footnote text-muted-foreground md:px-8">
-        <span className="inline-flex items-center gap-1.5"><Wand2 className="size-3.5" strokeWidth={1.75} aria-hidden /> Powered by Jev (TypeSafe AI)</span>
+        <span className="inline-flex items-center gap-1.5"><Wand2 className="size-3.5" strokeWidth={1.75} aria-hidden /> AI judgments, code decisions, people approve</span>
       </footer>
     </div>
   );

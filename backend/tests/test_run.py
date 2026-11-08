@@ -184,7 +184,7 @@ def test_image_jev_failure_adds_info_finding(client: TestClient, monkeypatch) ->
     ids = r.json()
     v = wait_done(client, ids["version_id"])
     fs = findings(client, ids["version_id"])
-    assert any("Jev image check unavailable" in f["explanation"] for f in fs)
+    assert any("AI image check was unavailable" in f["explanation"] for f in fs)
     assert any(f["rule_code"] == "R-VIS-02" for f in fs)  # palette is code, still runs
     assert any(f["rule_code"] == "R-ACC-01" for f in fs)  # no alt text
     assert any("image check failed" in w for w in v["stats"]["warnings"])

@@ -34,7 +34,7 @@ export function wordDiff(a: string, b: string) {
 }
 
 const TIER_LABEL: Record<string, string> = {
-  tier0: "Rule-based check", jev: "Jev judgment", claim: "Claim check", visual: "Visual check", logo: "Logo check", provenance: "Content Credentials (local)",
+  tier0: "Rule-based check", jev: "AI judgment", claim: "Claim check", visual: "Visual check", logo: "Logo check", provenance: "Content Credentials (local)",
 };
 const STATUS_LABEL: Record<string, string> = {
   accepted: "Accepted", edited: "Edited", dismissed: "Dismissed", overridden: "Overridden",

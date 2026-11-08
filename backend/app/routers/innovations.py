@@ -49,9 +49,9 @@ from app.services import NoBrandError, audit, current_brand
 log = logging.getLogger("brandgate.innovations")
 router = APIRouter(tags=["innovations"])
 
-CONFIDENTIAL_MESSAGE = ("Audience Preview sends the content to Jev, an external service, so it isn't available for "
+CONFIDENTIAL_MESSAGE = ("Audience Preview sends the content to an external AI service, so it isn't available for "
                         "confidential items.")
-NO_JEV_MESSAGE = "Audience Preview needs Jev, and Jev isn't configured on this server."
+NO_JEV_MESSAGE = "Audience Preview needs the AI check, and it isn't configured on this server."
 STALE_MESSAGE = "The server restarted while this audience run was in progress. Start it again."
 OLD_RUN_MESSAGE = "The audience model was updated since this preview was made. Run it again to see the new results."
 FAILED_MESSAGE = "The audience run failed. Try again in a moment."
@@ -283,7 +283,7 @@ async def audience_events(version_id: int, session: SessionDep, user: CurrentUse
 
 # ------------------------------------------------------------------ guideline PDF import (P1-3)
 PDF_DISABLED_MESSAGE = "Guideline PDF import is switched off on this server. Add rules one by one in the Brand Kit."
-NO_LLM_MESSAGE = "Guideline PDF import needs the writer model (LLM), and it isn't configured on this server."
+NO_LLM_MESSAGE = "Guideline PDF import needs the writing assistant, and it isn't configured on this server."
 IMPORT_GONE_MESSAGE = "That import has expired (the server may have restarted). Upload the PDF again."
 MAX_IMPORTS = 20
 

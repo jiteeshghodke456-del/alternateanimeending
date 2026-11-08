@@ -66,7 +66,7 @@ with sync_playwright() as p:
         shot(pg, "1-before")
         return f"{n} non-clear rules shown from wording alone"
 
-    @step("2 check all rules with Jev; vague rules rank least clear")
+    @step("2 check all rules with AI; vague rules rank least clear")
     def _():
         pg.get_by_role("button", name=re.compile(r"Check all rules|Re-check all rules")).click()
         t0 = time.time()
@@ -87,10 +87,10 @@ with sync_playwright() as p:
         shot(pg, "2-ranked")
         return f"{st['total']} rules in {st['elapsed_ms'] / 1000:.1f}s for ${st['cost_usd']:.4f}; least clear {bottom}"
 
-    @step("3 Jev details table opens")
+    @step("3 AI details table opens")
     def _():
         card = pg.locator(f"#clarity-{S['first']}")
-        card.get_by_text(re.compile(r"How Jev read \d wordings")).click()
+        card.get_by_text(re.compile(r"How the AI check read \d wordings")).click()
         expect(card.locator("table")).to_be_visible()
         return f"{card.locator('tbody tr').count()} test texts"
 

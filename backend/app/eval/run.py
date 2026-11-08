@@ -191,7 +191,7 @@ async def evaluate(split: str = "test", *, with_explain: bool = False, use_jev: 
                     "cost_per_item_usd": round(calls.cost_usd / len(per_item), 6) if per_item else 0.0,
                     "total_cost_usd": round(calls.cost_usd, 6), "jev_calls": sum(1 for r in calls.records if r.provider == "typesafe"),
                     "judgments": calls.judgments, "n_items": len(per_item),
-                    "stage": "full (detection + explain + self-check)" if with_explain else "detection (tier0 + Jev + claims)",
+                    "stage": "full (detection + explain + self-check)" if with_explain else "detection (code checks + AI check + claims)",
                     "thresholds": {"default": {"flag": flag_t, "human": human_t}, "file": THRESHOLDS.is_file()},
                     "warnings": sum(len(i["warnings"]) for i in per_item)},
         "misses": misses,

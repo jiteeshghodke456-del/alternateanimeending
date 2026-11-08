@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SEVERITY_LABEL, SEVERITY_STYLE } from "@/lib/bands";
 import {
-  api, withToken, type CheckMethod, type FactCreate, type FactOut, type RuleCreate, type RuleOut, type Severity, type TermCreate, type TermKind, type TermOut,
+  api, CHECK_METHOD_LABEL, withToken, type CheckMethod, type FactCreate, type FactOut, type RuleCreate, type RuleOut, type Severity, type TermCreate, type TermKind, type TermOut,
 } from "@/lib/api";
 import { formatDate, reportError, useAsync } from "@/lib/hooks";
 import { useSession } from "@/lib/session";
@@ -86,7 +86,7 @@ function RuleDialog({ rule, open, onOpenChange, onSaved }: { rule: RuleOut | nul
           <Field label="Check method" htmlFor="r-m">
             <Select value={f.check_method} onValueChange={(v) => set("check_method", v as CheckMethod)}>
               <SelectTrigger id="r-m"><SelectValue /></SelectTrigger>
-              <SelectContent>{(["tier0", "jev", "claim", "visual"] as CheckMethod[]).map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              <SelectContent>{(["tier0", "jev", "claim", "visual"] as CheckMethod[]).map((s) => <SelectItem key={s} value={s}>{CHECK_METHOD_LABEL[s]}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
         </div>
@@ -188,7 +188,7 @@ function RulesTab({ admin }: { admin: boolean }) {
                 {r.pack_id && <span className="rounded-full bg-[var(--accent-vivid)]/12 px-2.5 py-0.5 text-caption font-medium text-[var(--accent-text)]">Regulation</span>}
                 <span className={cn("rounded-full px-2.5 py-0.5 text-caption font-medium", SEVERITY_STYLE[r.severity])}>{SEVERITY_LABEL[r.severity]}</span>
                 <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 text-caption font-medium capitalize">{r.category}</span>
-                <span className="text-caption text-muted-foreground">{r.check_method} · v{r.version}</span>
+                <span className="text-caption text-muted-foreground">{CHECK_METHOD_LABEL[r.check_method] ?? r.check_method} · v{r.version}</span>
                 {!r.enabled && <span className="rounded-full bg-foreground/8 px-2.5 py-0.5 text-caption font-medium">Disabled</span>}
                 {admin && (
                   <span className="ml-auto flex items-center gap-2">

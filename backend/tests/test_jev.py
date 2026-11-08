@@ -38,7 +38,7 @@ def test_unavailable_returns_error_without_calling(monkeypatch) -> None:  # noqa
     monkeypatch.setattr(jev, "_call_api", boom)
     log = jev.CallLog()
     r = asyncio.run(jev.ask("x", {"q": Noul(instructions="?")}, purpose="rules", calls=log))
-    assert not r.ok and r.error == "Jev not configured" and log.records == []
+    assert not r.ok and r.error == "not configured" and log.records == []
 
 
 def test_ask_normalizes_and_logs_cost(jev_on) -> None:  # noqa: ANN001
@@ -79,6 +79,109 @@ def test_missing_answers_are_an_error(jev_on) -> None:  # noqa: ANN001
     assert not r.ok
 
 
+# ------------------------------------------------------------------ timeouts: one retry of our own
+# Live (8 Nov, Render free tier): a 44-paragraph page had 7 calls time out. A timed-out call is retried once.
+@pytest.fixture
+def no_backoff(jev_on):  # noqa: ANN001, ANN201
+    jev_on.setattr(jev, "RETRY_BACKOFF_S", (0.0, 0.0))
+    return jev_on
+
+
+def _timeout_then(answer, fails: int = 1, exc_factory=None):  # noqa: ANN001, ANN202
+    from typesafe_sdk import TypeSafeAPITimeoutError
+
+    seen = {"n": 0}
+
+    async def fake(*a, **k):  # noqa: ANN002, ANN003, ANN202
+        seen["n"] += 1
+        if seen["n"] <= fails:
+            raise (exc_factory() if exc_factory else TypeSafeAPITimeoutError(jev.TIMEOUT_S))
+        return answer
+
+    return fake, seen
+
+
+def test_timeout_is_retried_once_then_succeeds(no_backoff) -> None:  # noqa: ANN001
+    fake, seen = _timeout_then(fake_response({"q": 0.8}))
+    no_backoff.setattr(jev, "_call_api", fake)
+    log = jev.CallLog()
+    r = asyncio.run(jev.ask("x", {"q": Noul(instructions="?")}, purpose="rules", calls=log))
+    assert seen["n"] == 2 and r.ok and r.nouls == {"q": 0.8} and r.error is None
+    assert len(log.records) == 1 and log.records[0].ok and log.judgments == 1  # one logical call, one record
+
+
+def test_outer_wait_for_timeout_is_retried_too(no_backoff) -> None:  # noqa: ANN001
+    fake, seen = _timeout_then(fake_response({"q": 0.2}), exc_factory=asyncio.TimeoutError)
+    no_backoff.setattr(jev, "_call_api", fake)
+    r = asyncio.run(jev.ask("x", {"q": Noul(instructions="?")}, purpose="rules"))
+    assert seen["n"] == 2 and r.ok and r.nouls == {"q": 0.2}
+
+
+def test_two_timeouts_are_an_error_not_a_no(no_backoff) -> None:  # noqa: ANN001
+    fake, seen = _timeout_then(fake_response({"q": 0.01}), fails=5)
+    no_backoff.setattr(jev, "_call_api", fake)
+    log = jev.CallLog()
+    r = asyncio.run(jev.ask("x", {"q": Noul(instructions="?")}, purpose="rules", calls=log))
+    assert seen["n"] == 1 + jev.TIMEOUT_RETRIES == 2
+    assert not r.ok and r.nouls == {} and r.error == "timed out" and log.records[0].ok is False
+    assert jev.failure_phrase(r.error) == "timed out"
+
+
+def test_http_errors_are_not_retried_by_our_layer(no_backoff) -> None:  # noqa: ANN001
+    from typesafe_sdk import TypeSafeInternalServerError
+    import httpx2
+
+    # 429/5xx retries belong to the SDK's RetryPolicy; our layer adds none (no double retry).
+    fake, seen = _timeout_then(fake_response({"q": 0.5}),
+                               exc_factory=lambda: TypeSafeInternalServerError(500, {"error": "x"}, httpx2.Headers()))
+    no_backoff.setattr(jev, "_call_api", fake)
+    r = asyncio.run(jev.ask("x", {"q": Noul(instructions="?")}, purpose="rules"))
+    assert seen["n"] == 1 and not r.ok and r.error == "HTTP 500" and jev.failure_phrase(r.error) == "failed (HTTP 500)"
+
+
+def test_backoff_is_jittered_and_releases_the_semaphore(jev_on) -> None:  # noqa: ANN001
+    """While one call waits to retry, the others keep the semaphore busy (it isn't held during the backoff)."""
+    from typesafe_sdk import TypeSafeAPITimeoutError
+
+    jev_on.setattr(jev, "RETRY_BACKOFF_S", (0.05, 0.05))
+    sem: dict = {}
+    jev_on.setattr(jev, "_semaphore", lambda: sem.setdefault("s", asyncio.Semaphore(1)))  # one call in flight
+    order: list[str] = []
+    tries = {"slow": 0}
+
+    async def fake(state, questions, **kw):  # noqa: ANN001, ANN003, ANN202
+        order.append(state)
+        if state == "slow":
+            tries["slow"] += 1
+            if tries["slow"] == 1:
+                raise TypeSafeAPITimeoutError(jev.TIMEOUT_S)
+        return fake_response({"q": 0.1})
+
+    jev_on.setattr(jev, "_call_api", fake)
+
+    async def main() -> list:
+        return await asyncio.gather(jev.ask("slow", {"q": Noul(instructions="?")}, purpose="rules"),
+                                    jev.ask("fast", {"q": Noul(instructions="?")}, purpose="rules"))
+
+    out = asyncio.run(main())
+    # held during the backoff, the order would be slow, slow, fast
+    assert all(r.ok for r in out) and order == ["slow", "fast", "slow"]
+    assert 0 < jev.RETRY_BACKOFF_S[0] <= jev.RETRY_BACKOFF_S[1]
+
+
+def test_error_text_never_names_the_vendor() -> None:
+    from typesafe_sdk import TypeSafeAPIConnectionError, TypeSafeAPITimeoutError, TypeSafeRateLimitError
+    import httpx2
+
+    from app.pipeline.neutral import has_banned
+
+    errs = [TypeSafeAPITimeoutError(20.0), TypeSafeAPIConnectionError("down"),
+            TypeSafeRateLimitError(429, {"error": "x"}, httpx2.Headers()), ValueError("bad")]
+    texts = [jev._error_text(e) for e in errs]
+    assert texts == ["timed out", "connection failed", "HTTP 429", "request failed"]
+    assert not any(has_banned(t) for t in texts)
+
+
 def test_semaphore_limits_concurrency_to_8(jev_on) -> None:  # noqa: ANN001
     state = {"now": 0, "max": 0}
 
@@ -107,7 +210,7 @@ def test_image_calls_send_danger_zone_header(jev_on) -> None:  # noqa: ANN001
 
     jev_on.setattr(jev, "_call_api", fake)
     asyncio.run(jev.ask({"image": "img"}, {"q": Noul(instructions="?")}, purpose="rules", images=True))
-    assert seen == {"headers": IMAGE_HEADERS, "timeout": 20.0}
+    assert seen == {"headers": IMAGE_HEADERS, "timeout": jev.TIMEOUT_S}
 
 
 def test_sdk_retries_exactly_once_on_429_and_5xx() -> None:

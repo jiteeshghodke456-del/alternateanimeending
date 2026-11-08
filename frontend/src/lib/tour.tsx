@@ -175,7 +175,7 @@ export const STEPS: TourStep[] = [
       return (
         <p>
           The top finding names the rule it breaks{f?.code ? <> (<Em>{f.code}</Em>)</> : null} and quotes the guideline{f?.page ? <> from <Em>page {f.page}</Em></> : null}.{" "}
-          Jev gives a probability{f?.p != null ? <> (<Em>{f2(f.p)}</Em>)</> : null} and code decides: 0.70 or more flags it, 0.30 to 0.70 asks a person.{" "}
+          The AI check gives a probability{f?.p != null ? <> (<Em>{f2(f.p)}</Em>)</> : null} and code decides: 0.70 or more flags it, 0.30 to 0.70 asks a person.{" "}
           {f && !f.hasFix ? "The explanation is in plain words; this one needs your own edit." : <>The explanation is in plain words, and the fix {f?.verified ? "was re-checked before you see it" : "keeps your message"}.</>}
         </p>
       );

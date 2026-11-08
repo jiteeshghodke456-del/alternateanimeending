@@ -2,7 +2,7 @@ import { Lock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-/** Confidential items only get local checks. No Jev, writer model or audience calls. */
+/** Confidential items only get local checks. No external AI calls (judgments, writing assistant or audience). */
 export function ConfidentialBadge({ className }: { className?: string }) {
   return (
     <Tooltip>

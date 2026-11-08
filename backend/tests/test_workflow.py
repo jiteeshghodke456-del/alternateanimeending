@@ -276,7 +276,9 @@ def test_ai_usage_groups_by_provider_and_purpose_with_pii(who):
         s.commit()
     out = rohan.get(f"/api/items/{item_id}/ai-usage").json()
     g = {(x["provider"], x["purpose"]): x for x in out["groups"]}
-    assert g[("jev", "rules")]["count"] == 3 and g[("jev", "rules")]["input_tokens"] == 30
+    assert g[("AI judgment model", "rules")]["count"] == 3 and g[("AI judgment model", "rules")]["input_tokens"] == 30
+    assert all("model" not in x for x in out["groups"])  # the UI never names the models
+    assert out["summary"].startswith("2 external AI services used: a judgment model and a writing model. 4 calls")
     assert out["no_external_services"] is False and out["pii_masked"] == 2 and out["total_cost_usd"] == 0.005
     assert "Personal data masked: 2" in out["summary"]
 

@@ -37,10 +37,10 @@ function Body({ itemId, refreshKey }: { itemId: number; refreshKey: unknown }) {
               <h4 className="flex items-center gap-2 text-callout font-semibold"><Cpu className="size-4 text-muted-foreground" strokeWidth={1.5} /> {provider}</h4>
               <ul className="mt-2 divide-y divide-border rounded-2xl bg-foreground/5">
                 {groups.map((g) => (
-                  <li key={`${g.model}-${g.purpose}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <li key={`${g.provider}-${g.purpose}`} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-body capitalize">{g.purpose.replace(/_/g, " ")}</p>
-                      <p className="text-caption text-muted-foreground">{g.model} · {g.count} calls · {g.input_tokens.toLocaleString()} tokens</p>
+                      <p className="text-caption text-muted-foreground">{g.count} call{g.count === 1 ? "" : "s"} · {g.input_tokens.toLocaleString()} tokens</p>
                     </div>
                     <span className="text-footnote tabular-nums">${g.cost_usd.toFixed(4)}</span>
                   </li>

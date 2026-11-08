@@ -16,6 +16,8 @@ export type ItemState =
 export type Channel = "instagram" | "email" | "website" | "linkedin";
 export type Severity = "blocking" | "major" | "minor";
 export type CheckMethod = "tier0" | "jev" | "claim" | "visual";
+/** What the UI calls each check method. "jev" is an internal id: the UI never names the models or vendors. */
+export const CHECK_METHOD_LABEL: Record<CheckMethod, string> = { tier0: "Word list", jev: "AI judgment", claim: "Claim check", visual: "Visual check" };
 export type TermKind = "banned" | "preferred" | "capitalise";
 export type Band = "flag" | "human" | "pass";
 export type FindingStatus = "open" | "accepted" | "edited" | "dismissed" | "overridden";
@@ -467,8 +469,7 @@ export interface AuditEventOut {
 }
 
 export interface AIUsageGroup {
-  provider: string;
-  model: string;
+  provider: string; // neutral label ("AI judgment model" | "AI writing model"); never a model or vendor name
   purpose: string;
   count: number;
   input_tokens: number;
@@ -482,7 +483,7 @@ export interface AIUsageOut {
   pii_masked: number;
   total_cost_usd: number;
   summary: string; // plain-language line
-  groups: AIUsageGroup[]; // grouped by provider + purpose
+  groups: AIUsageGroup[]; // grouped by provider label + purpose
   /** Web pages: "Fetched https://… (no third-party service)". Older servers omit it. */
   fetches?: string[];
 }
@@ -634,7 +635,8 @@ export interface EvalLatestOut {
   status: "ok" | "not_run" | "running"; // not_run: no results file yet; running: an admin re-run is in progress
   run_at: IsoDateTime | null;
   split: string | null;
-  models: Record<string, string>;
+  /** true: the run included the AI check; false: code checks only; null: unknown. Model names are never sent. */
+  ai_checks?: boolean | null;
   metrics: Record<string, unknown>;
   misses: Record<string, unknown>[];
   /** Newer servers: which brand the eval set was built for (it measures the demo brand). Show when present. */

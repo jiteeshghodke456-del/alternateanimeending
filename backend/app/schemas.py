@@ -677,8 +677,7 @@ class AuditEventOut(_Out):
 
 
 class AIUsageGroup(_Out):
-    provider: str
-    model: str
+    provider: str  # neutral label ("AI judgment model" | "AI writing model"); the UI never names models or vendors
     purpose: str
     count: int
     input_tokens: int
@@ -693,7 +692,7 @@ class AIUsageOut(_Out):
     pii_masked: int
     total_cost_usd: float
     summary: str  # plain-language line, e.g. "No external services used ..."
-    groups: list[AIUsageGroup]  # grouped by provider + purpose (model = distinct models joined by ", ")
+    groups: list[AIUsageGroup]  # grouped by provider label + purpose (no model names: neutral.py)
     fetches: list[str] = []  # web pages: "Fetched https://… (no third-party service)"
 
 
@@ -863,7 +862,9 @@ class EvalLatestOut(_Out):
     status: Literal["ok", "not_run", "running"] = "ok"
     run_at: Optional[UtcDatetime] = None
     split: Optional[str] = None
-    models: dict[str, str] = Field(default_factory=dict)
+    # True when the run included the AI check, False for code checks only, None when unknown. The results file
+    # names the models; the API doesn't, because the UI never names models or vendors (pipeline/neutral.py).
+    ai_checks: Optional[bool] = None
     # precision/recall/f1 (overall + per_category), claim_accuracy, latency_ms {median,p95},
     # cost_per_item_usd, calibration [{bin, predicted, observed, n}]
     metrics: dict[str, Any] = Field(default_factory=dict)

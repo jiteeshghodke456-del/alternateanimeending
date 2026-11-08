@@ -1,7 +1,7 @@
 """ALL Jev calls go through here. OWNER: pipeline-agent.
 
-- `ask()` makes one System One call: semaphore (8), 20 s timeout, one SDK retry on 429/5xx,
-  never raises. A failed call returns `ok=False` + `error`, and callers treat it as an ERROR
+- `ask()` makes one System One call: semaphore (8), 30 s timeout, one SDK retry on 429/5xx, one retry of
+  our own after a timeout (short jittered backoff, semaphore released while waiting), never raises. A failed call returns `ok=False` + `error`, and callers treat it as an ERROR
   (a pipeline warning or a human-band finding), never as a "no".
 - Every call is recorded in a `CallLog` (provider "typesafe", model, purpose, version/unit id,
   input tokens, latency, cost). run.py writes the log to the `aicall` table. Content is never logged:
@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
@@ -27,8 +28,12 @@ logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)  # it logs request b
 
 PROVIDER = "typesafe"
 CONCURRENCY = 8  # default; JEV_CONCURRENCY overrides it
-TIMEOUT_S = 20.0
-HARD_TIMEOUT_S = 45.0  # outer guard: 20 s + one retry with backoff
+# Live (8 Nov, Render free tier, 512 MiB shared CPU): a 44-paragraph page had 7 calls time out at 20 s, while a
+# normal call takes ~0.5 s. A timed-out call is retried once (TIMEOUT_RETRIES) after a short jittered backoff.
+TIMEOUT_S = 30.0
+HARD_TIMEOUT_S = 65.0  # outer guard per attempt: 30 s + the SDK's one 429/5xx retry with backoff
+TIMEOUT_RETRIES = 1
+RETRY_BACKOFF_S = (0.4, 1.2)  # uniform jitter, so retries from one burst don't land together
 
 
 @dataclass
@@ -172,14 +177,29 @@ def _normalize(res: Any) -> tuple[dict[str, float], dict[str, ChoiceAnswer], int
 
 
 def _error_text(exc: BaseException) -> str:
-    """Short, content-free error description for warnings."""
+    """Short, content-free and vendor-free error description (warnings reach the UI; logs get the class name)."""
     status = getattr(exc, "status", None)
-    name = type(exc).__name__
     if status:
-        return f"{name} (HTTP {status})"
-    if isinstance(exc, asyncio.TimeoutError):
+        return f"HTTP {status}"
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
         return "timed out"
-    return name
+    if isinstance(exc, ConnectionError):
+        return "connection failed"
+    return "request failed"
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    # The SDK's TypeSafeAPITimeoutError subclasses TimeoutError; asyncio.wait_for raises TimeoutError too.
+    return isinstance(exc, (asyncio.TimeoutError, TimeoutError)) and not getattr(exc, "status", None)
+
+
+def failure_phrase(error: Optional[str]) -> str:
+    """'timed out' / "isn't configured" / 'failed (HTTP 500)': for "The AI check ... for paragraph 2"."""
+    if error == "timed out":
+        return "timed out"
+    if error == "not configured":
+        return "isn't configured"
+    return f"failed ({error})" if error and error.startswith("HTTP ") else "failed"
 
 
 async def ask(
@@ -197,27 +217,32 @@ async def ask(
     if not questions:
         return JevResult(ok=True)
     if not available():
-        return JevResult(ok=False, error="Jev not configured")
+        return JevResult(ok=False, error="not configured")
     headers = None
     if images:
         from app.pipeline.questions import IMAGE_HEADERS
 
         headers = IMAGE_HEADERS
-    t0 = time.perf_counter()
-    async with _semaphore():
-        t0 = time.perf_counter()  # latency excludes queueing
-        try:
-            res = await asyncio.wait_for(
-                _call_api(state, questions, model=model, extra_headers=headers, timeout=TIMEOUT_S), HARD_TIMEOUT_S)
-            nouls, choices, tokens, used_model = _normalize(res)
-            scores = _normalize_scores(res)
-            ok, err = True, None
-        except Exception as exc:  # noqa: BLE001  (SDK errors, timeouts, bad responses)
-            nouls, choices, tokens, used_model = {}, {}, 0, ""
-            scores = {}
-            ok, err = False, _error_text(exc)
-            log.warning("jev call failed: purpose=%s unit=%s error=%s", purpose, unit_id, err)
-    latency = int((time.perf_counter() - t0) * 1000)
+    latency = 0
+    for attempt in range(TIMEOUT_RETRIES + 1):
+        async with _semaphore():
+            t0 = time.perf_counter()  # latency excludes queueing and backoff
+            try:
+                res = await asyncio.wait_for(
+                    _call_api(state, questions, model=model, extra_headers=headers, timeout=TIMEOUT_S), HARD_TIMEOUT_S)
+                nouls, choices, tokens, used_model = _normalize(res)
+                scores = _normalize_scores(res)
+                ok, err, exc_ = True, None, None
+            except Exception as exc:  # noqa: BLE001  (SDK errors, timeouts, bad responses)
+                nouls, choices, tokens, used_model = {}, {}, 0, ""
+                scores = {}
+                ok, err, exc_ = False, _error_text(exc), exc
+                log.warning("jev call failed: purpose=%s unit=%s attempt=%d error=%s (%s)", purpose, unit_id,
+                            attempt + 1, err, type(exc).__name__)
+            latency += int((time.perf_counter() - t0) * 1000)
+        if ok or exc_ is None or not _is_timeout(exc_) or attempt >= TIMEOUT_RETRIES:
+            break
+        await asyncio.sleep(random.uniform(*RETRY_BACKOFF_S))  # outside the semaphore: others keep going
     result = JevResult(ok=ok, nouls=nouls, choices=choices, scores=scores, input_tokens=tokens, latency_ms=latency,
                        cost_usd=cost_for(tokens), model=used_model or model or model_name(), error=err)
     missing = [q for q in questions if q not in nouls and q not in choices and q not in scores]

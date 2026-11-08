@@ -44,7 +44,6 @@ from app.db import get_engine
 from app.models import AICall, Asset, Brand, ClaimRecord, ContentItem, Fact, Finding, Override, Precedent, Rule, Term, Unit, Version, utcnow
 from app.pipeline import channels as CH
 from app.pipeline import engine as E
-from app.pipeline import explain as X
 from app.pipeline import jev
 from app.pipeline.bands import band as to_band
 from app.pipeline.context import CheckContext, FactSpec, RuleSpec, TermSpec, UnitIn
@@ -264,7 +263,7 @@ def _stats(res: E.EngineResult, calls: jev.CallLog, ctx: CheckContext, findings:
         "elapsed_ms": elapsed_ms, "cost_usd": round(calls.cost_usd, 6), "pii_masked": res.pii_masked,
         "findings_by_band": by_band, "rule_scan": _rule_scan(res), "tones": res.tones, "claims": claim_counts,
         "warnings": res.warnings, "jev": jev_state, "llm": llm_state,
-        "models": {"jev": jev.model_name() if res.jev_used else None, "llm": X.model_name() if res.llm_used else None},
+        # No model names here: stats reach the UI, which never names the models (they are in the aicall rows).
         "external_calls": len(calls.records), "error": False, "error_message": None,
         "logo": res.logo,
         "provenance": res.provenance,

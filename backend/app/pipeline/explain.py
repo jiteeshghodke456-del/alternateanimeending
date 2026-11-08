@@ -28,6 +28,7 @@ from app.config import get_settings
 from app.pipeline import lang as L
 from app.pipeline.context import RuleSpec
 from app.pipeline.jev import CallLog, CallRecord
+from app.pipeline.neutral import scrub
 
 log = logging.getLogger("brandgate.explain")
 
@@ -48,6 +49,7 @@ SYSTEM_PROMPT = (
     "into other superlatives or new numbers. "
     "Never add facts, numbers, prices, dates, offers or awards that are not in the text or in the approved facts you are given. "
     "Use an approved fact only if it is about the same thing as the excerpt; otherwise remove the claim or the expired offer. "
+    "Never name or mention the AI models, vendors or services used to make this check; call it \"the check\" if you must refer to it. "
     "Write explanations in English. Write a fix in the same language and script as the excerpt: Hindi or Marathi in "
     "Devanagari stays in Devanagari, Hinglish stays Hinglish in Latin letters, English stays English."
 )
@@ -290,7 +292,11 @@ async def explain_region(req: RegionRequest, *, calls: Optional[CallLog] = None,
     """One LLM call for an edit region: an explanation per finding + one combined fix. None = use templates."""
     if not available():
         return None
-    return await _call_json(build_region_messages(req, feedback, previous_fix), _parse_region, calls, unit_id, purpose)
+    out = await _call_json(build_region_messages(req, feedback, previous_fix), _parse_region, calls, unit_id, purpose)
+    if out is not None:  # safety net: the UI never names the models (neutral.py); the post's own words are kept
+        ctx = f"{req.unit_text}\n{req.region_text}"
+        out.explanations = {k: scrub(v, ctx) or v for k, v in out.explanations.items()}
+    return out
 
 
 # ------------------------------------------------------------------ client
@@ -346,7 +352,10 @@ async def explain(req: ExplainRequest, *, calls: Optional[CallLog] = None, unit_
     """LLM explanation + fix. None means "use the template" (not configured or failed twice)."""
     if not available():
         return None
-    return await _call_json(build_messages(req, feedback, previous_fix), _parse, calls, unit_id, purpose)
+    out = await _call_json(build_messages(req, feedback, previous_fix), _parse, calls, unit_id, purpose)
+    if out is not None:  # safety net: the UI never names the models (neutral.py); the post's own words are kept
+        out.explanation = scrub(out.explanation, f"{req.unit_text}\n{req.quote}") or out.explanation
+    return out
 
 
 async def _call_json(messages: list[dict[str, str]], parse: Any, calls: Optional[CallLog], unit_id: Optional[int],
