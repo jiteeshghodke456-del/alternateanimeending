@@ -40,6 +40,15 @@ def _brand_note() -> Optional[str]:
     return BLANK_NOTE if W.current_kind() == "blank" else None
 
 
+def _ai_checks(data: dict) -> Optional[bool]:
+    """Whether the run included the AI check. The results file names the models; the UI never does (neutral.py)."""
+    models = data.get("models")
+    if not isinstance(models, dict) or "jev" not in models:
+        return None
+    m = str(models.get("jev") or "")
+    return bool(m) and not m.startswith("not configured")
+
+
 @router.get("/eval/latest", response_model=EvalLatestOut)
 def eval_latest(user: CurrentUser) -> EvalLatestOut:
     status = "running" if _running() else "ok"
@@ -47,8 +56,8 @@ def eval_latest(user: CurrentUser) -> EvalLatestOut:
         return EvalLatestOut(available=False, status="running" if status == "running" else "not_run", brand_note=_brand_note())
     try:
         data = json.loads(LATEST.read_text(encoding="utf-8"))
-        return EvalLatestOut(available=True, status=status, brand_note=_brand_note(),
-                             **{k: data[k] for k in ("run_at", "split", "models", "metrics", "misses") if k in data})
+        return EvalLatestOut(available=True, status=status, brand_note=_brand_note(), ai_checks=_ai_checks(data),
+                             **{k: data[k] for k in ("run_at", "split", "metrics", "misses") if k in data})
     except Exception:  # noqa: BLE001
         log.exception("eval: latest.json unreadable")
         return EvalLatestOut(available=False, status="not_run")
@@ -76,5 +85,5 @@ async def eval_run(user: AdminUser) -> EvalRunOut:
     _state["task"] = asyncio.get_running_loop().create_task(_go())
     from app.pipeline import jev
 
-    note = "" if jev.available() else " Jev isn't configured, so only the Tier 0 checks are measured."
+    note = "" if jev.available() else " The AI check isn't configured, so only the code checks are measured."
     return EvalRunOut(started=True, message=f"Evaluation started on the test split. Results replace the page in about a minute.{note}")

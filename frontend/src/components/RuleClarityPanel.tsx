@@ -115,13 +115,13 @@ function RewriteBox({ r, admin, onChange }: { r: RuleClarity; admin: boolean; on
       <p className="mt-4 text-caption font-medium uppercase tracking-wide text-muted-foreground">Measured effect (same test texts)</p>
       <div className="mt-2 grid grid-cols-1 gap-2 min-[420px]:grid-cols-3">
         <Metric label="Clarity score" before={`${Math.round(rw.score_before)}`} after={`${Math.round(rw.score_after)}`} />
-        <Metric label="Jev disagreement" before={pct(rw.disagreement_before)} after={pct(rw.disagreement_after)} lowerIsBetter unit={rw.disagreement_after == null ? "" : "%"} />
+        <Metric label="AI disagreement" before={pct(rw.disagreement_before)} after={pct(rw.disagreement_after)} lowerIsBetter unit={rw.disagreement_after == null ? "" : "%"} />
         <Metric label="Off-target answers" before={pct(rw.mismatch_before)} after={pct(rw.mismatch_after)} lowerIsBetter unit={rw.mismatch_after == null ? "" : "%"} />
       </div>
       {rw.intent_warning && (
         <p role="note" className="mt-3 flex gap-2 rounded-xl bg-human/12 px-3 py-2 text-footnote text-human-text">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
-          Jev thinks this wording may ask for something the original rule doesn't. Check the intent before applying.
+          The AI check thinks this wording may ask for something the original rule doesn't. Check the intent before applying.
         </p>
       )}
       {rw.vague_terms_after.length > 0 && <p className="mt-2 text-caption text-muted-foreground">Still vague: {rw.vague_terms_after.join(", ")}.</p>}
@@ -154,14 +154,14 @@ function JevDetails({ r }: { r: RuleClarity }) {
   const d = r.signals.disagreement;
   if (!d) return null;
   return (
-    <Details summary={`How Jev read ${d.wordings} wordings of this rule`}>
+    <Details summary={`How the AI check read ${d.wordings} wordings of this rule`}>
       <ol className="space-y-1 text-caption text-muted-foreground">
         <li><span className="font-semibold text-foreground">A</span> (as written): {r.statement}</li>
         {r.paraphrases.map((p, i) => <li key={i}><span className="font-semibold text-foreground">{String.fromCharCode(66 + i)}</span> ({r.paraphrase_source === "llm" ? "another reader's wording" : "template"}): {p}</li>)}
       </ol>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[320px] text-left text-caption">
-          <caption className="sr-only">Jev's probability that each test text breaks the rule, per wording</caption>
+          <caption className="sr-only">The AI check's probability that each test text breaks the rule, per wording</caption>
           <thead><tr className="text-muted-foreground"><th className="py-1 pr-2 font-medium">Test text</th><th className="px-1 font-medium">Meant to</th>{d.per_probe[0]?.p.map((_, i) => <th key={i} className="px-1 text-right font-medium">{String.fromCharCode(65 + i)}</th>)}</tr></thead>
           <tbody>
             {d.per_probe.map((p, i) => (
@@ -196,7 +196,7 @@ function RuleCard({ r, admin, onChange }: { r: RuleClarity; admin: boolean; onCh
         <span className="font-mono text-footnote font-semibold">{r.code}</span>
         <ClarityChip band={r.band} />
         <span className="text-caption capitalize text-muted-foreground">{r.category} · v{r.version}{r.enabled ? "" : " · off"}</span>
-        {!r.measured && <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-caption text-muted-foreground">{r.computed_at ? "Jev signal out of date" : "Wording and reviews only"}</span>}
+        {!r.measured && <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-caption text-muted-foreground">{r.computed_at ? "AI signal out of date" : "Wording and reviews only"}</span>}
       </div>
       <p className="mt-2 text-body"><MarkedStatement text={r.statement} terms={r.reasons.vague_terms} /></p>
       <div className="mt-3"><ClarityBar score={r.score} band={r.band} /></div>
@@ -221,7 +221,7 @@ function RuleCard({ r, admin, onChange }: { r: RuleClarity; admin: boolean; onCh
             </Button>
           )}
           <Button size="sm" variant="ghost" disabled={!!busy} onClick={score} className="rounded-full">
-            {busy === "score" ? <Loader2 className="animate-spin" /> : <RefreshCw strokeWidth={1.75} />} {r.measured ? "Re-check" : "Check with Jev"}
+            {busy === "score" ? <Loader2 className="animate-spin" /> : <RefreshCw strokeWidth={1.75} />} {r.measured ? "Re-check" : "Check with AI"}
           </Button>
         </div>
       )}
@@ -283,16 +283,16 @@ export function RuleClarityPanel({ admin }: { admin: boolean }) {
           <div className="min-w-0 flex-1 basis-64">
             <h2 id="clarity-h" className="text-headline">Where the guidelines are unclear</h2>
             <p className="mt-1 text-footnote text-muted-foreground">
-              Each rule gets a clarity score from 0 to 100: vague words in its wording (40%), Jev giving different answers when
+              Each rule gets a clarity score from 0 to 100: vague words in its wording (40%), the AI check giving different answers when
               the rule is reworded (40%), and reviewers dismissing or overriding its findings (20%).{" "}
               <span className="font-medium text-foreground">{unclear} unclear, {maybe} could be clearer</span> of {rows.length} rules
-              {measured < rows.length ? ` · ${measured} checked with Jev` : ""}.
+              {measured < rows.length ? ` · ${measured} checked with AI` : ""}.
             </p>
           </div>
           {admin && (
             <Button onClick={runAll} disabled={running} className="rounded-full bg-[var(--accent-fill)] text-white hover:bg-[var(--accent-fill-hover)]">
               {running ? <Loader2 className="animate-spin" /> : <RefreshCw strokeWidth={1.75} />}
-              {running ? `Checking ${run!.done} of ${run!.total}…` : measured ? "Re-check all rules" : "Check all rules with Jev"}
+              {running ? `Checking ${run!.done} of ${run!.total}…` : measured ? "Re-check all rules" : "Check all rules with AI"}
             </Button>
           )}
         </div>
@@ -304,7 +304,7 @@ export function RuleClarityPanel({ admin }: { admin: boolean }) {
         {!admin && <p className="mt-2 text-caption text-muted-foreground">Brand admins can re-check rules and apply clearer wording.</p>}
       </section>
       {shown.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="Every rule reads clearly" description="No rule is vague, splits Jev's answers or gets dismissed often." />
+        <EmptyState icon={CheckCircle2} title="Every rule reads clearly" description="No rule is vague, splits the AI check's answers or gets dismissed often." />
       ) : (
         <ul className="space-y-3">{shown.map((r) => <RuleCard key={r.rule_id} r={r} admin={admin} onChange={replace} />)}</ul>
       )}
@@ -330,7 +330,7 @@ export function UnclearRulesCard() {
         <h3 id="unclear-h" className="text-headline">Unclear guidelines</h3>
         <Link to="/brand?tab=clarity" className="inline-flex items-center gap-1 text-footnote font-medium text-[var(--accent-text)] hover:underline">Review all <ArrowRight className="size-3.5" strokeWidth={2} aria-hidden /></Link>
       </div>
-      <p className="mt-0.5 text-footnote text-muted-foreground">The rules writers and Jev are most likely to read differently.</p>
+      <p className="mt-0.5 text-footnote text-muted-foreground">The rules writers and the AI check are most likely to read differently.</p>
       {worst.length === 0 ? <p className="mt-4 text-footnote text-muted-foreground">Every rule reads clearly.</p> : (
         <ul className="mt-4 space-y-3">
           {worst.map((r) => (

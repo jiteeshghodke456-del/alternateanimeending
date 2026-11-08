@@ -61,3 +61,4 @@ def test_eval_latest_not_run_and_run_is_admin_only(client: TestClient, tmp_path,
                                                      "metrics": {"f1": 0.5}, "misses": []}))
     r = client.get("/api/eval/latest").json()
     assert r["available"] is True and r["status"] == "ok" and r["metrics"]["f1"] == 0.5
+    assert "models" not in r and r["ai_checks"] is True  # the UI never names the models

@@ -33,7 +33,7 @@ log = logging.getLogger("brandgate.engine")
 UNVERIFIED_CLAIM = ("This figure isn't in your approved facts yet, so it couldn't be verified. That doesn't make it "
                     "wrong. If it's correct, use \u201cAdd as fact\u201d with its source and it will pass here and in "
                     "later posts; if not, edit it.")
-IMAGE_UNAVAILABLE = "Image judged by code checks only (Jev image check unavailable)."
+IMAGE_UNAVAILABLE = "Image judged by code checks only (the AI image check was unavailable)."
 
 
 @dataclass
@@ -200,8 +200,8 @@ class _Run:
                 qs[Q.OUTSIDE_VOICE] = Q.outside_voice_question(self.ctx.brand_name, self.ctx.source_host or "")
             res = await jev.ask(Q.text_state(masked, self.ctx.channel), qs, purpose="rules", calls=self.calls, unit_id=u.id)
             if not res.ok:
-                self.res.warnings.append(f"Jev rule check failed for paragraph {u.idx + 1} ({res.error}); "
-                                         "Tier 0 findings are shown, the Jev rules were not checked.")
+                self.res.warnings.append(f"The AI check {jev.failure_phrase(res.error)} for paragraph {u.idx + 1}; "
+                                         "code checks are shown for it, the AI-judged rules were not checked.")
             else:
                 tone = res.choices.get("tone")
                 for r in self.text_rules():
@@ -216,9 +216,9 @@ class _Run:
                     b = self.cap_band(r, to_band(p, r.category))
                     self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "rule", 0, len(u.text)))
                     if b != "pass" and r.code not in tier0_rules:
-                        problem = (f"Jev reads the tone as “{tone.choice}”; the rule allows {', '.join(Q.allowed_tones(r))}."
+                        problem = (f"The AI check reads the tone as “{tone.choice}”; the rule allows {', '.join(Q.allowed_tones(r))}."
                                    if Q.uses_tone_choice(r) and tone else
-                                   f"Jev estimates a {p:.0%} chance that this paragraph breaks {r.code}.")
+                                   f"The AI check estimates a {p:.0%} chance that this paragraph breaks {r.code}.")
                         d = self.draft(u, r, band=b, tier="jev", p=round(p, 4), start=0, end=len(u.text), problem=problem)
                         if Q.post_level(r):
                             self.post_level_cands.setdefault(r.code, []).append(d)
@@ -253,7 +253,7 @@ class _Run:
         for code, ds in self.post_level_cands.items():
             best = max(ds, key=lambda d: (d.probability or 0.0, -(d.unit_idx or 0)))
             if len(ds) > 1:
-                best.problem = (f"Jev estimates a {best.probability or 0:.0%} chance that this post breaks {code} "
+                best.problem = (f"The AI check estimates a {best.probability or 0:.0%} chance that this post breaks {code} "
                                 f"({len(ds)} paragraphs above the line; this one is the clearest).")
                 best.detail = f"Judged for the whole post: {len(ds)} paragraphs were above the line."
             out.setdefault(best.unit_idx if best.unit_idx is not None else -1, []).append(best)
@@ -278,7 +278,7 @@ class _Run:
             self.res.judgments.append(Judgment(u.idx, cr.rule_code, "claims", cr.probability, "claim",
                                                cr.claim.start, cr.claim.end, cr.status, cr.fact_code))
         if cr.error:
-            self.res.warnings.append(f"Jev claim check failed in paragraph {u.idx + 1} ({cr.error}); the claim needs a human look.")
+            self.res.warnings.append(f"The AI claim check {jev.failure_phrase(cr.error)} for paragraph {u.idx + 1}; the claim needs a human look.")
         return cr
 
     def logo_rule(self) -> Optional[RuleSpec]:
@@ -312,7 +312,7 @@ class _Run:
             except Exception as exc:  # noqa: BLE001  (image prep or SDK asset errors)
                 res = jev.JevResult(ok=False, error=type(exc).__name__)
             if not res.ok:
-                self.res.warnings.append(f"Jev image check failed ({res.error}).")
+                self.res.warnings.append(f"The AI image check {jev.failure_phrase(res.error)}; code checks are shown for the image.")
                 out.append(self.draft(u, None, band="human", tier="visual", p=None, start=None, end=None, category="visual",
                                       severity="minor", explanation=IMAGE_UNAVAILABLE, detail=IMAGE_UNAVAILABLE))
             else:
@@ -325,7 +325,7 @@ class _Run:
                     self.res.judgments.append(Judgment(u.idx, r.code, r.category, p, "image"))
                     if b != "pass" and r.code not in tier0_rules:
                         out.append(self.draft(u, r, band=b, tier="visual", p=round(p, 4), start=None, end=None,
-                                              problem=f"Jev estimates a {p:.0%} chance that the image breaks {r.code}."))
+                                              problem=f"The AI check estimates a {p:.0%} chance that the image breaks {r.code}."))
         if logo_task is not None and logo_rule is not None:
             m: L.LogoMatch = await logo_task
             has_logo = res.nouls.get("has_logo") if (res is not None and res.ok) else None
@@ -421,7 +421,7 @@ class _Run:
             qs[f"multi_{i}"] = Q.multi_cta_question(sent)
         res = await jev.ask(Q.text_state(post, self.ctx.channel), qs, purpose="rules_post", calls=self.calls)
         if not res.ok:
-            self.res.warnings.append(f"Jev call-to-action check failed ({res.error}).")
+            self.res.warnings.append(f"The AI call-to-action check {jev.failure_phrase(res.error)}.")
             return []
         p_cta = [res.nouls[f"cta_{i}"] for i in range(len(sents))]
         p_multi = [res.nouls[f"multi_{i}"] for i in range(len(sents))]
@@ -475,7 +475,7 @@ class _Run:
             basis = "contradicted"
             detail = f"Approved fact {against.code} says “{against.statement}”, which doesn't match {what}."
         elif cr.via == "no_jev":
-            detail = f"No approved fact could be confirmed for {what} (checked without Jev){needs}. Unverified is not wrong."
+            detail = f"No approved fact could be confirmed for {what} (checked without the AI check){needs}. Unverified is not wrong."
         else:
             detail = f"No approved fact matches {what} yet{needs}. Unverified is not wrong: add the fact with its source, or edit it."
         tier = "claim"
@@ -718,7 +718,7 @@ class _Run:
             r = self.rule(d.rule_code)
             lines.append(f"{d.rule_code} ({(d.probability or 0):.0%}): {r.statement if r else ''}".strip())
         g.detail = g.problem = g.explanation = (
-            f"Jev was unsure about {len(unsure)} visual rules on this image, so a person should look rather than the "
+            f"The AI check was unsure about {len(unsure)} visual rules on this image, so a person should look rather than the "
             "app guessing. Most likely first: " + "; ".join(lines[:8]) + (f"; and {len(lines) - 8} more." if len(lines) > 8 else "."))
         g.local_only = True
         return [d for d in drafts if d not in unsure] + [g]

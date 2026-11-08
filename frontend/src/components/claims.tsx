@@ -49,10 +49,10 @@ export function ExpiryChip({ fact, soonDays = 14 }: { fact: Pick<LedgerFact, "va
 }
 
 export function evidenceText(c: LedgerClaim): string {
-  if (c.support_p != null) return `Jev support ${Math.round(c.support_p * 100)}%`;
+  if (c.support_p != null) return `AI support ${Math.round(c.support_p * 100)}%`;
   if (c.via === "numbers") return "Matched by its numbers";
   if (c.via === "no_facts") return "No similar fact";
-  if (c.via === "no_jev") return "Not checked by Jev";
+  if (c.via === "no_jev") return "Not checked by AI";
   return "";
 }
 

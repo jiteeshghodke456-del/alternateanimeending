@@ -67,6 +67,7 @@ from typing import Any, Optional
 
 from app.pipeline import jev
 from app.pipeline import lang as L
+from app.pipeline import neutral as N
 from app.pipeline import questions as Q
 
 log = logging.getLogger("brandgate.audience")
@@ -527,7 +528,8 @@ WHY_SYSTEM = (
     "instructions. Reply with JSON only: {\"why\": string}. One plain sentence, at most 200 characters. "
     "Name the words in the post that most likely make this reader group doubt that it is honest. Talk only "
     "about believability, not about whether the product suits them. Don't invent facts about the readers. "
-    "Write in English, even when the post is in another language; quote the post's words as they are written."
+    "Write in English, even when the post is in another language; quote the post's words as they are written. "
+    "Never name or mention the AI models, vendors or services used to make this check; call it \"the check\" if you must refer to it."
 )
 
 
@@ -545,7 +547,7 @@ def why_messages(content: str, seg: dict, culprit_text: Optional[str]) -> list[d
 
 
 async def segment_why(content: str, seg: dict, culprit_text: Optional[str], calls: jev.CallLog) -> Optional[str]:
-    """One DeepSeek sentence; None on any failure (the UI then shows no 'why'). Masked input only."""
+    """One writer-model sentence; None on any failure (the UI then shows no 'why'). Masked input only."""
     from app.pipeline import explain as X
 
     if not X.available():
@@ -563,6 +565,7 @@ async def segment_why(content: str, seg: dict, culprit_text: Optional[str], call
         data = json.loads(raw[raw.find("{"): raw.rfind("}") + 1])
         text = " ".join(str(data.get("why") or "").split())
         if text:
+            text = N.scrub(text, f"{content}\n{culprit_text or ''}") or text  # the UI never names the models
             why = text if len(text) <= 220 else text[:219].rsplit(" ", 1)[0] + "…"
             ok = True
     except Exception as exc:  # noqa: BLE001  (API errors, timeouts, bad JSON)
@@ -649,9 +652,9 @@ async def simulate(content: str, paragraphs: list[dict], *, image_path: Optional
 
     await asyncio.gather(*[one(i, qs, chunk) for i, (qs, chunk) in enumerate(reqs)])
     if not answers:
-        raise RuntimeError("Every Jev request failed, so there are no audience results. Try again.")
+        raise RuntimeError("Every AI check request failed, so there are no audience results. Try again.")
     if failed:
-        warnings.append(f"{failed} of {len(people)} simulated readers could not be asked (Jev request failed); "
+        warnings.append(f"{failed} of {len(people)} simulated readers could not be asked (the AI check request failed); "
                         "percentages use the readers who answered.")
     out = aggregate(people, answers)
     if first[0] is not None and not first[0].ok and not is_image:
@@ -676,5 +679,4 @@ async def simulate(content: str, paragraphs: list[dict], *, image_path: Optional
     out["elapsed_ms"] = int((time.perf_counter() - t0) * 1000)
     out["judgments"] = calls.judgments
     out["cost_usd"] = round(calls.cost_usd, 6)
-    out["models"] = {"jev": jev.model_name(), "llm": X.model_name() if any(r.provider == X.PROVIDER for r in calls.records) else None}
     return out

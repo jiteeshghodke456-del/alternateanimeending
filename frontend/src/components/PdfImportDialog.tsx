@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SEVERITY_LABEL } from "@/lib/bands";
-import { api, ApiError, type ImportConfirmIn, type ImportJobOut, type ImportProposal, type RuleOut, type Severity } from "@/lib/api";
+import { api, ApiError, CHECK_METHOD_LABEL, type ImportConfirmIn, type ImportJobOut, type ImportProposal, type RuleOut, type Severity } from "@/lib/api";
 import { reportError, toApiError } from "@/lib/hooks";
 import { reportImportPhase, tourActive } from "@/lib/tourBus";
 import { cn } from "@/lib/utils";
@@ -287,7 +287,7 @@ function Row({ p, on, toggle, edit, onEdit }: {
           <SelectContent>{(["blocking", "major", "minor"] as Severity[]).map((s) => <SelectItem key={s} value={s}>{SEVERITY_LABEL[s]}</SelectItem>)}</SelectContent>
         </Select>
       </td>
-      <td className="px-2 py-3 text-caption text-muted-foreground">{p.rule.check_method}</td>
+      <td className="px-2 py-3 text-caption text-muted-foreground">{CHECK_METHOD_LABEL[p.rule.check_method] ?? p.rule.check_method}</td>
       <td className="px-2 py-3 tabular-nums">{p.rule.page ?? "-"}</td>
       <td className="px-2 py-2.5">
         <span className={cn(

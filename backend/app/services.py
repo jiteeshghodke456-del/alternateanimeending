@@ -225,9 +225,22 @@ def to_version_out(session: Session, v: Version) -> VersionOut:
     return VersionOut(
         id=v.id, item_id=v.item_id, n=v.n, kind=v.kind, text=v.text, caption=v.caption, alt_text=v.alt_text,
         file_url=f"/api/versions/{v.id}/file" if v.file_path else None, check_status=v.check_status,
-        stats=dict(v.stats or {}), created_at=v.created_at, units=[to_unit_out(u) for u in units],
+        stats=neutral_stats(v.stats), created_at=v.created_at, units=[to_unit_out(u) for u in units],
         source=web_source(v),
     )
+
+
+def neutral_stats(stats: Optional[dict]) -> dict:
+    """Version stats as the UI sees them: no model names (older rows stored a "models" map) and warnings in
+    neutral words (neutral.py), also for checks stored before the wording changed."""
+    from app.pipeline.neutral import scrub
+
+    out = {k: v for k, v in dict(stats or {}).items() if k != "models"}
+    if isinstance(out.get("warnings"), list):
+        out["warnings"] = [scrub(w) if isinstance(w, str) else w for w in out["warnings"]]
+    if isinstance(out.get("error_message"), str):
+        out["error_message"] = scrub(out["error_message"])
+    return out
 
 
 def rule_ref_of(r: Rule) -> RuleRef:
@@ -281,6 +294,9 @@ def to_finding_out(session: Session, f: Finding, brand_id: Optional[int] = None)
     data = f.model_dump()
     data.pop("created_at", None)
     data.pop("precedent_id", None)
+    from app.pipeline.neutral import scrub  # the UI never names the models; the content's own words are kept
+
+    data["explanation"] = scrub(data.get("explanation") or "", f"{f.quote}\n{f.fix or ''}\n{rule_ref.statement if rule_ref else ''}") or ""
     # Precedent memory: "Seen before" + what it did to the band
     precedent = band_note = None
     if f.precedent_id:

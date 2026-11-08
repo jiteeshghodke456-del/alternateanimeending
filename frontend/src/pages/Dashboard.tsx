@@ -105,7 +105,7 @@ export default function Dashboard() {
         <KpiTile label="Findings" value={k.findings} icon={Flag} />
         <KpiTile label="Fixes accepted" value={Math.round(k.fix_accept_rate * 100)} suffix="%" icon={Activity} />
         <KpiTile label="Average check time" value={k.avg_check_ms / 1000} decimals={1} suffix="s" icon={Clock} />
-        <KpiTile label="Jev judgments" value={k.jev_judgments} icon={Scale} />
+        <KpiTile label="AI judgments" value={k.jev_judgments} icon={Scale} />
         <KpiTile label="Total cost" value={k.total_cost_usd} decimals={4} prefix="$" icon={Coins} />
       </div>
       {!empty && <ScoreTrendCard data={d} className="mt-6" />}

@@ -81,7 +81,7 @@ export function RulePacksCard({ admin, onChange }: { admin: boolean; onChange?: 
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-caption font-semibold">{r.code}</span>
                     <span className={cn("rounded-full px-2 py-0.5 text-caption font-medium", SEVERITY_STYLE[r.severity])}>{SEVERITY_LABEL[r.severity]}</span>
-                    <span className="text-caption text-muted-foreground">{r.check_method === "tier0" ? "word list" : r.check_method === "jev" ? "Jev judgment" : "claim check"}</span>
+                    <span className="text-caption text-muted-foreground">{r.check_method === "tier0" ? "word list" : r.check_method === "jev" ? "AI judgment" : "claim check"}</span>
                     {p.linked[r.code]?.length ? <span className="text-caption text-muted-foreground">· backs {p.linked[r.code].join(", ")}</span> : null}
                   </div>
                   <p className="mt-1 text-footnote">{r.statement}</p>

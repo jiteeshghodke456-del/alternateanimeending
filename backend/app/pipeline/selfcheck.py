@@ -268,7 +268,7 @@ async def verify_fix(
         nouls: dict[str, float] = dict(results[0].nouls) if qs and results else {}
         post_nouls: dict[str, float] = dict(results[-1].nouls) if meaning_qs and results else {}
         if not all(res.ok for res in results):
-            reasons.append("the self-check couldn't run (Jev error)")
+            reasons.append("the self-check couldn't run (the AI check failed)")
         else:
             if not deterministic and not Q.meaning_kept_split(nouls, post_nouls, removal_required):
                 reasons.append("the fix changes the core message or call to action")

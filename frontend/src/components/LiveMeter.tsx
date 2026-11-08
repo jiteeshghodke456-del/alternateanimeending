@@ -36,7 +36,7 @@ export function LiveMeter({ paragraphs, paragraphsTotal, judgments, judgmentsPer
           <NumberTicker value={paragraphs} className={tick} />
           {paragraphsTotal != null && <span className="text-callout text-muted-foreground"> / {paragraphsTotal}</span>}
         </Stat>
-        <Stat icon={<Scale className={ic} strokeWidth={1.5} />} label="Jev judgments"><NumberTicker value={judgments} className={tick} /></Stat>
+        <Stat icon={<Scale className={ic} strokeWidth={1.5} />} label="AI judgments"><NumberTicker value={judgments} className={tick} /></Stat>
         <Stat icon={<Gauge className={ic} strokeWidth={1.5} />} label="Judgments / s"><NumberTicker value={judgmentsPerSec} decimalPlaces={1} className={tick} /></Stat>
         <Stat icon={<Timer className={ic} strokeWidth={1.5} />} label="Seconds"><NumberTicker value={seconds} decimalPlaces={1} className={tick} /></Stat>
         <Stat icon={<Coins className={ic} strokeWidth={1.5} />} label="Cost">

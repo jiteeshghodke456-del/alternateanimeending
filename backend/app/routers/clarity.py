@@ -33,6 +33,7 @@ from app.deps import AdminUser, CurrentUser, SessionDep
 from app.models import AICall, Finding, Precedent, Rule, RuleClarity, utcnow
 from app.pipeline import clarity as C
 from app.pipeline import explain, jev
+from app.pipeline import neutral as N
 from app.pipeline import questions as Q
 from app.pipeline import run as pipeline_run
 from app.services import NoBrandError, audit, current_brand
@@ -41,10 +42,10 @@ log = logging.getLogger("brandgate.clarity")
 router = APIRouter(tags=["clarity"])
 
 RULE_CONCURRENCY = 6  # rules scored at once in a run-all (Jev and the LLM have their own semaphores)
-NO_LLM_MESSAGE = "Suggesting a rewrite needs the writer model (LLM), and it isn't configured on this server."
+NO_LLM_MESSAGE = "Suggesting a rewrite needs the writing assistant, and it isn't configured on this server."
 NO_REWRITE_MESSAGE = "There's no suggested rewrite for this rule. Ask for one first."
 OLD_REWRITE_MESSAGE = "The rule changed after this rewrite was suggested. Ask for a new one."
-FAILED_REWRITE_MESSAGE = "The writer model couldn't produce a valid rewrite. Try again in a moment."
+FAILED_REWRITE_MESSAGE = "The writing assistant couldn't produce a valid rewrite. Try again in a moment."
 
 
 # ------------------------------------------------------------------ API shapes
@@ -240,7 +241,7 @@ async def score_rule(rule_id: int, calls: jev.CallLog) -> Optional[str]:
             if not probes or probe_source != "llm":
                 probes, probe_source = [C.Probe(p.text, p.expect) for p in gen.probes], "llm"
         else:
-            err = "The writer model didn't return usable test texts; fell back to the rule's own examples."
+            err = "The writing assistant didn't return usable test texts; fell back to the rule's own examples."
     if not paraphrases:
         paraphrases, para_source = C.template_paraphrases(statement), "template"
     if not probes:
@@ -250,11 +251,11 @@ async def score_rule(rule_id: int, calls: jev.CallLog) -> Optional[str]:
         answers = await C.measure([statement, *paraphrases], probes, field=C.probe_field(category), calls=calls)
         d = C.disagreement_signal(answers, probes)
         if d is None:
-            err = "Jev didn't answer (every call failed); the score uses the other signals."
+            err = "The AI check didn't answer (every call failed); the score uses the other signals."
     elif not jev.available():
-        err = "Jev isn't configured, so the score uses wording and reviewer signals only."
+        err = "The AI check isn't configured, so the score uses wording and reviewer signals only."
     elif len(probes) < 2:
-        err = "No test texts for this rule (no writer model and no stored examples)."
+        err = "No test texts for this rule (no writing assistant and no stored examples)."
     with Session(get_engine()) as s:
         rule = s.get(Rule, rule_id)
         if rule is None or rule.version != version:
@@ -429,7 +430,7 @@ async def suggest_rewrite(rule_id: int, session: SessionDep, user: AdminUser) ->
         score_after, band_after = C.combine(v_after.score, d_after.score if d_after else None, None)
         payload = {
             "statement": best.statement, "example_follows": best.example_follows, "example_breaks": best.example_breaks,
-            "what_changed": best.what_changed, "paraphrases": best.paraphrases, "for_version": rule.version,
+            "what_changed": N.scrub(best.what_changed, rule.statement) or best.what_changed, "paraphrases": best.paraphrases, "for_version": rule.version,
             "score_before": before.score, "score_after": score_after, "band_after": band_after,
             "disagreement_before": d_before.score if d_before else None,
             "disagreement_after": d_after.score if d_after else None,

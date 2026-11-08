@@ -7,7 +7,7 @@ export function HealthBanner() {
   if (!health) return null;
   const notes: string[] = [];
   if (!health.jev_configured) notes.push("Live AI judging is off on this server; only rule-based checks run.");
-  if (!health.llm_configured) notes.push("The writer model is off, so explanations use templates and rewrites may be missing.");
+  if (!health.llm_configured) notes.push("The writing assistant is off, so explanations use templates and rewrites may be missing.");
   if (notes.length === 0) return null;
   return (
     <div role="status" className="glass mx-auto mb-5 flex max-w-[1200px] items-start gap-2.5 !rounded-2xl px-4 py-3 text-footnote text-foreground/85">

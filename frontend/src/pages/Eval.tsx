@@ -89,7 +89,7 @@ export default function Eval() {
     <>
       <PageHeader
         title="Evaluation"
-        subtitle={`Run ${formatDate(d.run_at)} on the ${d.split ?? "test"} split.${Object.keys(d.models).length ? ` Models: ${Object.values(d.models).join(", ")}.` : ""}`}
+        subtitle={`Run ${formatDate(d.run_at)} on the ${d.split ?? "test"} split.${d.ai_checks === true ? " Code checks and AI checks." : d.ai_checks === false ? " Code checks only (the AI check wasn't configured)." : ""}`}
         actions={admin ? <Button onClick={run} disabled={running} variant="secondary" className="rounded-full">{running ? <Loader2 className="animate-spin" /> : <Play strokeWidth={1.75} />} Re-run on test split</Button> : undefined}
       />
       {note}
@@ -117,7 +117,7 @@ export default function Eval() {
       )}
 
       {cal.length > 0 && (
-        <GlassChartCard className="mt-6" title="Calibration" subtitle="Share of flagged items that were truly problems, per Jev probability bin">
+        <GlassChartCard className="mt-6" title="Calibration" subtitle="Share of flagged items that were truly problems, per AI probability bin">
           <ResponsiveContainer width="100%" height="100%" className="text-muted-foreground">
             <BarChart data={cal} margin={{ left: -16 }}>
               <CartesianGrid stroke={chartTheme.grid} vertical={false} />

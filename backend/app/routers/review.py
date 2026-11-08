@@ -20,6 +20,7 @@ from sqlmodel import Session, select
 from app.deps import CurrentUser, SessionDep
 from app import workflow as W
 from app.models import AICall, AuditEvent, Comment, ContentItem, Finding, Override, User, Version
+from app.pipeline.neutral import JUDGE_LABEL, WRITER_LABEL, provider_label
 from app.routers.content import get_finding_or_404, get_item_or_404, get_version_or_404
 from app.schemas import (
     ActionPermission,
@@ -221,20 +222,26 @@ def ai_usage(item_id: int, session: SessionDep, user: CurrentUser) -> AIUsageOut
     versions = session.exec(select(Version).where(Version.item_id == item.id)).all()
     vids = [v.id for v in versions]
     calls = session.exec(select(AICall).where(AICall.version_id.in_(vids))).all() if vids else []
+    # The UI never names the models or vendors (neutral.py): providers become neutral labels, models are left out.
     groups: dict[tuple[str, str], list[AICall]] = defaultdict(list)
     for c in calls:
-        groups[(c.provider, c.purpose)].append(c)
+        groups[(provider_label(c.provider), c.purpose)].append(c)
     pii = sum(int((v.stats or {}).get("pii_masked", 0) or 0) for v in versions)
     total = round(sum(c.cost_usd for c in calls), 6)
     if not calls:
         summary = ("No external services used. This item is confidential, so only local code checks ran."
                    if item.confidential else "No external services used so far. Only local code checks have run on this item.")
     else:
-        by_provider = defaultdict(int)
+        by_provider: dict[str, int] = defaultdict(int)
         for c in calls:
-            by_provider[c.provider] += 1
-        parts = ", ".join(f"{n} to {p}" for p, n in sorted(by_provider.items()))
-        summary = f"{len(calls)} external call{'s' if len(calls) != 1 else ''} ({parts}), costing {_usd(total)}."
+            by_provider[provider_label(c.provider)] += 1
+        kinds = [{JUDGE_LABEL: "a judgment model", WRITER_LABEL: "a writing model"}.get(p, "another AI service")
+                 for p in sorted(by_provider)]
+        n_services = len(by_provider)
+        services = (f"{n_services} external AI service{'s' if n_services != 1 else ''} used: "
+                    + (" and ".join(kinds) if len(kinds) <= 2 else ", ".join(kinds[:-1]) + " and " + kinds[-1]) + ".")
+        parts = ", ".join(f"{n} to the {p}" for p, n in sorted(by_provider.items()))
+        summary = f"{services} {len(calls)} call{'s' if len(calls) != 1 else ''} ({parts}), costing {_usd(total)}."
         summary += f" Personal data masked: {pii}." if pii else " No personal data needed masking."
         if item.confidential:
             summary += " Warning: this item is marked confidential but external calls were recorded."
@@ -243,7 +250,7 @@ def ai_usage(item_id: int, session: SessionDep, user: CurrentUser) -> AIUsageOut
         fetches=fetches,
         item_id=item.id, confidential=item.confidential, no_external_services=len(calls) == 0,
         external_calls=len(calls), pii_masked=pii, total_cost_usd=total, summary=summary,
-        groups=[AIUsageGroup(provider=p, model=", ".join(sorted({c.model for c in cs})), purpose=pu, count=len(cs),
+        groups=[AIUsageGroup(provider=p, purpose=pu, count=len(cs),
                              input_tokens=sum(c.input_tokens for c in cs), cost_usd=round(sum(c.cost_usd for c in cs), 6))
                 for (p, pu), cs in sorted(groups.items())],
     )

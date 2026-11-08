@@ -144,7 +144,7 @@ def test_reasons_are_plain_and_name_the_terms() -> None:
     d = C.disagreement_signal([[0.1, 0.6, 0.9]] * 4, _probes("follows", "breaks", "follows", "breaks"))
     notes = C.reasons(v, d, C.people_signal([("dismissed", "false_alarm", "flag")]))
     assert notes[0].startswith("Vague wording: “too”, “salesy”")
-    assert any("Jev answered differently" in n for n in notes)
+    assert any("The AI check answered differently" in n for n in notes)
     assert any("1 dismissed" in n for n in notes)
 
 
@@ -338,7 +338,7 @@ def test_failed_jev_is_an_error_not_clear(client: TestClient, monkeypatch, temp_
     login(client, "admin")
     o = client.post(f"/api/rules/{temp_rule}/clarity").json()
     assert not o["measured"] and o["stale"] and o["reasons"]["disagreement"] is None
-    assert "Jev didn't answer" in (o["error"] or "")
+    assert "The AI check didn't answer" in (o["error"] or "")
 
 
 def test_without_llm_uses_templates_and_stored_examples(client: TestClient, monkeypatch) -> None:  # noqa: ANN001
